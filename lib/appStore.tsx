@@ -109,7 +109,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     // Hämta grupper
     const { data: groupData } = await supabase.from('groups').select('*')
-    if (groupData?.length) setGroups(groupData.map((g: any) => ({ id: g.id, label: g.label, cls: g.cls })))
+    if (groupData?.length) setGroups(groupData.map((g: any) => ({ id: g.id, label: g.label, cls: g.cls, churchId: g.church_id ?? null })))
 
     // Hämta pastorat
     const { data: pastData } = await supabase.from('pastorat').select('*')

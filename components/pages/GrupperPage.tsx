@@ -3,22 +3,22 @@ import { useState } from 'react'
 import { useApp } from '@/lib/appStore'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 
-function NewGroupModal() {
-  const { closeModal, addGroup, churches, isPAdmin, currentChurchId } = useApp()
+const colorOptions = [
+  { value: 'tag-kv',      label: 'Blå' },
+  { value: 'tag-bv',      label: 'Grön' },
+  { value: 'tag-brand',   label: 'Röd' },
+  { value: 'tag-konsert', label: 'Orange' },
+  { value: 'tag-extra',   label: 'Lila' },
+  { value: 'tag-vakt',    label: 'Grå' },
+  { value: 'tag-kor',     label: 'Rosa' },
+]
+
+function NewGroupModal({ defaultChurchId }: { defaultChurchId: number }) {
+  const { closeModal, addGroup, churches } = useApp()
   const [label, setLabel] = useState('')
   const [color, setColor] = useState('tag-extra')
-  const [churchId, setChurchId] = useState<number | null>(null)
+  const [churchIdx, setChurchIdx] = useState(defaultChurchId)
   const [loading, setLoading] = useState(false)
-
-  const colorOptions = [
-    { value: 'tag-kv', label: 'Blå' },
-    { value: 'tag-bv', label: 'Grön' },
-    { value: 'tag-brand', label: 'Röd' },
-    { value: 'tag-konsert', label: 'Orange' },
-    { value: 'tag-extra', label: 'Lila' },
-    { value: 'tag-vakt', label: 'Grå' },
-    { value: 'tag-kor', label: 'Rosa' },
-  ]
 
   const save = async () => {
     if (!label.trim()) { alert('Ange gruppnamn'); return }
@@ -26,12 +26,10 @@ function NewGroupModal() {
     const res = await fetch('/api/groups', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label: label.trim(), cls: color, church_id: churchId }),
+      body: JSON.stringify({ label: label.trim(), cls: color, church_id: churchIdx + 1 }),
     })
     const data = await res.json()
-    if (res.ok) {
-      addGroup({ id: data.id, label: data.label, cls: data.cls })
-    }
+    if (res.ok) addGroup({ id: data.id, label: data.label, cls: data.cls, churchId: churchIdx })
     setLoading(false)
     closeModal()
   }
@@ -39,7 +37,7 @@ function NewGroupModal() {
   return (
     <>
       <div className="modal-title">👥 Ny grupp</div>
-      <div className="form-field"><label>Gruppnamn</label><input placeholder="ex. Körvärd, Barnvakt..." value={label} onChange={e => setLabel(e.target.value)} /></div>
+      <div className="form-field"><label>Gruppnamn</label><input placeholder="ex. Körvärd, Barnvakt..." value={label} onChange={e => setLabel(e.target.value)} autoFocus /></div>
       <div className="form-field">
         <label>Färg</label>
         <select value={color} onChange={e => setColor(e.target.value)}>
@@ -47,10 +45,9 @@ function NewGroupModal() {
         </select>
       </div>
       <div className="form-field">
-        <label>Kyrka (valfritt – tom = gäller alla)</label>
-        <select value={churchId ?? ''} onChange={e => setChurchId(e.target.value ? parseInt(e.target.value) : null)}>
-          <option value="">Alla kyrkor</option>
-          {churches.map((c, i) => <option key={i} value={i + 1}>{c.name}</option>)}
+        <label>Kyrka</label>
+        <select value={churchIdx} onChange={e => setChurchIdx(parseInt(e.target.value))}>
+          {churches.map((c, i) => <option key={i} value={i}>{c.name}</option>)}
         </select>
       </div>
       <div className="modal-footer">
@@ -62,64 +59,83 @@ function NewGroupModal() {
 }
 
 export default function GrupperPage() {
-  const { groups, people, passes, churches, isPAdmin, activeChurch, setChurch, showModal, currentChurchId } = useApp()
+  const { groups, people, passes, churches, isPAdmin, isSuperAdmin, activeChurch, setChurch, showModal, currentChurchId } = useApp()
   const cid = currentChurchId()
 
-  const deleteGroup = async (groupId: string, onDone: () => void) => {
-    await fetch(`/api/groups/${encodeURIComponent(groupId)}`, { method: 'DELETE' })
-    onDone()
-    window.location.reload()
+  // Visa grupper för vald kyrka
+  const visibleGroups = groups.filter(g => g.churchId === cid || g.churchId === null || g.churchId === undefined)
+
+  const handleDelete = (groupId: string) => {
+    fetch(`/api/groups/${encodeURIComponent(groupId)}`, { method: 'DELETE' })
+      .then(() => window.location.reload())
   }
 
   return (
     <div>
       <div className="page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-        <div><h1 className="page-title">Grupper</h1><p className="page-sub">Uppdragsgrupper</p></div>
-        <button className="btn btn-primary" onClick={() => showModal(<NewGroupModal />)}>+ Ny grupp</button>
+        <div>
+          <h1 className="page-title">Grupper</h1>
+          <p className="page-sub">{churches[cid]?.name ?? 'Alla kyrkor'}</p>
+        </div>
+        <button className="btn btn-primary" onClick={() => showModal(<NewGroupModal defaultChurchId={cid} />)}>+ Ny grupp</button>
       </div>
 
-      {isPAdmin() && (
+      {(isPAdmin() || isSuperAdmin()) && churches.length > 0 && (
         <div className="church-bar">
-          {churches.map((c, i) => <button key={i} className={`church-btn${activeChurch === i ? ' on' : ''}`} onClick={() => setChurch(i)}>{c.name}</button>)}
+          {churches.map((c, i) => (
+            <button key={i} className={`church-btn${activeChurch === i ? ' on' : ''}`} onClick={() => setChurch(i)}>
+              {c.name}
+            </button>
+          ))}
         </div>
       )}
 
-      {groups.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '3rem', color: '#888780' }}>Inga grupper ännu.</div>
-      )}
+      {visibleGroups.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '3rem', color: '#888780' }}>
+          Inga grupper för {churches[cid]?.name ?? 'denna kyrka'} ännu.<br />
+          <button className="btn btn-primary" style={{ marginTop: 14 }} onClick={() => showModal(<NewGroupModal defaultChurchId={cid} />)}>
+            + Skapa första gruppen
+          </button>
+        </div>
+      ) : (
+        visibleGroups.map(g => {
+          const members = people.filter(p => p.church === cid && p.groups.includes(g.id))
+          const gPasses = passes.filter(p => p.church === cid && p.groups.includes(g.id))
+          const isShared = g.churchId === null || g.churchId === undefined
 
-      {groups.map(g => {
-        const members = people.filter(p => p.church === cid && p.groups.includes(g.id))
-        const gPasses = passes.filter(p => p.church === cid && p.groups.includes(g.id))
-        return (
-          <div key={g.id} style={{ background: '#fff', border: '1px solid #D3D1C7', borderRadius: 12, padding: '14px 16px', marginBottom: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span className={`tag ${g.cls}`} style={{ fontSize: 12, padding: '4px 10px' }}>{g.label}</span>
-              <button className="btn btn-danger btn-sm" onClick={() => showModal(
-                <ConfirmModal
-                  title={`Ta bort gruppen "${g.label}"?`}
-                  sub={`${members.length} person${members.length !== 1 ? 'er' : ''} och ${gPasses.length} pass är kopplade till gruppen.`}
-                  confirmLabel="Ta bort"
-                  onConfirm={() => deleteGroup(g.id, () => {})}
-                />
-              )}>🗑 Ta bort</button>
-            </div>
-            <div style={{ fontSize: 12, color: '#888780', display: 'flex', gap: 12, marginBottom: members.length ? 8 : 0 }}>
-              <span>👥 {members.length} person{members.length !== 1 ? 'er' : ''}</span>
-              <span>📅 {gPasses.length} pass</span>
-            </div>
-            {members.length > 0 && (
-              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                {members.map(m => (
-                  <span key={m.id} style={{ fontSize: 12, background: '#F1EFE8', borderRadius: 20, padding: '2px 9px', color: '#5F5E5A' }}>
-                    {m.name.split(' ')[0]}
-                  </span>
-                ))}
+          return (
+            <div key={g.id} style={{ background: '#fff', border: '1px solid #D3D1C7', borderRadius: 12, padding: '14px 16px', marginBottom: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className={`tag ${g.cls}`} style={{ fontSize: 12, padding: '4px 10px' }}>{g.label}</span>
+                  {isShared && <span style={{ fontSize: 10, color: '#888780', background: '#F1EFE8', borderRadius: 20, padding: '2px 7px' }}>Alla kyrkor</span>}
+                </div>
+                <button className="btn btn-danger btn-sm" onClick={() => showModal(
+                  <ConfirmModal
+                    title={`Ta bort "${g.label}"?`}
+                    sub={`${members.length} person${members.length !== 1 ? 'er' : ''} och ${gPasses.length} pass kopplade.`}
+                    confirmLabel="Ta bort"
+                    onConfirm={() => handleDelete(g.id)}
+                  />
+                )}>🗑 Ta bort</button>
               </div>
-            )}
-          </div>
-        )
-      })}
+              <div style={{ fontSize: 12, color: '#888780', display: 'flex', gap: 12, marginBottom: members.length ? 8 : 0 }}>
+                <span>👥 {members.length} person{members.length !== 1 ? 'er' : ''}</span>
+                <span>📅 {gPasses.length} pass</span>
+              </div>
+              {members.length > 0 && (
+                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                  {members.map(m => (
+                    <span key={m.id} style={{ fontSize: 12, background: '#F1EFE8', borderRadius: 20, padding: '2px 9px', color: '#5F5E5A' }}>
+                      {m.name.split(' ')[0]}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })
+      )}
     </div>
   )
 }
