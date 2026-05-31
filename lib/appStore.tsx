@@ -1,0 +1,244 @@
+'use client'
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import {
+  GROUPS, CHURCHES, NAV_ITEMS, INITIAL_PEOPLE, INITIAL_PASSES, INITIAL_MESSAGES, INITIAL_NOTIFICATIONS,
+  Group, Church, PersonData, PassData, MessageData, NotifData, PastoratData, UserDef, USERS,
+  ini2, gLabel, gCls, roleLabel,
+} from './appData'
+
+// ─── Types ───────────────────────────────────────────
+interface AppCtx {
+  userIndex: number; page: string; passes: PassData[]; people: PersonData[]
+  messages: MessageData[]; notifications: NotifData[]; selfBookings: Record<number, boolean>
+  activeChurch: number; groupFilter: string; modal: ReactNode | null
+  groups: Group[]; churches: Church[]; pastorat: PastoratData[]; users: UserDef[]
+  currentUser: any; profile: any; loadingAuth: boolean
+
+  u: () => UserDef
+  isIdeell: () => boolean; isAnstalld: () => boolean; isFAdmin: () => boolean
+  isPAdmin: () => boolean; isSuperAdmin: () => boolean; isAdmin: () => boolean
+  isKiosk: () => boolean; isResponsible: (pass: PassData) => boolean
+  canBook: () => boolean; canViewBkgs: (pass: PassData) => boolean
+  canAddBkg: (pass: PassData) => boolean; canRemoveBkg: (pass: PassData) => boolean
+  canMsgBooked: (pass: PassData) => boolean; canEditPass: (pass: PassData) => boolean
+  canCancelPass: (pass: PassData) => boolean; canDeletePass: () => boolean
+  canCreatePass: () => boolean; canManage: () => boolean
+  canMakePAdmin: () => boolean; canMakeFAdmin: (churchIdx: number) => boolean
+
+  cycleUser: () => void; goTo: (p: string) => void; setChurch: (i: number) => void
+  setFilter: (f: string) => void; showModal: (content: ReactNode) => void; closeModal: () => void
+  doBook: (id: number) => void; doUnbook: (id: number) => void
+  publishNow: (id: number) => void; toggleAvail: () => void
+  updateUserNotif: (key: string, val: boolean) => void
+  addPass: (p: PassData) => void; updatePass: (p: PassData) => void
+  deletePass: (id: number) => void; cancelPass: (id: number) => void
+  addBooking: (passId: number, b: PassData['bookings'][0]) => void
+  removeBooking: (passId: number, idx: number) => void
+  addPerson: (p: PersonData) => void; updatePerson: (p: PersonData) => void
+  deletePerson: (id: number) => void; addMessage: (m: MessageData) => void
+  addChurch: (c: Church) => void; updateChurch: (idx: number, c: Church) => void
+  deleteChurch: (idx: number) => void
+  addPastorat: (p: PastoratData) => void; updatePastorat: (p: PastoratData) => void
+  deletePastorat: (id: number) => void; addGroup: (g: Group) => void
+  nextPersonId: () => number; nextPassId: () => number; nextPastoratId: () => number
+  getResponsibleNames: (pass: PassData) => string; currentChurchId: () => number
+  logout: () => void; inviteUser: (email: string, name: string, role: string, churchId: number) => Promise<void>
+}
+
+let _nextPersonId = 100, _nextPassId = 200, _nextPasId = 2
+const Ctx = createContext<AppCtx>(null!)
+export const useApp = () => useContext(Ctx)
+
+export function AppProvider({ children }: { children: ReactNode }) {
+  const supabase = createClient()
+
+  // Auth state
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [profile, setProfile] = useState<any>(null)
+  const [loadingAuth, setLoadingAuth] = useState(true)
+
+  // Demo/prototype fallback state (används tills Supabase-data är inläst)
+  const [userIndex, setUserIndex] = useState(0)
+  const [page, setPage] = useState('pass')
+  const [passes, setPasses] = useState<PassData[]>(INITIAL_PASSES)
+  const [people, setPeople] = useState<PersonData[]>(INITIAL_PEOPLE)
+  const [messages, setMessages] = useState<MessageData[]>(INITIAL_MESSAGES)
+  const [notifications] = useState<NotifData[]>(INITIAL_NOTIFICATIONS)
+  const [selfBookings, setSelfBookings] = useState<Record<number, boolean>>({})
+  const [activeChurch, setActiveChurch] = useState(0)
+  const [groupFilter, setGroupFilter] = useState('alla')
+  const [modal, setModal] = useState<ReactNode | null>(null)
+  const [groups, setGroups] = useState<Group[]>(GROUPS)
+  const [churches, setChurches] = useState<Church[]>(CHURCHES)
+  const [pastorat, setPastorat] = useState<PastoratData[]>([])
+  const [users] = useState<UserDef[]>(USERS)
+
+  // ─── Auth listener ────────────────────────────────
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUser(user)
+      if (user) fetchProfile(user.id)
+      else setLoadingAuth(false)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user ?? null)
+      if (session?.user) fetchProfile(session.user.id)
+      else { setProfile(null); setLoadingAuth(false) }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const fetchProfile = async (userId: string) => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*, profile_groups(group_id), notif_settings(*)')
+      .eq('id', userId)
+      .single()
+    setProfile(data)
+    setLoadingAuth(false)
+  }
+
+  // ─── Behörighetssystem ────────────────────────────
+  // Använd riktig profil om inloggad, annars demo-användare
+  const effectiveAdminLevel = profile?.admin_level ?? users[userIndex]?.adminLevel ?? 'none'
+  const effectiveRole = profile?.role ?? users[userIndex]?.role ?? 'ideell'
+  const effectiveChurchId = profile?.church_id ?? users[userIndex]?.churches?.[0] ?? 0
+
+  const u = useCallback(() => users[userIndex], [users, userIndex])
+  const isIdeell     = () => effectiveRole === 'ideell'
+  const isAnstalld   = () => effectiveRole === 'anstalld'
+  const isFAdmin     = () => effectiveAdminLevel === 'forsamling'
+  const isPAdmin     = () => effectiveAdminLevel === 'pastorat'
+  const isSuperAdmin = () => effectiveAdminLevel === 'super'
+  const isAdmin      = () => ['forsamling','pastorat','super'].includes(effectiveAdminLevel)
+  const isKiosk      = () => effectiveRole === 'kiosk'
+  const isResponsible = (pass: PassData) => {
+    if (currentUser) return pass.responsibleUserIds?.includes(currentUser.id) ?? false
+    return users[userIndex]?.responsibleForPasses?.includes(pass.id) ?? false
+  }
+  const canBook       = () => !isAdmin() && !isKiosk()
+  const canViewBkgs   = (p: PassData) => isAdmin() || isResponsible(p)
+  const canAddBkg     = (p: PassData) => isAdmin() || isResponsible(p)
+  const canRemoveBkg  = (p: PassData) => isAdmin() || isResponsible(p)
+  const canMsgBooked  = (p: PassData) => isAdmin() || isResponsible(p)
+  const canEditPass   = (p: PassData) => isAdmin() || isResponsible(p)
+  const canCancelPass = (p: PassData) => isAdmin() || isResponsible(p)
+  const canDeletePass = () => isAdmin()
+  const canCreatePass = () => isAdmin()
+  const canManage     = () => isAdmin()
+  const canMakePAdmin = () => isPAdmin() || isSuperAdmin()
+  const canMakeFAdmin = (c: number) => isPAdmin() || isSuperAdmin() || (isFAdmin() && (users[userIndex]?.churches ?? []).includes(c))
+
+  const currentChurchId = () => isPAdmin() ? activeChurch : effectiveChurchId
+
+  // ─── Actions ──────────────────────────────────────
+  const cycleUser = () => {
+    const next = (userIndex + 1) % users.length
+    setUserIndex(next)
+    setPage(NAV_ITEMS[users[next].role]?.[0]?.id ?? 'pass')
+    setActiveChurch(0); setGroupFilter('alla'); setModal(null)
+  }
+  const goTo     = (p: string) => { setPage(p); setModal(null) }
+  const setChurch = (i: number) => setActiveChurch(i)
+  const setFilter = (f: string) => setGroupFilter(f)
+  const showModal = (content: ReactNode) => setModal(content)
+  const closeModal = () => setModal(null)
+
+  const doBook = (id: number) => {
+    setPasses(prev => prev.map(p => p.id === id && p.filled < p.spots ? { ...p, filled: p.filled + 1 } : p))
+    setSelfBookings(prev => ({ ...prev, [id]: true }))
+    // API-anrop om inloggad
+    if (currentUser) {
+      fetch('/api/bookings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pass_id: id, name: profile?.name, mail: currentUser.email, source: 'app' }) })
+    }
+  }
+  const doUnbook = (id: number) => {
+    setPasses(prev => prev.map(p => p.id === id ? { ...p, filled: Math.max(0, p.filled - 1) } : p))
+    setSelfBookings(prev => { const n = { ...prev }; delete n[id]; return n })
+  }
+  const publishNow = (id: number) => {
+    setPasses(prev => prev.map(p => p.id === id ? { ...p, pubStatus: 'live', pubDate: '', history: [...p.history, 'Publicerades manuellt – Idag'] } : p))
+    fetch(`/api/passes/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pub_status: 'live', pub_date: '' }) })
+  }
+  const toggleAvail = () => {
+    const newVal = !profile?.available
+    setProfile((p: any) => ({ ...p, available: newVal }))
+    fetch('/api/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ available: newVal }) })
+  }
+  const updateUserNotif = (key: string, val: boolean) => {
+    setProfile((p: any) => ({ ...p, notif_settings: [{ ...p.notif_settings?.[0], [key]: val }] }))
+    fetch('/api/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notif_settings: { [key]: val } }) })
+  }
+
+  const addPass = (p: PassData) => {
+    setPasses(prev => [...prev, p])
+    fetch('/api/passes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: p.title, church_id: p.church, date_str: p.date, time_str: p.time, plats: p.plats, spots: p.spots, vk: p.vk, tel: p.tel, description: p.desc, pub_status: p.pubStatus, pub_date: p.pubDate, kiosk_visible: p.kioskVisible, groups: p.groups }) })
+  }
+  const updatePass = (p: PassData) => {
+    setPasses(prev => prev.map(x => x.id === p.id ? p : x))
+    fetch(`/api/passes/${p.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: p.title, date_str: p.date, time_str: p.time, plats: p.plats, spots: p.spots, vk: p.vk, tel: p.tel, description: p.desc, pub_status: p.pubStatus, pub_date: p.pubDate, kiosk_visible: p.kioskVisible, groups: p.groups }) })
+  }
+  const deletePass = (id: number) => {
+    setPasses(prev => prev.filter(x => x.id !== id))
+    setSelfBookings(prev => { const n = { ...prev }; delete n[id]; return n })
+    fetch(`/api/passes/${id}`, { method: 'DELETE' })
+  }
+  const cancelPass = (id: number) => {
+    setPasses(prev => prev.map(p => p.id === id ? { ...p, cancelled: true, history: [...p.history, 'Ställdes in – Idag'] } : p))
+    fetch(`/api/passes/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cancelled: true }) })
+  }
+  const addBooking = (passId: number, b: PassData['bookings'][0]) => {
+    setPasses(prev => prev.map(p => p.id === passId ? { ...p, bookings: [...p.bookings, b], filled: p.filled + 1 } : p))
+  }
+  const removeBooking = (passId: number, idx: number) => {
+    setPasses(prev => prev.map(p => p.id === passId ? { ...p, bookings: p.bookings.filter((_, i) => i !== idx), filled: Math.max(0, p.filled - 1) } : p))
+  }
+  const addPerson    = (p: PersonData) => setPeople(prev => [...prev, p])
+  const updatePerson = (p: PersonData) => setPeople(prev => prev.map(x => x.id === p.id ? p : x))
+  const deletePerson = (id: number)    => setPeople(prev => prev.filter(x => x.id !== id))
+  const addMessage   = (m: MessageData) => setMessages(prev => [m, ...prev])
+  const addChurch    = (c: Church)     => setChurches(prev => [...prev, c])
+  const updateChurch = (idx: number, c: Church) => setChurches(prev => prev.map((x, i) => i === idx ? c : x))
+  const deleteChurch = (idx: number)   => { setChurches(prev => prev.filter((_, i) => i !== idx)); setPasses(prev => prev.filter(p => p.church !== idx)); setPeople(prev => prev.filter(p => p.church !== idx)) }
+  const addPastorat  = (p: PastoratData) => setPastorat(prev => [...prev, p])
+  const updatePastorat = (p: PastoratData) => setPastorat(prev => prev.map(x => x.id === p.id ? p : x))
+  const deletePastorat = (id: number)  => setPastorat(prev => prev.filter(x => x.id !== id))
+  const addGroup     = (g: Group)      => setGroups(prev => [...prev, g])
+
+  const nextPersonId   = () => _nextPersonId++
+  const nextPassId     = () => _nextPassId++
+  const nextPastoratId = () => _nextPasId++
+
+  const getResponsibleNames = (pass: PassData) =>
+    (pass.responsibleUserIds || []).map(id => people.find(p => p.id === id)?.name).filter(Boolean).join(', ')
+
+  const logout = async () => { await supabase.auth.signOut(); window.location.href = '/login' }
+
+  const inviteUser = async (email: string, name: string, role: string, churchId: number) => {
+    const res = await fetch('/api/invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, name, role, church_id: churchId }) })
+    if (!res.ok) { const d = await res.json(); throw new Error(d.error) }
+  }
+
+  return (
+    <Ctx.Provider value={{
+      userIndex, page, passes, people, messages, notifications, selfBookings,
+      activeChurch, groupFilter, modal, groups, churches, pastorat, users,
+      currentUser, profile, loadingAuth,
+      u, isIdeell, isAnstalld, isFAdmin, isPAdmin, isSuperAdmin, isAdmin, isKiosk,
+      isResponsible, canBook, canViewBkgs, canAddBkg, canRemoveBkg, canMsgBooked,
+      canEditPass, canCancelPass, canDeletePass, canCreatePass, canManage,
+      canMakePAdmin, canMakeFAdmin,
+      cycleUser, goTo, setChurch, setFilter, showModal, closeModal,
+      doBook, doUnbook, publishNow, toggleAvail, updateUserNotif,
+      addPass, updatePass, deletePass, cancelPass, addBooking, removeBooking,
+      addPerson, updatePerson, deletePerson, addMessage,
+      addChurch, updateChurch, deleteChurch,
+      addPastorat, updatePastorat, deletePastorat, addGroup,
+      nextPersonId, nextPassId, nextPastoratId,
+      getResponsibleNames, currentChurchId, logout, inviteUser,
+    }}>
+      {children}
+    </Ctx.Provider>
+  )
+}
