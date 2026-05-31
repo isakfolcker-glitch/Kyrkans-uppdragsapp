@@ -5,13 +5,23 @@ import { NAV_ITEMS } from '@/lib/appData'
 export default function Sidebar() {
   const { u, page, goTo, cycleUser, churches, isKiosk, isPAdmin, isSuperAdmin, currentUser, profile, logout } = useApp()
   const usr = u()
-  const navRole = usr.role === 'fadmin' ? 'fadmin' : usr.role === 'padmin' ? 'padmin' : usr.role === 'superadmin' ? 'superadmin' : usr.role
+
+  // Använd riktig profil om inloggad, annars demo-användare
+  const effectiveRole = profile?.role ?? usr.role
+  const navRole = effectiveRole === 'fadmin' ? 'fadmin'
+    : effectiveRole === 'padmin' ? 'padmin'
+    : effectiveRole === 'superadmin' ? 'superadmin'
+    : effectiveRole
   const items = NAV_ITEMS[navRole] || []
 
   const subText = isSuperAdmin() ? 'Systemadministratör'
     : isPAdmin() ? 'Pastorat – alla församlingar'
     : isKiosk() ? 'Anmälningsstation'
-    : churches[usr.churches[0]]?.name ?? ''
+    : churches[profile?.church_id ?? usr.churches[0]]?.name ?? ''
+
+  // Initialer från riktigt namn
+  const displayName = profile?.name || usr.name
+  const displayIni = displayName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
 
   return (
     <aside className="sidebar">
@@ -37,10 +47,10 @@ export default function Sidebar() {
       {currentUser ? (
         <div className="sidebar-user" style={{ justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, flex: 1, minWidth: 0 }}>
-            <div className="user-av" style={{ background: usr.av, color: usr.ac, flexShrink: 0 }}>
-              {profile?.ini || usr.ini}
+            <div className="user-av" style={{ background: '#EEEDFE', color: '#3C3489', flexShrink: 0 }}>
+              {displayIni}
             </div>
-            <span className="user-name">{profile?.name || usr.name}</span>
+            <span className="user-name">{displayName}</span>
           </div>
           <button onClick={logout} title="Logga ut" style={{ background: 'none', border: 'none', color: '#888780', cursor: 'pointer', fontSize: 16, padding: '4px', flexShrink: 0 }}>⏻</button>
         </div>
