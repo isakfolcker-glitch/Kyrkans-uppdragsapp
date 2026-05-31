@@ -13,7 +13,7 @@ import UtskickPage from '@/components/pages/UtskickPage'
 import BehorigheterPage from '@/components/pages/BehorigheterPage'
 import ExporteraPage from '@/components/pages/ExporteraPage'
 import OversiktPage from '@/components/pages/OversiktPage'
-import KyrkorPage from '@/components/pages/KyrkorPage'
+import ForsamlingarPage from '@/components/pages/ForsamlingarPage'
 import PastoratPage from '@/components/pages/PastoratPage'
 import KioskPage from '@/components/pages/KioskPage'
 
@@ -32,7 +32,8 @@ function PageContent() {
     case 'behorigheter':   return <BehorigheterPage />
     case 'exportera':      return <ExporteraPage />
     case 'oversikt':       return <OversiktPage />
-    case 'kyrkor':         return <KyrkorPage />
+    case 'forsamlingar':   return <ForsamlingarPage />
+    case 'kyrkor':         return <ForsamlingarPage />
     case 'pastorat':       return <PastoratPage />
     default:               return <PassPage />
   }
