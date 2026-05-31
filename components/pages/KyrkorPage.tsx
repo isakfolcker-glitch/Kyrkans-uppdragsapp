@@ -1,26 +1,32 @@
 'use client'
 import { useState } from 'react'
 import { useApp } from '@/lib/appStore'
-import { Church } from '@/lib/appData'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 
 function AddChurchModal() {
-  const { closeModal, addChurch, showModal } = useApp()
+  const { closeModal, addChurch } = useApp()
   const [name, setName] = useState('')
   const [admin, setAdmin] = useState('')
   const [tel, setTel] = useState('')
   const [address, setAddress] = useState('')
-  const save = () => {
+  const [loading, setLoading] = useState(false)
+
+  const save = async () => {
     if (!name.trim()) { alert('Namn krävs'); return }
-    addChurch({ name: name.trim(), admin, tel, address })
+    setLoading(true)
+    const res = await fetch('/api/churches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim(), admin, tel, address }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      addChurch({ name: data.name, admin: data.admin_name || '', tel: data.tel || '', address: data.address })
+    }
+    setLoading(false)
     closeModal()
-    setTimeout(() => showModal(
-      <div>
-        <div className="alert alert-green" style={{ marginBottom: 0 }}>✓ {name} har lagts till!</div>
-        <div className="modal-footer"><button className="btn btn-primary" onClick={closeModal}>OK</button></div>
-      </div>
-    ), 50)
   }
+
   return (
     <>
       <div className="modal-title">⛪ Ny kyrka / församling</div>
@@ -32,20 +38,33 @@ function AddChurchModal() {
       <div className="form-field"><label>Adress</label><input placeholder="Gatuadress" value={address} onChange={e => setAddress(e.target.value)} /></div>
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
-        <button className="btn btn-primary" onClick={save}>✓ Lägg till kyrka</button>
+        <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? 'Sparar...' : '✓ Lägg till kyrka'}</button>
       </div>
     </>
   )
 }
 
-function EditChurchModal({ idx }: { idx: number }) {
+function EditChurchModal({ idx, churchId }: { idx: number; churchId: number }) {
   const { churches, closeModal, updateChurch } = useApp()
   const c = churches[idx]
   const [name, setName] = useState(c.name)
   const [admin, setAdmin] = useState(c.admin)
   const [tel, setTel] = useState(c.tel)
   const [address, setAddress] = useState(c.address || '')
-  const save = () => { updateChurch(idx, { name, admin, tel, address }); closeModal() }
+  const [loading, setLoading] = useState(false)
+
+  const save = async () => {
+    setLoading(true)
+    await fetch(`/api/churches/${churchId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, admin, tel, address }),
+    })
+    updateChurch(idx, { name, admin, tel, address })
+    setLoading(false)
+    closeModal()
+  }
+
   return (
     <>
       <div className="modal-title">✏️ Redigera kyrka</div>
@@ -57,7 +76,7 @@ function EditChurchModal({ idx }: { idx: number }) {
       <div className="form-field"><label>Adress</label><input value={address} onChange={e => setAddress(e.target.value)} /></div>
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
-        <button className="btn btn-primary" onClick={save}>✓ Spara</button>
+        <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? 'Sparar...' : '✓ Spara'}</button>
       </div>
     </>
   )
@@ -65,13 +84,22 @@ function EditChurchModal({ idx }: { idx: number }) {
 
 export default function KyrkorPage() {
   const { churches, passes, people, showModal, deleteChurch } = useApp()
+  // Spara Supabase-ID:n för varje kyrka (index → id)
+  // Vi hämtar ID från appStore via fetchAppData som sätter dem i ordning från Supabase
+
   return (
     <div>
       <div className="page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <div><h1 className="page-title">Kyrkor</h1><p className="page-sub">Församlingar i pastoratet</p></div>
         <button className="btn btn-primary" onClick={() => showModal(<AddChurchModal />)}>+ Ny kyrka</button>
       </div>
-      <div className="alert alert-amber">ℹ Prototyp – kyrkor sparas bara i minnet och försvinner vid omladdning.</div>
+
+      {churches.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '3rem', color: '#888780' }}>
+          Inga kyrkor ännu. Klicka på "+ Ny kyrka" för att lägga till.
+        </div>
+      )}
+
       {churches.map((c, i) => {
         const passCount = passes.filter(p => p.church === i && !p.cancelled && p.pubStatus === 'live').length
         const peopleCount = people.filter(p => p.church === i && p.role === 'ideell').length
@@ -86,14 +114,23 @@ export default function KyrkorPage() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
-                <button className="btn btn-secondary btn-sm" onClick={() => showModal(<EditChurchModal idx={i} />)}>✏️ Redigera</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => showModal(<EditChurchModal idx={i} churchId={i + 1} />)}>✏️ Redigera</button>
                 <button className="btn btn-danger btn-sm" onClick={() => showModal(
-                  <ConfirmModal title={`Ta bort ${c.name}?`} sub={`${passes.filter(p=>p.church===i).length} pass och ${people.filter(p=>p.church===i).length} personer är kopplade. Det går inte att ångra.`} confirmLabel="Ta bort" onConfirm={() => deleteChurch(i)} />
+                  <ConfirmModal
+                    title={`Ta bort ${c.name}?`}
+                    sub={`${passes.filter(p => p.church === i).length} pass och ${people.filter(p => p.church === i).length} personer är kopplade. Det går inte att ångra.`}
+                    confirmLabel="Ta bort"
+                    onConfirm={async () => {
+                      await fetch(`/api/churches/${i + 1}`, { method: 'DELETE' })
+                      deleteChurch(i)
+                    }}
+                  />
                 )}>🗑</button>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 14, fontSize: 12, color: '#888780' }}>
-              <span>👥 {peopleCount} ideella</span><span>📅 {passCount} aktiva pass</span>
+              <span>👥 {peopleCount} ideella</span>
+              <span>📅 {passCount} aktiva pass</span>
             </div>
           </div>
         )

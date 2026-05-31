@@ -76,7 +76,6 @@ export default function BehorigheterPage() {
   return (
     <div>
       <div className="page-header"><h1 className="page-title">Behörigheter</h1><p className="page-sub">Ändra roller och ansvarspass</p></div>
-      <div className="alert alert-amber">🔒 Prototyp – i riktig version måste behörigheter kontrolleras i backend.</div>
       {viewChurches.map(ci => {
         const pp = people.filter(p => p.church === ci)
         if (!pp.length) return null
