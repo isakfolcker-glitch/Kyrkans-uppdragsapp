@@ -20,7 +20,6 @@ export default function ProfilPage() {
   const displayGroups = profile?.profile_groups?.map((g: any) => g.group_id) || usr.groups
   const isAvailable = profile?.available ?? usr.available
   const notifs = profile?.notif_settings?.[0] ?? usr.notifs
-  const notifs = usr.notifs
 
   return (
     <div>
