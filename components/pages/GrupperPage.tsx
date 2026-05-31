@@ -29,7 +29,9 @@ function NewGroupModal({ defaultChurchId }: { defaultChurchId: number }) {
       body: JSON.stringify({ label: label.trim(), cls: color, church_id: churchIdx + 1 }),
     })
     const data = await res.json()
-    if (res.ok) addGroup({ id: data.id, label: data.label, cls: data.cls, churchId: churchIdx })
+    if (res.ok) {
+      addGroup({ id: data.id, label: data.label, cls: data.cls, churchId: churchIdx })
+    }
     setLoading(false)
     closeModal()
   }
@@ -59,15 +61,19 @@ function NewGroupModal({ defaultChurchId }: { defaultChurchId: number }) {
 }
 
 export default function GrupperPage() {
-  const { groups, people, passes, churches, isPAdmin, isSuperAdmin, activeChurch, setChurch, showModal, currentChurchId } = useApp()
+  const { groups, people, passes, churches, isPAdmin, isSuperAdmin, activeChurch, setChurch, showModal, closeModal, currentChurchId } = useApp()
+  const [localGroups, setLocalGroups] = useState(groups)
   const cid = currentChurchId()
 
-  // Visa grupper för vald kyrka
-  const visibleGroups = groups.filter(g => g.churchId === cid || g.churchId === null || g.churchId === undefined)
+  // Synka med store när groups ändras
+  useState(() => { setLocalGroups(groups) })
 
-  const handleDelete = (groupId: string) => {
-    fetch(`/api/groups/${encodeURIComponent(groupId)}`, { method: 'DELETE' })
-      .then(() => window.location.reload())
+  const visibleGroups = localGroups.filter(g => g.churchId === cid || g.churchId === null || g.churchId === undefined)
+
+  const handleDelete = async (groupId: string) => {
+    await fetch(`/api/groups/${encodeURIComponent(groupId)}`, { method: 'DELETE' })
+    setLocalGroups(prev => prev.filter(g => g.id !== groupId))
+    closeModal()
   }
 
   return (
@@ -116,8 +122,8 @@ export default function GrupperPage() {
                     sub={`${members.length} person${members.length !== 1 ? 'er' : ''} och ${gPasses.length} pass kopplade.`}
                     confirmLabel="Ta bort"
                     onConfirm={() => handleDelete(g.id)}
-                  />
-                )}>🗑 Ta bort</button>
+                />
+              )}>🗑 Ta bort</button>
               </div>
               <div style={{ fontSize: 12, color: '#888780', display: 'flex', gap: 12, marginBottom: members.length ? 8 : 0 }}>
                 <span>👥 {members.length} person{members.length !== 1 ? 'er' : ''}</span>
