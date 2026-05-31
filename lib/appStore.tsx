@@ -58,13 +58,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<any>(null)
   const [loadingAuth, setLoadingAuth] = useState(true)
 
-  // Demo/prototype fallback state (används tills Supabase-data är inläst)
+  // State — börjar tomt, fylls på från Supabase när inloggad
   const [userIndex, setUserIndex] = useState(0)
   const [page, setPage] = useState('pass')
-  const [passes, setPasses] = useState<PassData[]>(INITIAL_PASSES)
-  const [people, setPeople] = useState<PersonData[]>(INITIAL_PEOPLE)
-  const [messages, setMessages] = useState<MessageData[]>(INITIAL_MESSAGES)
-  const [notifications] = useState<NotifData[]>(INITIAL_NOTIFICATIONS)
+  const [passes, setPasses] = useState<PassData[]>([])
+  const [people, setPeople] = useState<PersonData[]>([])
+  const [messages, setMessages] = useState<MessageData[]>([])
+  const [notifications] = useState<NotifData[]>([])
   const [selfBookings, setSelfBookings] = useState<Record<number, boolean>>({})
   const [activeChurch, setActiveChurch] = useState(0)
   const [groupFilter, setGroupFilter] = useState('alla')
@@ -97,6 +97,72 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .single()
     setProfile(data)
     setLoadingAuth(false)
+    if (data) {
+      fetchAppData(data)
+    }
+  }
+
+  const fetchAppData = async (prof: any) => {
+    // Hämta kyrkor
+    const { data: churchData } = await supabase.from('churches').select('*').order('id')
+    if (churchData?.length) setChurches(churchData.map((c: any) => ({ name: c.name, admin: c.admin_name || '', tel: c.tel || '', address: c.address })))
+
+    // Hämta grupper
+    const { data: groupData } = await supabase.from('groups').select('*')
+    if (groupData?.length) setGroups(groupData.map((g: any) => ({ id: g.id, label: g.label, cls: g.cls })))
+
+    // Hämta pastorat
+    const { data: pastData } = await supabase.from('pastorat').select('*')
+    if (pastData?.length) setPastorat(pastData.map((p: any) => ({ id: p.id, name: p.name, admin: '', adminEmail: '', churches: [] })))
+
+    // Hämta pass
+    const churchId = prof.church_id
+    if (churchId) {
+      const { data: passData } = await supabase
+        .from('passes')
+        .select('*, pass_groups(group_id), pass_responsible(profile_id), bookings(id, name, ini, av_color, ac_color, mail, tel, source, no_account, profile_id), pass_history(entry)')
+        .eq('church_id', churchId)
+        .order('created_at', { ascending: false })
+      if (passData) {
+        setPasses(passData.map((p: any) => ({
+          id: p.id, church: p.church_id, title: p.title,
+          groups: p.pass_groups?.map((g: any) => g.group_id) || [],
+          date: p.date_str, time: p.time_str, plats: p.plats,
+          spots: p.spots, filled: p.filled, vk: p.vk || '', tel: p.tel || '',
+          desc: p.description || '', cancelled: p.cancelled,
+          pubStatus: p.pub_status, pubDate: p.pub_date || '',
+          kioskVisible: p.kiosk_visible,
+          responsibleUserIds: p.pass_responsible?.map((r: any) => r.profile_id) || [],
+          bookings: p.bookings?.map((b: any) => ({
+            personId: b.profile_id, name: b.name, ini: b.ini || '',
+            av: b.av_color || '#F1EFE8', ac: b.ac_color || '#5F5E5A',
+            source: b.source, noAccount: b.no_account, mail: b.mail, tel: b.tel,
+          })) || [],
+          history: p.pass_history?.map((h: any) => h.entry) || [],
+        })))
+      }
+    }
+
+    // Hämta personal (bara admin ser alla)
+    if (['forsamling','pastorat','super'].includes(prof.admin_level)) {
+      const { data: peopleData } = await supabase
+        .from('profiles')
+        .select('*, profile_groups(group_id)')
+        .eq('church_id', prof.church_id)
+      if (peopleData) {
+        setPeople(peopleData.map((p: any) => ({
+          id: p.id, name: p.name, mail: '', phone: p.phone,
+          ini: p.ini || p.name?.slice(0,2).toUpperCase() || '??',
+          av: p.av_color || '#EEEDFE', ac: p.ac_color || '#3C3489',
+          church: p.church_id, groups: p.profile_groups?.map((g: any) => g.group_id) || [],
+          role: p.role, isEmployee: p.is_employee, adminLevel: p.admin_level, available: p.available,
+        })))
+      }
+    }
+
+    // Hämta utskick
+    const { data: msgData } = await supabase.from('message_logs').select('*').order('sent_at', { ascending: false }).limit(20)
+    if (msgData) setMessages(msgData.map((m: any) => ({ id: m.id, from: m.from_name, to: m.to_label, toCount: m.to_count, subject: m.subject, body: m.body, sentAt: m.sent_at })))
   }
 
   // ─── Behörighetssystem ────────────────────────────
