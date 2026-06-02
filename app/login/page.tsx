@@ -26,7 +26,7 @@ export default function LoginPage() {
   const sendReset = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/` })
+    await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/auth/confirm` })
     setResetSent(true)
     setLoading(false)
   }

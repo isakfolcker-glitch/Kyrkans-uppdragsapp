@@ -64,7 +64,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [passes, setPasses] = useState<PassData[]>([])
   const [people, setPeople] = useState<PersonData[]>([])
   const [messages, setMessages] = useState<MessageData[]>([])
-  const [notifications] = useState<NotifData[]>([])
+  const [notifications, setNotifications] = useState<NotifData[]>([])
   const [selfBookings, setSelfBookings] = useState<Record<number, boolean>>({})
   const [activeChurch, setActiveChurch] = useState(0)
   const [groupFilter, setGroupFilter] = useState('alla')
@@ -99,6 +99,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setLoadingAuth(false)
     if (data) {
       fetchAppData(data)
+      // Hämta notiser
+      const { data: notifData } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (notifData) setNotifications(notifData.map((n: any) => ({
+        id: n.id, userId: n.user_id, type: n.type,
+        title: n.title, body: n.body, time: n.created_at, read: n.read,
+      })))
+      // Realtid – nya notiser
+      supabase.channel('notif-' + userId)
+        .on('postgres_changes', {
+          event: 'INSERT', schema: 'public', table: 'notifications',
+          filter: `user_id=eq.${userId}`,
+        }, (payload) => {
+          const n = payload.new as any
+          setNotifications(prev => [{
+            id: n.id, userId: n.user_id, type: n.type,
+            title: n.title, body: n.body, time: n.created_at, read: false,
+          }, ...prev])
+        })
+        .subscribe()
     }
   }
 

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { sendNewPassNotice } from '@/lib/email'
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
@@ -48,6 +50,29 @@ export async function POST(req: NextRequest) {
 
   // Logg
   await supabase.from('pass_history').insert({ pass_id: pass.id, entry: `Skapades – Idag` })
+
+  // Skicka mail till alla i passets grupper (om pub_status är live)
+  if ((pub_status || 'live') === 'live' && groups?.length) {
+    const admin = createAdminClient()
+    // Hämta e-postadresser för alla i de valda grupperna, i den kyrkan
+    const { data: members } = await admin
+      .from('profile_groups')
+      .select('profiles!inner(email, notif_settings(nyttpass))')
+      .in('group_id', groups)
+
+    const emails = (members ?? [])
+      .map((m: any) => m.profiles)
+      .filter((p: any) => p?.email && p?.notif_settings?.[0]?.nyttpass !== false)
+      .map((p: any) => p.email)
+
+    if (emails.length) {
+      await sendNewPassNotice({
+        to: emails, passTitle: title,
+        date: date_str, time: time_str, plats: plats || '',
+        groups: groups,
+      }).catch(() => {}) // skicka asynkront, stoppa inte svaret
+    }
+  }
 
   return NextResponse.json(pass)
 }
