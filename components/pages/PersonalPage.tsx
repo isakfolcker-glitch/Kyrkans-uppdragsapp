@@ -154,9 +154,14 @@ function EditPersonModal({ personId }: { personId: number }) {
 
 export default function PersonalPage() {
   const { people, churches, isPAdmin, u, activeChurch, setChurch, showModal, deletePerson, currentChurchId } = useApp()
+  const [search, setSearch] = useState('')
   const cid = currentChurchId()
-  const guests = people.filter(p => p.church === cid && (p as any).role === 'guest')
-  const regular = people.filter(p => p.church === cid && (p as any).role !== 'guest')
+  const all = people.filter(p => p.church === cid && (p as any).role !== 'guest')
+  const regular = all.filter(p =>
+    !search ||
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    (p.mail ?? '').toLowerCase().includes(search.toLowerCase())
+  )
 
   return (
     <div>
@@ -177,6 +182,15 @@ export default function PersonalPage() {
           {churches.map((c, i) => <button key={i} className={`church-btn${activeChurch === i ? ' on' : ''}`} onClick={() => setChurch(i)}>{c.name}</button>)}
         </div>
       )}
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        <input
+          placeholder="🔍 Sök namn eller e-post..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ flex: 1, minWidth: 160, fontSize: 13, padding: '8px 13px', border: '1.5px solid rgba(0,0,0,0.12)', borderRadius: 10, background: '#fff', outline: 'none', fontFamily: 'inherit' }}
+        />
+      </div>
 
       <div className="section-label">Registrerade</div>
       <div style={{ background: '#fff', border: '1px solid #D3D1C7', borderRadius: 12, padding: '12px 16px' }}>

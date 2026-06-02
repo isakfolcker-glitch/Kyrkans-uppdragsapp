@@ -3,7 +3,7 @@ import { useApp } from '@/lib/appStore'
 import { NAV_ITEMS } from '@/lib/appData'
 
 export default function Sidebar() {
-  const { u, page, goTo, cycleUser, churches, isKiosk, isPAdmin, isSuperAdmin, currentUser, profile, logout } = useApp()
+  const { u, page, goTo, cycleUser, churches, isKiosk, isPAdmin, isSuperAdmin, currentUser, profile, logout, notifications } = useApp()
   const usr = u()
 
   // Använd riktig profil om inloggad, annars demo-användare
@@ -34,14 +34,24 @@ export default function Sidebar() {
       </div>
 
       <nav className="sidebar-nav">
-        {items.map(item => (
-          <button key={item.id} className={`nav-item${page === item.id ? ' active' : ''}`} onClick={() => goTo(item.id)}>
-            <span style={{ width: 18, fontSize: 15 }}>
-              {iconFor(item.icon)}
-            </span>
-            {item.lbl}
-          </button>
-        ))}
+        {items.map(item => {
+          const unread = item.icon === 'Bell' ? notifications.filter((n: any) => !n.read).length : 0
+          return (
+            <button key={item.id} className={`nav-item${page === item.id ? ' active' : ''}`} onClick={() => goTo(item.id)}>
+              <span style={{ width: 18, fontSize: 15, position: 'relative', display: 'inline-flex' }}>
+                {iconFor(item.icon)}
+                {unread > 0 && (
+                  <span style={{
+                    position: 'absolute', top: -4, right: -6,
+                    background: '#FF785A', color: '#fff', borderRadius: 10,
+                    fontSize: 8, fontWeight: 700, padding: '1px 4px', minWidth: 14, textAlign: 'center', lineHeight: '14px',
+                  }}>{unread}</span>
+                )}
+              </span>
+              {item.lbl}
+            </button>
+          )
+        })}
       </nav>
 
       {currentUser ? (
