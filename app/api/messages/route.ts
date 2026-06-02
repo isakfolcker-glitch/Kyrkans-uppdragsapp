@@ -12,32 +12,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Saknar behörighet' }, { status: 403 })
   }
 
-  const { to_all, group_ids, church_id, subject, body } = await req.json()
+  const body_json = await req.json()
+  const { to, to_label, subject, body } = body_json
 
-  // Hämta mottagare
-  let query = supabase.from('profiles').select('id, name, church_id').not('id', 'is', null)
-  if (to_all) {
-    query = query.eq('church_id', church_id).eq('role', 'ideell')
-  } else if (group_ids?.length) {
-    const { data: pgRows } = await supabase.from('profile_groups').select('profile_id').in('group_id', group_ids)
-    const ids = pgRows?.map((r: any) => r.profile_id) ?? []
-    query = query.in('id', ids)
-  }
+  if (!to?.length)    return NextResponse.json({ error: 'Inga mottagare' }, { status: 400 })
+  if (!subject?.trim()) return NextResponse.json({ error: 'Ämne saknas' }, { status: 400 })
+  if (!body?.trim())    return NextResponse.json({ error: 'Meddelande saknas' }, { status: 400 })
 
-  const { data: recipients } = await query
-  const emails = (recipients ?? []).map((r: any) => r.email).filter(Boolean)
-  const toLabel = to_all ? 'Alla ideella' : `Grupper: ${group_ids?.join(', ')}`
-
-  // Skicka mail
-  if (emails.length) {
-    await sendBulkMessage({ to: emails, subject, body, fromName: sender?.name ?? 'Admin' })
-  }
+  // Skicka mail via Resend
+  await sendBulkMessage({ to, subject, body, fromName: sender?.name ?? 'Admin' })
 
   // Logga utskicket
   await supabase.from('message_logs').insert({
-    from_user_id: user.id, from_name: sender?.name ?? 'Admin',
-    to_label: toLabel, to_count: recipients?.length ?? 0, subject, body,
+    from_user_id: user.id,
+    from_name: sender?.name ?? 'Admin',
+    to_label: to_label ?? 'Okänt',
+    to_count: to.length,
+    subject,
+    body,
   })
 
-  return NextResponse.json({ ok: true, count: recipients?.length ?? 0 })
+  return NextResponse.json({ ok: true, count: to.length })
 }

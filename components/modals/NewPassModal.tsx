@@ -6,7 +6,8 @@ export default function NewPassModal() {
   const { groups, people, closeModal, addPass, nextPassId, isPAdmin, currentChurchId, u } = useApp()
   const [title, setTitle] = useState('')
   const [date, setDate] = useState('')
-  const [time, setTime] = useState('')
+  const [timeStart, setTimeStart] = useState('')
+  const [timeEnd, setTimeEnd] = useState('')
   const [plats, setPlats] = useState('')
   const [spots, setSpots] = useState(2)
   const [vk, setVk] = useState('')
@@ -22,9 +23,10 @@ export default function NewPassModal() {
   const toggleGroup = (id: string) =>
     setSelGroups(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
 
-  const save = () => {
+  const save = async () => {
     if (!title.trim()) { alert('Titel krävs'); return }
-    addPass({
+    const time = timeStart && timeEnd ? `${timeStart}–${timeEnd}` : timeStart || timeEnd || ''
+    await addPass({
       id: nextPassId(), church: currentChurchId(), title, date, time, plats, spots, filled: 0,
       vk, tel, desc, groups: selGroups, cancelled: false,
       pubStatus: pubDate ? 'scheduled' : 'live', pubDate, kioskVisible,
@@ -39,8 +41,9 @@ export default function NewPassModal() {
       <div className="modal-title">📅 Nytt pass</div>
       <div className="form-field"><label>Titel</label><input placeholder="ex. Söndagsgudstjänst" value={title} onChange={e => setTitle(e.target.value)} /></div>
       <div className="form-row">
-        <div className="form-field"><label>Datum</label><input placeholder="Sön 1 jun" value={date} onChange={e => setDate(e.target.value)} /></div>
-        <div className="form-field"><label>Tid</label><input placeholder="09:30–12:00" value={time} onChange={e => setTime(e.target.value)} /></div>
+        <div className="form-field"><label>Datum</label><input type="date" value={date} onChange={e => setDate(e.target.value)} /></div>
+        <div className="form-field"><label>Starttid</label><input type="time" value={timeStart} onChange={e => setTimeStart(e.target.value)} /></div>
+        <div className="form-field"><label>Sluttid</label><input type="time" value={timeEnd} onChange={e => setTimeEnd(e.target.value)} /></div>
       </div>
       <div className="form-field"><label>Plats</label><input placeholder="ex. Kyrkorummet" value={plats} onChange={e => setPlats(e.target.value)} /></div>
       <div className="form-row">
@@ -66,7 +69,7 @@ export default function NewPassModal() {
         </select>
       </div>
       <div className="form-field"><label>Beskrivning</label><textarea placeholder="Vad händer i kyrkan..." value={desc} onChange={e => setDesc(e.target.value)} /></div>
-      <div className="form-field"><label>Publiceringsdatum (tomt = live direkt)</label><input placeholder="ex. Mån 15 sep" value={pubDate} onChange={e => setPubDate(e.target.value)} /></div>
+      <div className="form-field"><label>Publiceringsdatum (tomt = live direkt)</label><input type="date" value={pubDate} onChange={e => setPubDate(e.target.value)} /></div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: '#F1EFE8', borderRadius: 8, marginBottom: 12 }}>
         <button className={`toggle-switch${kioskVisible ? ' on' : ''}`} onClick={() => setKioskVisible(v => !v)} />
         <div>
@@ -76,7 +79,7 @@ export default function NewPassModal() {
       </div>
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
-        <button className="btn btn-primary" onClick={save}>✓ Spara</button>
+        <button className="btn btn-primary" onClick={() => save()}>✓ Spara</button>
       </div>
     </>
   )
