@@ -11,11 +11,11 @@ function AddPastoratModal() {
   const [selChurches, setSelChurches] = useState<number[]>([])
   const employees = people.filter(p => p.isEmployee)
   const toggleChurch = (i: number) => setSelChurches(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])
-  const save = () => {
+  const save = async () => {
     if (!name.trim()) { alert('Namn krävs'); return }
     const adminPers = people.find(p => p.id === parseInt(adminId))
     const newP: PastoratData = { id: nextPastoratId(), name: name.trim(), admin: adminPers?.name || 'Ej tilldelad', adminEmail: adminPers?.mail || '', churches: selChurches }
-    addPastorat(newP)
+    await addPastorat(newP)
     if (adminPers) updatePerson({ ...adminPers, adminLevel: 'pastorat', role: 'padmin', isEmployee: true })
     closeModal()
   }
@@ -54,7 +54,7 @@ function EditPastoratModal({ id }: { id: number }) {
   const p = pastorat.find(x => x.id === id)
   if (!p) return null
   const [name, setName] = useState(p.name)
-  const save = () => { updatePastorat({ ...p, name }); closeModal() }
+  const save = async () => { await updatePastorat({ ...p, name }); closeModal() }
   return (
     <>
       <div className="modal-title">✏️ Redigera – {p.name}</div>
@@ -75,7 +75,6 @@ export default function PastoratPage() {
         <div><h1 className="page-title">Pastorat</h1><p className="page-sub">Alla pastorat i systemet</p></div>
         <button className="btn btn-primary" onClick={() => showModal(<AddPastoratModal />)}>+ Nytt pastorat</button>
       </div>
-      <div className="alert alert-amber">ℹ Prototyp – pastorat sparas bara i minnet.</div>
       {pastorat.map(p => {
         const churchNames = p.churches.map(i => churches[i]?.name).filter(Boolean)
         return (

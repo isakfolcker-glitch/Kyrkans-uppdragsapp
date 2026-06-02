@@ -39,8 +39,8 @@ interface AppCtx {
   deletePerson: (id: number) => void; addMessage: (m: MessageData) => void
   addChurch: (c: Church) => void; updateChurch: (idx: number, c: Church) => void
   deleteChurch: (idx: number) => void
-  addPastorat: (p: PastoratData) => void; updatePastorat: (p: PastoratData) => void
-  deletePastorat: (id: number) => void; addGroup: (g: Group) => void
+  addPastorat: (p: PastoratData) => Promise<void>; updatePastorat: (p: PastoratData) => Promise<void>
+  deletePastorat: (id: number) => Promise<void>; addGroup: (g: Group) => void
   nextPersonId: () => number; nextPassId: () => number; nextPastoratId: () => number
   getResponsibleNames: (pass: PassData) => string; currentChurchId: () => number
   logout: () => void; inviteUser: (email: string, name: string, role: string, churchId: number) => Promise<void>
@@ -111,9 +111,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const { data: groupData } = await supabase.from('groups').select('*')
     if (groupData?.length) setGroups(groupData.map((g: any) => ({ id: g.id, label: g.label, cls: g.cls, churchId: g.church_id ?? null })))
 
-    // Hämta pastorat
-    const { data: pastData } = await supabase.from('pastorat').select('*')
-    if (pastData?.length) setPastorat(pastData.map((p: any) => ({ id: p.id, name: p.name, admin: '', adminEmail: '', churches: [] })))
+    // Hämta pastorat med admin-profil och kopplade kyrkor
+    const { data: pastData } = await supabase
+      .from('pastorat')
+      .select('id, name, profiles(name, email), churches(id)')
+      .order('id')
+    if (pastData?.length) {
+      setPastorat(pastData.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        admin: p.profiles?.name ?? '',
+        adminEmail: p.profiles?.email ?? '',
+        churches: (p.churches ?? []).map((c: any) => c.id),
+      })))
+    }
 
     // Hämta pass
     const churchId = prof.church_id
@@ -267,9 +278,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const addChurch    = (c: Church)     => setChurches(prev => [...prev, c])
   const updateChurch = (idx: number, c: Church) => setChurches(prev => prev.map((x, i) => i === idx ? c : x))
   const deleteChurch = (idx: number)   => { setChurches(prev => prev.filter((_, i) => i !== idx)); setPasses(prev => prev.filter(p => p.church !== idx)); setPeople(prev => prev.filter(p => p.church !== idx)) }
-  const addPastorat  = (p: PastoratData) => setPastorat(prev => [...prev, p])
-  const updatePastorat = (p: PastoratData) => setPastorat(prev => prev.map(x => x.id === p.id ? p : x))
-  const deletePastorat = (id: number)  => setPastorat(prev => prev.filter(x => x.id !== id))
+  const addPastorat = async (p: PastoratData) => {
+    const { data, error } = await supabase.from('pastorat').insert({ name: p.name }).select().single()
+    if (error) { alert('Kunde inte spara pastoratet: ' + error.message); return }
+    setPastorat(prev => [...prev, { ...p, id: data.id }])
+  }
+  const updatePastorat = async (p: PastoratData) => {
+    const { error } = await supabase.from('pastorat').update({ name: p.name }).eq('id', p.id)
+    if (error) { alert('Kunde inte uppdatera pastoratet: ' + error.message); return }
+    setPastorat(prev => prev.map(x => x.id === p.id ? p : x))
+  }
+  const deletePastorat = async (id: number) => {
+    const { error } = await supabase.from('pastorat').delete().eq('id', id)
+    if (error) { alert('Kunde inte ta bort pastoratet: ' + error.message); return }
+    setPastorat(prev => prev.filter(x => x.id !== id))
+  }
   const addGroup     = (g: Group)      => setGroups(prev => [...prev, g])
 
   const nextPersonId   = () => _nextPersonId++
