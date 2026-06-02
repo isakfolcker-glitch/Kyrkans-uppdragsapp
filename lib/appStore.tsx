@@ -31,7 +31,7 @@ interface AppCtx {
   doBook: (id: number) => void; doUnbook: (id: number) => void
   publishNow: (id: number) => void; toggleAvail: () => void
   updateUserNotif: (key: string, val: boolean) => void
-  addPass: (p: PassData) => void; updatePass: (p: PassData) => void
+  addPass: (p: PassData) => Promise<void>; updatePass: (p: PassData) => void
   deletePass: (id: number) => void; cancelPass: (id: number) => void
   addBooking: (passId: number, b: PassData['bookings'][0]) => void
   removeBooking: (passId: number, idx: number) => void
@@ -248,9 +248,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     fetch('/api/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notif_settings: { [key]: val } }) })
   }
 
-  const addPass = (p: PassData) => {
-    setPasses(prev => [...prev, p])
-    fetch('/api/passes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: p.title, church_id: p.church, date_str: p.date, time_str: p.time, plats: p.plats, spots: p.spots, vk: p.vk, tel: p.tel, description: p.desc, pub_status: p.pubStatus, pub_date: p.pubDate, kiosk_visible: p.kioskVisible, groups: p.groups }) })
+  const addPass = async (p: PassData) => {
+    const res = await fetch('/api/passes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: p.title, church_id: p.church, date_str: p.date, time_str: p.time,
+        plats: p.plats, spots: p.spots, vk: p.vk, tel: p.tel, description: p.desc,
+        pub_status: p.pubStatus, pub_date: p.pubDate, kiosk_visible: p.kioskVisible,
+        groups: p.groups, responsible_ids: p.responsibleUserIds,
+      }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      alert('Kunde inte spara passet: ' + (err.error ?? res.status))
+      return
+    }
+    const saved = await res.json()
+    setPasses(prev => [{ ...p, id: saved.id }, ...prev])
   }
   const updatePass = (p: PassData) => {
     setPasses(prev => prev.map(x => x.id === p.id ? p : x))

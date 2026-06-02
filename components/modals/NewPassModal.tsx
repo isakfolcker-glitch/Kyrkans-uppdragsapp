@@ -22,9 +22,9 @@ export default function NewPassModal() {
   const toggleGroup = (id: string) =>
     setSelGroups(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
 
-  const save = () => {
+  const save = async () => {
     if (!title.trim()) { alert('Titel krävs'); return }
-    addPass({
+    await addPass({
       id: nextPassId(), church: currentChurchId(), title, date, time, plats, spots, filled: 0,
       vk, tel, desc, groups: selGroups, cancelled: false,
       pubStatus: pubDate ? 'scheduled' : 'live', pubDate, kioskVisible,
@@ -76,7 +76,7 @@ export default function NewPassModal() {
       </div>
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
-        <button className="btn btn-primary" onClick={save}>✓ Spara</button>
+        <button className="btn btn-primary" onClick={() => save()}>✓ Spara</button>
       </div>
     </>
   )
