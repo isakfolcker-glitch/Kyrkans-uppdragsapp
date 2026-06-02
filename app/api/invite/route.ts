@@ -18,17 +18,28 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient()
 
-  // Skapa användare med inbjudningslänk
+  const adminLevel = role === 'fadmin' ? 'forsamling' : role === 'padmin' ? 'pastorat' : role === 'superadmin' ? 'super' : 'none'
+  const isEmployee = role !== 'ideell'
+
+  // Skapa användare med inbjudningslänk – redirectTo måste vara en tillåten URL i Supabase Dashboard
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { name, role, church_id, admin_level: role === 'fadmin' ? 'forsamling' : role === 'padmin' ? 'pastorat' : 'none', is_employee: role !== 'ideell' },
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/`,
+    data: { name, role, church_id, admin_level: adminLevel, is_employee: isEmployee },
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm`,
   })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-  // Uppdatera profilen med church_id och roll
+  // Uppdatera profilen med church_id och roll direkt (trigger kan ha skapat den redan)
   if (data.user) {
-    await admin.from('profiles').update({ church_id, role, admin_level: role === 'fadmin' ? 'forsamling' : role === 'padmin' ? 'pastorat' : 'none', is_employee: role !== 'ideell' }).eq('id', data.user.id)
+    await admin.from('profiles').upsert({
+      id: data.user.id,
+      email,
+      name,
+      church_id,
+      role,
+      admin_level: adminLevel,
+      is_employee: isEmployee,
+    }, { onConflict: 'id' })
   }
 
   // Hämta inbjudarens namn
