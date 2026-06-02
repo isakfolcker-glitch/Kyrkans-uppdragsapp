@@ -32,15 +32,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F1EFE8', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #D3D1C7', padding: 32, width: '100%', maxWidth: 400, boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+    <div style={{ minHeight: '100vh', background: '#FFEBE1', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ background: '#fff', borderRadius: 20, border: '1px solid rgba(125,0,55,0.1)', padding: 36, width: '100%', maxWidth: 420, boxShadow: '0 8px 32px rgba(125,0,55,0.12)' }}>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-          <div style={{ width: 40, height: 40, background: '#534AB7', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EEEDFE', fontSize: 18, fontWeight: 700 }}>K</div>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: '#2C2C2A' }}>Kyrkans uppdragsapp</div>
-            <div style={{ fontSize: 12, color: '#888780' }}>Logga in på ditt konto</div>
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 32, textAlign: 'center' }}>
+          <div style={{ width: 56, height: 56, background: '#7D0037', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 26, marginBottom: 14 }}>✝</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#000', letterSpacing: '-0.01em' }}>Kyrkans uppdragsapp</div>
+          <div style={{ fontSize: 13, color: '#5F5E5A', marginTop: 4 }}>Logga in på ditt konto</div>
         </div>
 
         {!showReset ? (
@@ -59,7 +57,7 @@ export default function LoginPage() {
                 {loading ? 'Loggar in...' : 'Logga in'}
               </button>
             </form>
-            <button onClick={() => setShowReset(true)} style={{ background: 'none', border: 'none', color: '#534AB7', fontSize: 12, cursor: 'pointer', marginTop: 14, display: 'block', textAlign: 'center', width: '100%' }}>
+            <button onClick={() => setShowReset(true)} style={{ background: 'none', border: 'none', color: '#7D0037', fontSize: 12, cursor: 'pointer', marginTop: 14, display: 'block', textAlign: 'center', width: '100%' }}>
               Glömt lösenord?
             </button>
           </>
@@ -78,7 +76,7 @@ export default function LoginPage() {
                 </button>
               </form>
             )}
-            <button onClick={() => { setShowReset(false); setResetSent(false) }} style={{ background: 'none', border: 'none', color: '#888780', fontSize: 12, cursor: 'pointer', marginTop: 14, display: 'block', textAlign: 'center', width: '100%' }}>
+            <button onClick={() => { setShowReset(false); setResetSent(false) }} style={{ background: 'none', border: 'none', color: '#5F5E5A', fontSize: 12, cursor: 'pointer', marginTop: 14, display: 'block', textAlign: 'center', width: '100%' }}>
               ← Tillbaka till inloggning
             </button>
           </>

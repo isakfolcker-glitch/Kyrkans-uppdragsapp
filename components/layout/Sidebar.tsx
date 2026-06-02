@@ -47,7 +47,7 @@ export default function Sidebar() {
       {currentUser ? (
         <div className="sidebar-user" style={{ justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, flex: 1, minWidth: 0 }}>
-            <div className="user-av" style={{ background: '#EEEDFE', color: '#3C3489', flexShrink: 0 }}>
+            <div className="user-av" style={{ flexShrink: 0 }}>
               {displayIni}
             </div>
             <span className="user-name">{displayName}</span>
