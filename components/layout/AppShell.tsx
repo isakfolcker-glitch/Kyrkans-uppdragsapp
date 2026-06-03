@@ -71,7 +71,7 @@ function BottomNav() {
     <nav style={{
       display: 'none',
       position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
-      background: '#7D0037',
+      background: '#412B72',
       borderTop: '1px solid rgba(255,255,255,0.15)',
       padding: '8px 0 env(safe-area-inset-bottom)',
     }} className="bottom-nav">
