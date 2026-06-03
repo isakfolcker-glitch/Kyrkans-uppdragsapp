@@ -8,12 +8,37 @@ import {
 } from './appData'
 
 // ─── Types ───────────────────────────────────────────
+export interface StaffPerms {
+  kan_skapa_pass: boolean
+  kan_redigera_pass: boolean
+  kan_se_bokningar: boolean
+  kan_hantera_bokningar: boolean
+  kan_se_personal: boolean
+  kan_lagg_till_personal: boolean
+  kan_hantera_grupper: boolean
+  kan_skicka_utskick: boolean
+}
+
+const ALL_PERMS: StaffPerms = {
+  kan_skapa_pass: true, kan_redigera_pass: true,
+  kan_se_bokningar: true, kan_hantera_bokningar: true,
+  kan_se_personal: true, kan_lagg_till_personal: true,
+  kan_hantera_grupper: true, kan_skicka_utskick: true,
+}
+
+const NO_PERMS: StaffPerms = {
+  kan_skapa_pass: false, kan_redigera_pass: false,
+  kan_se_bokningar: false, kan_hantera_bokningar: false,
+  kan_se_personal: false, kan_lagg_till_personal: false,
+  kan_hantera_grupper: false, kan_skicka_utskick: false,
+}
+
 interface AppCtx {
   userIndex: number; page: string; passes: PassData[]; people: PersonData[]
   messages: MessageData[]; notifications: NotifData[]; selfBookings: Record<number, boolean>
   activeChurch: number; groupFilter: string; modal: ReactNode | null
   groups: Group[]; churches: Church[]; pastorat: PastoratData[]; users: UserDef[]
-  currentUser: any; profile: any; loadingAuth: boolean
+  currentUser: any; profile: any; loadingAuth: boolean; staffPerms: StaffPerms
 
   u: () => UserDef
   isIdeell: () => boolean; isAnstalld: () => boolean; isFAdmin: () => boolean
@@ -25,6 +50,7 @@ interface AppCtx {
   canCancelPass: (pass: PassData) => boolean; canDeletePass: () => boolean
   canCreatePass: () => boolean; canManage: () => boolean
   canMakePAdmin: () => boolean; canMakeFAdmin: (churchIdx: number) => boolean
+  perm: (key: keyof StaffPerms) => boolean
 
   cycleUser: () => void; goTo: (p: string) => void; setChurch: (i: number) => void
   setFilter: (f: string) => void; showModal: (content: ReactNode) => void; closeModal: () => void
@@ -44,6 +70,7 @@ interface AppCtx {
   nextPersonId: () => number; nextPassId: () => number; nextPastoratId: () => number
   getResponsibleNames: (pass: PassData) => string; currentChurchId: () => number
   logout: () => void; inviteUser: (email: string, name: string, role: string, churchId: number) => Promise<void>
+  updateStaffPerms: (profileId: string, perms: StaffPerms) => Promise<void>
 }
 
 let _nextPersonId = 100, _nextPassId = 200, _nextPasId = 2
@@ -72,6 +99,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [groups, setGroups] = useState<Group[]>(GROUPS)
   const [churches, setChurches] = useState<Church[]>(CHURCHES)
   const [pastorat, setPastorat] = useState<PastoratData[]>([])
+  const [staffPerms, setStaffPerms] = useState<StaffPerms>(NO_PERMS)
   const [users] = useState<UserDef[]>(USERS)
 
   // ─── Auth listener ────────────────────────────────
@@ -99,6 +127,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setLoadingAuth(false)
     if (data) {
       fetchAppData(data)
+      // Hämta behörigheter för anställda (admin/superadmin får ALL_PERMS direkt)
+      if (['forsamling','pastorat','super'].includes(data.admin_level)) {
+        setStaffPerms(ALL_PERMS)
+      } else if (data.role === 'anstalld') {
+        const { data: permsData } = await supabase
+          .from('staff_permissions')
+          .select('*')
+          .eq('profile_id', userId)
+          .single()
+        setStaffPerms(permsData ? {
+          kan_skapa_pass:         permsData.kan_skapa_pass,
+          kan_redigera_pass:      permsData.kan_redigera_pass,
+          kan_se_bokningar:       permsData.kan_se_bokningar,
+          kan_hantera_bokningar:  permsData.kan_hantera_bokningar,
+          kan_se_personal:        permsData.kan_se_personal,
+          kan_lagg_till_personal: permsData.kan_lagg_till_personal,
+          kan_hantera_grupper:    permsData.kan_hantera_grupper,
+          kan_skicka_utskick:     permsData.kan_skicka_utskick,
+        } : NO_PERMS)
+      } else {
+        setStaffPerms(NO_PERMS)
+      }
       // Hämta notiser
       const { data: notifData } = await supabase
         .from('notifications')
@@ -214,6 +264,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const isSuperAdmin = () => effectiveAdminLevel === 'super'
   const isAdmin      = () => ['forsamling','pastorat','super'].includes(effectiveAdminLevel)
   const isKiosk      = () => effectiveRole === 'kiosk'
+  // Kollar granulerad behörighet – admin har alltid allt, anställda bara det som är tillåtet
+  const perm = (key: keyof StaffPerms) => isAdmin() ? true : staffPerms[key]
   const isResponsible = (pass: PassData) => {
     if (currentUser) return pass.responsibleUserIds?.includes(currentUser.id) ?? false
     return users[userIndex]?.responsibleForPasses?.includes(pass.id) ?? false
@@ -225,9 +277,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const canMsgBooked  = (p: PassData) => isAdmin() || isResponsible(p)
   const canEditPass   = (p: PassData) => isAdmin() || isResponsible(p)
   const canCancelPass = (p: PassData) => isAdmin() || isResponsible(p)
-  const canDeletePass = () => isAdmin()
-  const canCreatePass = () => isAdmin()
-  const canManage     = () => isAdmin()
+  const canDeletePass = () => isAdmin() || perm('kan_redigera_pass')
+  const canCreatePass = () => isAdmin() || perm('kan_skapa_pass')
+  const canManage     = () => isAdmin() || isAnstalld()
   const canMakePAdmin = () => isPAdmin() || isSuperAdmin()
   const canMakeFAdmin = (c: number) => isPAdmin() || isSuperAdmin() || (isFAdmin() && (users[userIndex]?.churches ?? []).includes(c))
 
@@ -334,6 +386,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
   const addGroup     = (g: Group)      => setGroups(prev => [...prev, g])
 
+  const updateStaffPerms = async (profileId: string, perms: StaffPerms) => {
+    const { error } = await supabase.from('staff_permissions').upsert({
+      profile_id: profileId, ...perms,
+    }, { onConflict: 'profile_id' })
+    if (error) { alert('Kunde inte spara behörigheter: ' + error.message); return }
+  }
+
   const nextPersonId   = () => _nextPersonId++
   const nextPassId     = () => _nextPassId++
   const nextPastoratId = () => _nextPasId++
@@ -352,18 +411,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={{
       userIndex, page, passes, people, messages, notifications, selfBookings,
       activeChurch, groupFilter, modal, groups, churches, pastorat, users,
-      currentUser, profile, loadingAuth,
+      currentUser, profile, loadingAuth, staffPerms,
       u, isIdeell, isAnstalld, isFAdmin, isPAdmin, isSuperAdmin, isAdmin, isKiosk,
       isResponsible, canBook, canViewBkgs, canAddBkg, canRemoveBkg, canMsgBooked,
       canEditPass, canCancelPass, canDeletePass, canCreatePass, canManage,
-      canMakePAdmin, canMakeFAdmin,
+      canMakePAdmin, canMakeFAdmin, perm,
       cycleUser, goTo, setChurch, setFilter, showModal, closeModal,
       doBook, doUnbook, publishNow, toggleAvail, updateUserNotif,
       addPass, updatePass, deletePass, cancelPass, addBooking, removeBooking,
       addPerson, updatePerson, deletePerson, addMessage,
       addChurch, updateChurch, deleteChurch,
       addPastorat, updatePastorat, deletePastorat, addGroup,
-      nextPersonId, nextPassId, nextPastoratId,
+      nextPersonId, nextPassId, nextPastoratId, updateStaffPerms,
       getResponsibleNames, currentChurchId, logout, inviteUser,
     }}>
       {children}
