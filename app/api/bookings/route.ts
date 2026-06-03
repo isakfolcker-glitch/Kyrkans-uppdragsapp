@@ -41,6 +41,20 @@ export async function DELETE(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
 
   const { booking_id } = await req.json()
+
+  // Verifiera att bokningen tillhör användaren (eller att de är admin/ansvarig — RLS hanterar det)
+  const { data: booking } = await supabase.from('bookings').select('id, profile_id, pass_id').eq('id', booking_id).single()
+  if (!booking) return NextResponse.json({ error: 'Bokningen finns inte' }, { status: 404 })
+
+  const { data: profile } = await supabase.from('profiles').select('admin_level').eq('id', user.id).single()
+  const isAdmin = ['forsamling','pastorat','super'].includes(profile?.admin_level ?? '')
+  const isOwner = booking.profile_id === user.id
+  const { data: responsible } = await supabase.from('pass_responsible').select('profile_id').eq('pass_id', booking.pass_id).eq('profile_id', user.id).maybeSingle()
+
+  if (!isOwner && !isAdmin && !responsible) {
+    return NextResponse.json({ error: 'Saknar behörighet' }, { status: 403 })
+  }
+
   const { error } = await supabase.from('bookings').delete().eq('id', booking_id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

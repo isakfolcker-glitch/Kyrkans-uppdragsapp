@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   const body_json = await req.json()
   const { to, to_label, subject, body } = body_json
 
-  if (!to?.length)    return NextResponse.json({ error: 'Inga mottagare' }, { status: 400 })
+  if (!to?.length)      return NextResponse.json({ error: 'Inga mottagare' }, { status: 400 })
   if (!subject?.trim()) return NextResponse.json({ error: 'Ämne saknas' }, { status: 400 })
   if (!body?.trim())    return NextResponse.json({ error: 'Meddelande saknas' }, { status: 400 })
 

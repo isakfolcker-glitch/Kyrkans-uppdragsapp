@@ -13,6 +13,11 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
 
+  const { data: profile } = await supabase.from('profiles').select('admin_level').eq('id', user.id).single()
+  if (!['pastorat','super'].includes(profile?.admin_level ?? '')) {
+    return NextResponse.json({ error: 'Saknar behörighet' }, { status: 403 })
+  }
+
   const body = await req.json()
   const { data, error } = await supabase
     .from('kyrkor')

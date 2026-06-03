@@ -21,7 +21,10 @@ export async function PATCH(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
 
   const body = await req.json()
-  const { notif_settings, ...profileData } = body
+  const { notif_settings, ...rawProfileData } = body
+
+  // Förhindra privilege escalation — användaren får inte ändra dessa fält på sig själv
+  const { admin_level, role, church_id, is_employee, ...profileData } = rawProfileData
 
   if (Object.keys(profileData).length) {
     await supabase.from('profiles').update(profileData).eq('id', user.id)

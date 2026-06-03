@@ -2,6 +2,10 @@ import { Resend } from 'resend'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 // Avsändaradress – byt ut mot din domän när du verifierat den i Resend
 const FROM = 'Kyrkans uppdragsapp <onboarding@resend.dev>'
 
@@ -82,8 +86,8 @@ export async function sendBulkMessage(opts: {
       subject: opts.subject,
       html: `
         <div style="font-family:sans-serif;max-width:500px;margin:0 auto">
-          <p>${opts.body.replace(/\n/g, '<br>')}</p>
-          <p style="color:#888780;font-size:12px">Från: ${opts.fromName} – Kyrkans uppdragsapp</p>
+          <p>${escapeHtml(opts.body).replace(/\n/g, '<br>')}</p>
+          <p style="color:#888780;font-size:12px">Från: ${escapeHtml(opts.fromName)} – Kyrkans uppdragsapp</p>
         </div>
       `,
     })
