@@ -89,6 +89,7 @@ export default function PassCard({ pass, adminMode }: { pass: PassData; adminMod
 
   return (
     <div className={`pass-card${isSch ? ' scheduled' : ''}${pass.cancelled ? ' cancelled' : ''}`}>
+      <div className="pass-card-body">
       {pass.cancelled && (
         <div className="alert alert-red" style={{ marginBottom: 10 }}>⚠️ Inställt – bokade har fått e-post</div>
       )}
@@ -156,6 +157,7 @@ export default function PassCard({ pass, adminMode }: { pass: PassData; adminMod
             <BookBtn pass={pass} />
           )}
         </div>
+      </div>
       </div>
     </div>
   )
