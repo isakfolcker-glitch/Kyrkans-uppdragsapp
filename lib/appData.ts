@@ -33,16 +33,8 @@ export interface UserDef {
   notifs: Record<string, boolean>; available: boolean
 }
 
-// Grupper – används som fallback tills Supabase-data laddats
-export const GROUPS: Group[] = [
-  {id:'kv',     label:'Katedralvärd', cls:'tag-kv'},
-  {id:'bv',     label:'Dörrvakt',     cls:'tag-bv'},
-  {id:'brand',  label:'Brandvakt',    cls:'tag-brand'},
-  {id:'konsert',label:'Konsertvärd',  cls:'tag-konsert'},
-  {id:'extra',  label:'Extra hjälp',  cls:'tag-extra'},
-  {id:'vakt',   label:'Nattväkt',     cls:'tag-vakt'},
-  {id:'kor',    label:'Körvärd',      cls:'tag-kor'},
-]
+// Tom grupp-lista – fylls på från Supabase
+export const GROUPS: Group[] = []
 
 // Tom kyrklista – fylls på från Supabase
 export const CHURCHES: Church[] = []

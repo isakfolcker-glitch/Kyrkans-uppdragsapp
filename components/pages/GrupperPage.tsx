@@ -65,7 +65,7 @@ export default function GrupperPage() {
   const { groups, people, passes, churches, isPAdmin, isSuperAdmin, activeChurch, setChurch, showModal, closeModal, currentChurchId, deleteGroup } = useApp()
   const cid = currentChurchId()
 
-  const visibleGroups = groups.filter(g => g.churchId === cid || g.churchId === null || g.churchId === undefined)
+  const visibleGroups = groups.filter(g => g.churchId === cid)
 
   const handleDelete = async (groupId: string) => {
     const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}`, { method: 'DELETE' })
