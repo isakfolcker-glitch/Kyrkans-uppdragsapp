@@ -179,7 +179,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const fetchAppData = async (prof: any) => {
     // Hämta kyrkor
     const { data: churchData } = await supabase.from('churches').select('*').order('id')
-    if (churchData?.length) setChurches(churchData.map((c: any) => ({ name: c.name, admin: c.admin_name || '', tel: c.tel || '', address: c.address })))
+    if (churchData?.length) setChurches(churchData.map((c: any) => ({ id: c.id, name: c.name, admin: c.admin_name || '', tel: c.tel || '', address: c.address })))
 
     // Hämta grupper
     const { data: groupData } = await supabase.from('groups').select('*')
@@ -230,13 +230,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     // Hämta personal (bara admin ser alla)
     if (['forsamling','pastorat','super'].includes(prof.admin_level)) {
-      const { data: peopleData } = await supabase
-        .from('profiles')
-        .select('*, profile_groups(group_id)')
-        .eq('church_id', prof.church_id)
+      let query = supabase.from('profiles').select('*, profile_groups(group_id)')
+      // Församlingsadmin ser bara sin kyrka; pastorat/super ser alla
+      if (prof.admin_level === 'forsamling') query = query.eq('church_id', prof.church_id)
+      const { data: peopleData } = await query
       if (peopleData) {
         setPeople(peopleData.map((p: any) => ({
-          id: p.id, name: p.name, mail: '', phone: p.phone,
+          id: p.id, name: p.name, mail: p.email || '', phone: p.phone,
           ini: p.ini || p.name?.slice(0,2).toUpperCase() || '??',
           av: p.av_color || '#EEEDFE', ac: p.ac_color || '#3C3489',
           church: p.church_id, groups: p.profile_groups?.map((g: any) => g.group_id) || [],
