@@ -372,7 +372,6 @@ body {
   margin-bottom: 14px;
   font-size: 13px;
   color: #43394C;
-  border-left: 3px solid var(--morklila);
 }
 
 .pass-vk strong { color: #1A1024; font-weight: 600; }

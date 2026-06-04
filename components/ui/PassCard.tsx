@@ -59,7 +59,7 @@ function BookBtn({ pass }: { pass: PassData }) {
 }
 
 export default function PassCard({ pass, adminMode }: { pass: PassData; adminMode: boolean }) {
-  const { showModal, canViewBkgs, canEditPass, canCancelPass, canDeletePass, publishNow, cancelPass, deletePass, getResponsibleNames } = useApp()
+  const { showModal, canViewBkgs, canEditPass, canCancelPass, canDeletePass, publishNow, cancelPass, deletePass, getResponsibleNames, groups } = useApp()
   const isSch = pass.pubStatus === 'scheduled'
   const resp = getResponsibleNames(pass)
 
@@ -101,7 +101,7 @@ export default function PassCard({ pass, adminMode }: { pass: PassData; adminMod
         <div className="pass-title">{pass.title}</div>
         <div className="pass-tags">
           {pass.groups.map(g => (
-            <span key={g} className={`tag ${gCls(g)}`}>{gLabel(g)}</span>
+            <span key={g} className={`tag ${gCls(g, groups)}`}>{gLabel(g, groups)}</span>
           ))}
           {adminMode && pass.kioskVisible && (
             <span className="tag tag-kiosk">📟 Kiosk</span>
