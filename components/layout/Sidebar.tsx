@@ -3,7 +3,7 @@ import { useApp } from '@/lib/appStore'
 import { NAV_ITEMS } from '@/lib/appData'
 
 export default function Sidebar() {
-  const { u, page, goTo, cycleUser, churches, isKiosk, isPAdmin, isSuperAdmin, currentUser, profile, logout, notifications } = useApp()
+  const { u, page, goTo, cycleUser, churches, isKiosk, isPAdmin, isSuperAdmin, currentUser, profile, logout, notifications, perm } = useApp()
   const usr = u()
 
   const effectiveRole = profile?.role ?? usr.role
@@ -11,7 +11,20 @@ export default function Sidebar() {
     : effectiveRole === 'padmin' ? 'padmin'
     : effectiveRole === 'superadmin' ? 'superadmin'
     : effectiveRole
-  const items = NAV_ITEMS[navRole] || []
+  let items = NAV_ITEMS[navRole] || []
+
+  // Anställda: lägg till menyval baserat på behörigheter
+  if (navRole === 'anstalld') {
+    const extra: typeof items = []
+    if (perm('kan_se_personal') || perm('kan_lagg_till_personal')) extra.push({ id: 'personal', icon: 'Users', lbl: 'Personal' })
+    if (perm('kan_hantera_grupper')) extra.push({ id: 'grupper', icon: 'UsersGroup', lbl: 'Grupper' })
+    if (perm('kan_skicka_utskick')) extra.push({ id: 'utskick', icon: 'Send', lbl: 'Utskick' })
+    if (extra.length > 0) {
+      // Infoga efter "Pass"
+      const passIdx = items.findIndex(x => x.id === 'pass')
+      items = [...items.slice(0, passIdx + 1), ...extra, ...items.slice(passIdx + 1)]
+    }
+  }
 
   const subText = isSuperAdmin() ? 'Systemadministratör'
     : isPAdmin() ? 'Pastorat – alla församlingar'

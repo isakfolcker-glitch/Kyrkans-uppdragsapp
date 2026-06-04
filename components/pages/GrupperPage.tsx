@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useApp } from '@/lib/appStore'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 
+
 const colorOptions = [
   { value: 'tag-kv',      label: 'Blå' },
   { value: 'tag-bv',      label: 'Grön' },
@@ -61,18 +62,14 @@ function NewGroupModal({ defaultChurchId }: { defaultChurchId: number }) {
 }
 
 export default function GrupperPage() {
-  const { groups, people, passes, churches, isPAdmin, isSuperAdmin, activeChurch, setChurch, showModal, closeModal, currentChurchId } = useApp()
-  const [localGroups, setLocalGroups] = useState(groups)
+  const { groups, people, passes, churches, isPAdmin, isSuperAdmin, activeChurch, setChurch, showModal, closeModal, currentChurchId, deleteGroup } = useApp()
   const cid = currentChurchId()
 
-  // Synka med store när groups ändras
-  useState(() => { setLocalGroups(groups) })
-
-  const visibleGroups = localGroups.filter(g => g.churchId === cid || g.churchId === null || g.churchId === undefined)
+  const visibleGroups = groups.filter(g => g.churchId === cid || g.churchId === null || g.churchId === undefined)
 
   const handleDelete = async (groupId: string) => {
     await fetch(`/api/groups/${encodeURIComponent(groupId)}`, { method: 'DELETE' })
-    setLocalGroups(prev => prev.filter(g => g.id !== groupId))
+    deleteGroup(groupId)
     closeModal()
   }
 

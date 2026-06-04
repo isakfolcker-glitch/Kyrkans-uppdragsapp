@@ -6,8 +6,7 @@ function escapeHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-// Avsändaradress – byt ut mot din domän när du verifierat den i Resend
-const FROM = 'Kyrkans uppdragsapp <onboarding@resend.dev>'
+const FROM = process.env.RESEND_FROM ?? 'Kyrkans uppdragsapp <onboarding@resend.dev>'
 
 export async function sendBookingConfirmation(opts: {
   to: string; name: string; passTitle: string; date: string; time: string; plats: string; vk: string; tel: string

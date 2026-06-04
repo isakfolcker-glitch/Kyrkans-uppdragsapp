@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useApp } from '@/lib/appStore'
 import { gLabel, gCls } from '@/lib/appData'
 import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 
 const notifDefs = [
   { key: 'passdag',    lbl: 'Påminnelse samma dag',      sub: 'E-post kl 07:00 på uppdragsdagen' },
@@ -13,7 +14,8 @@ const notifDefs = [
 ]
 
 export default function ProfilPage() {
-  const { u, updateUserNotif, toggleAvail, profile, currentUser } = useApp()
+  const { u, updateUserNotif, toggleAvail, profile, currentUser, logout } = useApp()
+  const router = useRouter()
   const usr = u()
 
   const displayName   = profile?.name  || usr.name
@@ -187,6 +189,102 @@ export default function ProfilPage() {
         )}
         <button className="btn btn-primary" onClick={changePassword}>🔒 Byt lösenord</button>
       </div>
+
+      {/* GDPR */}
+      <GdprSection currentUserId={currentUser?.id} onDeleted={() => { logout(); router.replace('/login') }} />
     </div>
+  )
+}
+
+function GdprSection({ currentUserId, onDeleted }: { currentUserId?: string; onDeleted: () => void }) {
+  const [delConfirm, setDelConfirm] = useState(false)
+  const [delLoading, setDelLoading] = useState(false)
+  const [delErr, setDelErr]         = useState('')
+  const [exportLoading, setExportLoading] = useState(false)
+
+  const exportData = async () => {
+    setExportLoading(true)
+    const res = await fetch('/api/account/export')
+    if (res.ok) {
+      const blob = await res.blob()
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href = url
+      a.download = `mina-uppgifter-${new Date().toISOString().slice(0,10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    }
+    setExportLoading(false)
+  }
+
+  const deleteAccount = async () => {
+    setDelLoading(true)
+    setDelErr('')
+    const res = await fetch('/api/account/delete', { method: 'DELETE' })
+    if (!res.ok) {
+      const d = await res.json()
+      setDelErr(d.error ?? 'Något gick fel.')
+      setDelLoading(false)
+      return
+    }
+    onDeleted()
+  }
+
+  return (
+    <>
+      <div className="section-label" style={{ marginTop: 24 }}>Integritet & GDPR</div>
+      <div style={{ background: '#fff', border: '1px solid rgba(125,0,55,0.1)', borderRadius: 16, padding: 20, marginBottom: 16 }}>
+        <p style={{ fontSize: 13, color: '#5F5E5A', marginBottom: 16, lineHeight: 1.6 }}>
+          Enligt GDPR har du rätt att få ut dina uppgifter och att bli raderad ur systemet.
+        </p>
+
+        {/* Exportera data */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, borderBottom: '1px solid rgba(0,0,0,0.06)', marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#000' }}>Exportera mina uppgifter</div>
+            <div style={{ fontSize: 12, color: '#5F5E5A', marginTop: 2 }}>Ladda ned allt vi har sparat om dig (JSON)</div>
+          </div>
+          <button className="btn btn-secondary" onClick={exportData} disabled={exportLoading}>
+            {exportLoading ? 'Hämtar...' : '⬇ Exportera'}
+          </button>
+        </div>
+
+        {/* Länk till integritetspolicy */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, borderBottom: '1px solid rgba(0,0,0,0.06)', marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#000' }}>Integritetspolicy</div>
+            <div style={{ fontSize: 12, color: '#5F5E5A', marginTop: 2 }}>Läs om hur vi hanterar dina personuppgifter</div>
+          </div>
+          <a href="/integritetspolicy" target="_blank" className="btn btn-secondary" style={{ textDecoration: 'none' }}>
+            Läs →
+          </a>
+        </div>
+
+        {/* Radera konto */}
+        {!delConfirm ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#7D0037' }}>Radera mitt konto</div>
+              <div style={{ fontSize: 12, color: '#5F5E5A', marginTop: 2 }}>Tar bort all din data permanent</div>
+            </div>
+            <button className="btn btn-danger" onClick={() => setDelConfirm(true)}>🗑 Radera</button>
+          </div>
+        ) : (
+          <div style={{ background: '#FFC3AA', border: '1px solid #FF785A', borderRadius: 12, padding: 16 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#7D0037', marginBottom: 6 }}>⚠ Är du helt säker?</div>
+            <p style={{ fontSize: 13, color: '#5F5E5A', marginBottom: 14 }}>
+              Ditt konto, alla bokningar och personuppgifter raderas permanent. Det går inte att ångra.
+            </p>
+            {delErr && <div className="alert alert-red" style={{ marginBottom: 10 }}>{delErr}</div>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-secondary" onClick={() => setDelConfirm(false)}>Avbryt</button>
+              <button className="btn btn-danger" onClick={deleteAccount} disabled={delLoading}>
+                {delLoading ? 'Raderar...' : '🗑 Ja, radera mitt konto'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   )
 }

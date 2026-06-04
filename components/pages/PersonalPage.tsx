@@ -5,7 +5,7 @@ import { gLabel, gCls, roleLabel, ini2, PersonData } from '@/lib/appData'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 
 function InvitePersonModal() {
-  const { churches, isPAdmin, u, inviteUser, closeModal, currentChurchId } = useApp()
+  const { churches, isPAdmin, isSuperAdmin, u, inviteUser, closeModal, currentChurchId } = useApp()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState('ideell')
@@ -40,7 +40,7 @@ function InvitePersonModal() {
           <select value={role} onChange={e => setRole(e.target.value)}>
             <option value="ideell">Ideell</option>
             <option value="anstalld">Anställd</option>
-            {isPAdmin() && <><option value="fadmin">Församlingsadmin</option><option value="padmin">Pastoratsadmin</option></>}
+            {(isPAdmin() || isSuperAdmin()) && <><option value="fadmin">Församlingsadmin</option><option value="padmin">Pastoratsadmin</option></>}
           </select>
         </div>
         <div className="form-field">
@@ -87,7 +87,7 @@ function AddPersonModal({ defaultRole = 'ideell' }: { defaultRole?: string }) {
           <select value={role} onChange={e => setRole(e.target.value)}>
             <option value="ideell">Ideell</option>
             <option value="anstalld">Anställd</option>
-            {isPAdmin() && <><option value="fadmin">Församlingsadmin</option><option value="padmin">Pastoratsadmin</option></>}
+            {(isPAdmin() || isSuperAdmin()) && <><option value="fadmin">Församlingsadmin</option><option value="padmin">Pastoratsadmin</option></>}
           </select>
         </div>
         <div className="form-field">
