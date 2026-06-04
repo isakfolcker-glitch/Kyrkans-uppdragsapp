@@ -221,14 +221,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       })))
     }
 
-    // Hämta pass
+    // Hämta pass — superadmin/padmin hämtar alla, fadmin/övriga bara sin kyrka
     const churchId = prof.church_id
-    if (churchId) {
-      const { data: passData } = await supabase
+    const isGlobalAdmin = ['pastorat', 'super'].includes(prof.admin_level)
+    if (churchId || isGlobalAdmin) {
+      let passQuery = supabase
         .from('passes')
         .select('*, pass_groups(group_id), pass_responsible(profile_id), bookings(id, name, ini, av_color, ac_color, mail, tel, source, no_account, profile_id), pass_history(entry), waitlist(id)')
-        .eq('church_id', churchId)
         .order('created_at', { ascending: false })
+      if (!isGlobalAdmin && churchId) passQuery = passQuery.eq('church_id', churchId)
+      const { data: passData } = await passQuery
       if (passData) {
         setPasses(passData.map((p: any) => ({
           id: p.id, church: p.church_id, title: p.title,
