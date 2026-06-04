@@ -305,7 +305,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const canMakePAdmin = () => isPAdmin() || isSuperAdmin()
   const canMakeFAdmin = (c: number) => isPAdmin() || isSuperAdmin() || (isFAdmin() && (users[userIndex]?.churches ?? []).includes(c))
 
-  const currentChurchId = () => isPAdmin() ? activeChurch : effectiveChurchId
+  const currentChurchId = () => isPAdmin() ? (churches[activeChurch]?.id ?? activeChurch) : effectiveChurchId
 
   // ─── Actions ──────────────────────────────────────
   const cycleUser = () => {
