@@ -35,7 +35,7 @@ const NO_PERMS: StaffPerms = {
 
 interface AppCtx {
   userIndex: number; page: string; passes: PassData[]; people: PersonData[]
-  messages: MessageData[]; notifications: NotifData[]; selfBookings: Record<number, boolean>
+  messages: MessageData[]; notifications: NotifData[]; selfBookings: Record<number, boolean>; selfWaitlist: Record<number, boolean>
   activeChurch: number; groupFilter: string; modal: ReactNode | null
   groups: Group[]; churches: Church[]; pastorat: PastoratData[]; users: UserDef[]
   currentUser: any; profile: any; loadingAuth: boolean; staffPerms: StaffPerms
@@ -55,6 +55,7 @@ interface AppCtx {
   cycleUser: () => void; goTo: (p: string) => void; setChurch: (i: number) => void
   setFilter: (f: string) => void; showModal: (content: ReactNode) => void; closeModal: () => void
   doBook: (id: number) => void; doUnbook: (id: number) => void
+  joinWaitlist: (id: number) => void; leaveWaitlist: (id: number) => void
   publishNow: (id: number) => void; toggleAvail: () => void
   updateUserNotif: (key: string, val: boolean) => void
   addPass: (p: PassData) => Promise<void>; updatePass: (p: PassData) => void
@@ -93,6 +94,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<MessageData[]>([])
   const [notifications, setNotifications] = useState<NotifData[]>([])
   const [selfBookings, setSelfBookings] = useState<Record<number, boolean>>({})
+  const [selfWaitlist, setSelfWaitlist] = useState<Record<number, boolean>>({})
   const [activeChurch, setActiveChurch] = useState(0)
   const [groupFilter, setGroupFilter] = useState('alla')
   const [modal, setModal] = useState<ReactNode | null>(null)
@@ -153,6 +155,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } else {
         setStaffPerms(NO_PERMS)
       }
+      // Hämta kö-anmälningar
+      const { data: waitlistData } = await supabase.from('waitlist').select('pass_id').eq('profile_id', userId)
+      if (waitlistData) {
+        const wl: Record<number, boolean> = {}
+        waitlistData.forEach((w: any) => { wl[w.pass_id] = true })
+        setSelfWaitlist(wl)
+      }
       // Hämta notiser
       const { data: notifData } = await supabase
         .from('notifications')
@@ -209,7 +218,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (churchId) {
       const { data: passData } = await supabase
         .from('passes')
-        .select('*, pass_groups(group_id), pass_responsible(profile_id), bookings(id, name, ini, av_color, ac_color, mail, tel, source, no_account, profile_id), pass_history(entry)')
+        .select('*, pass_groups(group_id), pass_responsible(profile_id), bookings(id, name, ini, av_color, ac_color, mail, tel, source, no_account, profile_id), pass_history(entry), waitlist(id)')
         .eq('church_id', churchId)
         .order('created_at', { ascending: false })
       if (passData) {
@@ -228,6 +237,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             source: b.source, noAccount: b.no_account, mail: b.mail, tel: b.tel,
           })) || [],
           history: p.pass_history?.map((h: any) => h.entry) || [],
+          waitlistCount: p.waitlist?.length ?? 0,
         })))
       }
     }
@@ -313,6 +323,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const doUnbook = (id: number) => {
     setPasses(prev => prev.map(p => p.id === id ? { ...p, filled: Math.max(0, p.filled - 1) } : p))
     setSelfBookings(prev => { const n = { ...prev }; delete n[id]; return n })
+  }
+  const joinWaitlist = (id: number) => {
+    setSelfWaitlist(prev => ({ ...prev, [id]: true }))
+    fetch('/api/waitlist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pass_id: id }) })
+      .then(r => { if (!r.ok) { setSelfWaitlist(prev => { const n = { ...prev }; delete n[id]; return n }) } })
+  }
+  const leaveWaitlist = (id: number) => {
+    setSelfWaitlist(prev => { const n = { ...prev }; delete n[id]; return n })
+    fetch('/api/waitlist', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pass_id: id }) })
   }
   const publishNow = (id: number) => {
     setPasses(prev => prev.map(p => p.id === id ? { ...p, pubStatus: 'live', pubDate: '', history: [...p.history, 'Publicerades manuellt – Idag'] } : p))
@@ -414,7 +433,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider value={{
-      userIndex, page, passes, people, messages, notifications, selfBookings,
+      userIndex, page, passes, people, messages, notifications, selfBookings, selfWaitlist,
       activeChurch, groupFilter, modal, groups, churches, pastorat, users,
       currentUser, profile, loadingAuth, staffPerms,
       u, isIdeell, isAnstalld, isFAdmin, isPAdmin, isSuperAdmin, isAdmin, isKiosk,
@@ -422,7 +441,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       canEditPass, canCancelPass, canDeletePass, canCreatePass, canManage,
       canMakePAdmin, canMakeFAdmin, perm,
       cycleUser, goTo, setChurch, setFilter, showModal, closeModal,
-      doBook, doUnbook, publishNow, toggleAvail, updateUserNotif,
+      doBook, doUnbook, joinWaitlist, leaveWaitlist, publishNow, toggleAvail, updateUserNotif,
       addPass, updatePass, deletePass, cancelPass, addBooking, removeBooking,
       addPerson, updatePerson, deletePerson, addMessage,
       addChurch, updateChurch, deleteChurch,

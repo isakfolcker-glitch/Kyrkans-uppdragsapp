@@ -135,6 +135,28 @@ export async function sendPassReminder(opts: {
   `)
 }
 
+export async function sendWaitlistPromotion(opts: {
+  to: string; name: string; passTitle: string; date: string; time: string; plats: string; vk: string; tel: string
+}) {
+  return send(opts.to, `Du har fått en plats: ${opts.passTitle}`, `
+    <div style="font-family:sans-serif;max-width:500px;margin:0 auto">
+      <div style="background:#085041;padding:20px;border-radius:12px 12px 0 0">
+        <h2 style="color:#fff;margin:0">Du har fått en plats!</h2>
+      </div>
+      <div style="background:#F0FAF6;padding:20px;border-radius:0 0 12px 12px">
+        <p style="color:#000">Hej ${opts.name}! En plats har öppnats upp och du var först i kön.</p>
+        <div style="background:#fff;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #085041">
+          <strong style="font-size:16px;color:#000">${opts.passTitle}</strong><br>
+          <span style="color:#5F5E5A">📅 ${opts.date} &nbsp;🕐 ${opts.time}</span><br>
+          <span style="color:#5F5E5A">📍 ${opts.plats}</span>
+        </div>
+        <p style="color:#5F5E5A">Vakmästare: <strong>${opts.vk}</strong>${opts.tel ? ' – ' + opts.tel : ''}</p>
+        <p style="color:#888;font-size:12px">Kyrkans uppdragsapp</p>
+      </div>
+    </div>
+  `)
+}
+
 export async function sendInvitation(opts: {
   to: string; name: string; inviterName: string; inviteUrl: string; role: string
 }) {

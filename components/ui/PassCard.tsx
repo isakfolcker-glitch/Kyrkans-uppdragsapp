@@ -16,14 +16,22 @@ function Dots({ spots, filled }: { spots: number; filled: number }) {
   )
 }
 
-function SpotsText({ pass }: { pass: PassData }) {
-  if (pass.filled >= pass.spots) return <div className="spots-txt spots-full">Fullbokat</div>
+function SpotsText({ pass, adminMode }: { pass: PassData; adminMode?: boolean }) {
+  if (pass.filled >= pass.spots) {
+    const wl = pass.waitlistCount ?? 0
+    return (
+      <div>
+        <div className="spots-txt spots-full">Fullbokat</div>
+        {wl > 0 && <div style={{ fontSize: 11, color: '#085041', marginTop: 2 }}>⏳ {wl} i kö{adminMode ? '' : ''}</div>}
+      </div>
+    )
+  }
   const left = pass.spots - pass.filled
   return <div className={`spots-txt ${left === 1 ? 'spots-low' : 'spots-ok'}`}>{left} plats{left !== 1 ? 'er' : ''} kvar</div>
 }
 
 function BookBtn({ pass }: { pass: PassData }) {
-  const { selfBookings, doBook, doUnbook, u } = useApp()
+  const { selfBookings, selfWaitlist, doBook, doUnbook, joinWaitlist, leaveWaitlist, u } = useApp()
   if (pass.cancelled) return <span className="btn btn-disabled">Inställt</span>
   if (selfBookings[pass.id]) return (
     <div style={{ display: 'flex', gap: 6 }}>
@@ -31,7 +39,16 @@ function BookBtn({ pass }: { pass: PassData }) {
       <button className="btn btn-warn btn-sm" onClick={() => doUnbook(pass.id)}>Avboka</button>
     </div>
   )
-  if (pass.filled >= pass.spots) return <span className="btn btn-disabled">Fullbokat</span>
+  if (selfWaitlist[pass.id]) return (
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+      <span className="btn btn-disabled" style={{ background: '#F0FAF6', color: '#085041', border: '1.5px solid #085041' }}>⏳ I kön</span>
+      <button className="btn btn-warn btn-sm" onClick={() => leaveWaitlist(pass.id)}>Lämna kön</button>
+    </div>
+  )
+  if (pass.filled >= pass.spots) {
+    if (!u().available) return <span className="btn btn-disabled">Otillgänglig</span>
+    return <button className="btn btn-secondary" onClick={() => joinWaitlist(pass.id)}>⏳ Ställ dig i kön</button>
+  }
   if (!u().available) return <span className="btn btn-disabled">Otillgänglig</span>
   return <button className="btn btn-primary" onClick={() => doBook(pass.id)}>Jag tar passet</button>
 }
@@ -110,7 +127,7 @@ export default function PassCard({ pass, adminMode }: { pass: PassData; adminMod
       )}
 
       <div className="pass-footer">
-        <div><Dots spots={pass.spots} filled={pass.filled} /><SpotsText pass={pass} /></div>
+        <div><Dots spots={pass.spots} filled={pass.filled} /><SpotsText pass={pass} adminMode={adminMode} /></div>
         <div className="pass-actions">
           {adminMode ? (
             <>

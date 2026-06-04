@@ -19,7 +19,7 @@ export interface PassData {
   vk: string; tel: string; desc: string; cancelled: boolean
   pubStatus: 'live' | 'scheduled'; pubDate: string; kioskVisible: boolean
   responsibleUserIds: any[]; bookings: BookingData[]; history: string[]
-  importRef?: string
+  importRef?: string; waitlistCount?: number
 }
 export interface MessageData { id: any; from: string; to: string; toCount: number; subject: string; body: string; sentAt: string }
 export interface NotifData { id: any; userId: any; type: string; title: string; body: string; time: string; read: boolean }

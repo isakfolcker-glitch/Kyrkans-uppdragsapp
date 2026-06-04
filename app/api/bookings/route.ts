@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendBookingConfirmation } from '@/lib/email'
+import { promoteFromWaitlist } from '@/app/api/waitlist/route'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -57,5 +58,9 @@ export async function DELETE(req: NextRequest) {
 
   const { error } = await supabase.from('bookings').delete().eq('id', booking_id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Promote first person in waitlist if spot opened
+  await promoteFromWaitlist(booking.pass_id).catch(() => {})
+
   return NextResponse.json({ ok: true })
 }
