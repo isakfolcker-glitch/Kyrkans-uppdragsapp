@@ -66,7 +66,7 @@ interface AppCtx {
   addChurch: (c: Church) => void; updateChurch: (idx: number, c: Church) => void
   deleteChurch: (idx: number) => void
   addPastorat: (p: PastoratData) => Promise<void>; updatePastorat: (p: PastoratData) => Promise<void>
-  deletePastorat: (id: number) => Promise<void>; addGroup: (g: Group) => void
+  deletePastorat: (id: number) => Promise<void>; addGroup: (g: Group) => void; deleteGroup: (id: string) => void
   nextPersonId: () => number; nextPassId: () => number; nextPastoratId: () => number
   getResponsibleNames: (pass: PassData) => string; currentChurchId: () => number
   logout: () => void; inviteUser: (email: string, name: string, role: string, churchId: number) => Promise<void>
@@ -385,6 +385,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPastorat(prev => prev.filter(x => x.id !== id))
   }
   const addGroup     = (g: Group)      => setGroups(prev => [...prev, g])
+  const deleteGroup  = (id: string)    => setGroups(prev => prev.filter(g => g.id !== id))
 
   const updateStaffPerms = async (profileId: string, perms: StaffPerms) => {
     const { error } = await supabase.from('staff_permissions').upsert({
@@ -421,7 +422,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addPass, updatePass, deletePass, cancelPass, addBooking, removeBooking,
       addPerson, updatePerson, deletePerson, addMessage,
       addChurch, updateChurch, deleteChurch,
-      addPastorat, updatePastorat, deletePastorat, addGroup,
+      addPastorat, updatePastorat, deletePastorat, addGroup, deleteGroup,
       nextPersonId, nextPassId, nextPastoratId, updateStaffPerms,
       getResponsibleNames, currentChurchId, logout, inviteUser,
     }}>
