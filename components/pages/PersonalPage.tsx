@@ -9,7 +9,7 @@ function InvitePersonModal() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState('ideell')
-  const [churchIdx, setChurchIdx] = useState(currentChurchId())
+  const [churchId, setChurchId] = useState(currentChurchId())
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
   const [err, setErr] = useState('')
@@ -17,7 +17,7 @@ function InvitePersonModal() {
     if (!name.trim() || !email.trim()) { setErr('Namn och e-post krävs'); return }
     setLoading(true); setErr('')
     try {
-      await inviteUser(email.trim(), name.trim(), role, churchIdx)
+      await inviteUser(email.trim(), name.trim(), role, churchId)
       setDone(true)
     } catch (e: any) { setErr(e.message) }
     setLoading(false)
@@ -45,8 +45,8 @@ function InvitePersonModal() {
         </div>
         <div className="form-field">
           <label>Församling</label>
-          <select value={churchIdx} onChange={e => setChurchIdx(parseInt(e.target.value))}>
-            {churches.map((c, i) => <option key={i} value={i}>{c.name}</option>)}
+          <select value={churchId} onChange={e => setChurchId(parseInt(e.target.value))}>
+            {churches.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
       </div>
@@ -65,16 +65,17 @@ function AddPersonModal({ defaultRole = 'ideell' }: { defaultRole?: string }) {
   const [mail, setMail] = useState('')
   const [tel, setTel] = useState('')
   const [role, setRole] = useState(defaultRole)
-  const [churchIdx, setChurchIdx] = useState(isPAdmin() ? 0 : u().churches[0] ?? 0)
+  const defaultChurchId = (isPAdmin() || isSuperAdmin()) ? (churches[0]?.id ?? 0) : (churches.find(c => c.id === u().churches[0])?.id ?? churches[0]?.id ?? 0)
+  const [churchId, setChurchId] = useState(defaultChurchId)
   const [selGroups, setSelGroups] = useState<string[]>([])
   const toggleGroup = (id: string) => setSelGroups(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   const save = () => {
     if (!name.trim()) { alert('Namn krävs'); return }
     const adminLevel = role === 'padmin' ? 'pastorat' : role === 'fadmin' ? 'forsamling' : 'none'
-    addPerson({ id: nextPersonId(), name: name.trim(), mail, phone: tel, ini: ini2(name), av: '#EEEDFE', ac: '#3C3489', church: churchIdx, groups: selGroups, role: role as any, isEmployee: role !== 'ideell', adminLevel: adminLevel as any, available: true })
+    addPerson({ id: nextPersonId(), name: name.trim(), mail, phone: tel, ini: ini2(name), av: '#EEEDFE', ac: '#3C3489', church: churchId, groups: selGroups, role: role as any, isEmployee: role !== 'ideell', adminLevel: adminLevel as any, available: true })
     closeModal()
   }
-  const churchOpts = isPAdmin() ? churches.map((c, i) => ({ i, n: c.name })) : u().churches.map(i => ({ i, n: churches[i]?.name ?? '' }))
+  const churchOpts = (isPAdmin() || isSuperAdmin()) ? churches : churches.filter(c => c.id !== undefined && u().churches.includes(c.id as number))
   return (
     <>
       <div className="modal-title">👤 Lägg till person</div>
@@ -92,8 +93,8 @@ function AddPersonModal({ defaultRole = 'ideell' }: { defaultRole?: string }) {
         </div>
         <div className="form-field">
           <label>Församling</label>
-          <select value={churchIdx} onChange={e => setChurchIdx(parseInt(e.target.value))}>
-            {churchOpts.map(({ i, n }) => <option key={i} value={i}>{n}</option>)}
+          <select value={churchId} onChange={e => setChurchId(parseInt(e.target.value))}>
+            {churchOpts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
       </div>
