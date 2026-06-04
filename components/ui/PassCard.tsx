@@ -39,12 +39,17 @@ function BookBtn({ pass }: { pass: PassData }) {
       <button className="btn btn-warn btn-sm" onClick={() => doUnbook(pass.id)}>Avboka</button>
     </div>
   )
-  if (selfWaitlist[pass.id]) return (
-    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-      <span className="btn btn-disabled" style={{ background: '#F0FAF6', color: '#085041', border: '1.5px solid #085041' }}>⏳ I kön</span>
-      <button className="btn btn-warn btn-sm" onClick={() => leaveWaitlist(pass.id)}>Lämna kön</button>
-    </div>
-  )
+  if (selfWaitlist[pass.id]) {
+    const pos = selfWaitlist[pass.id]
+    return (
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <span style={{ background: '#F0FAF6', color: '#085041', border: '1.5px solid #085041', borderRadius: 10, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>
+          ⏳ #{pos} i kön
+        </span>
+        <button className="btn btn-warn btn-sm" onClick={() => leaveWaitlist(pass.id)}>Lämna kön</button>
+      </div>
+    )
+  }
   if (pass.filled >= pass.spots) {
     if (!u().available) return <span className="btn btn-disabled">Otillgänglig</span>
     return <button className="btn btn-secondary" onClick={() => joinWaitlist(pass.id)}>⏳ Ställ dig i kön</button>

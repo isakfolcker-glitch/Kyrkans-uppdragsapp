@@ -35,7 +35,7 @@ const NO_PERMS: StaffPerms = {
 
 interface AppCtx {
   userIndex: number; page: string; passes: PassData[]; people: PersonData[]
-  messages: MessageData[]; notifications: NotifData[]; selfBookings: Record<number, boolean>; selfWaitlist: Record<number, boolean>
+  messages: MessageData[]; notifications: NotifData[]; selfBookings: Record<number, boolean>; selfWaitlist: Record<number, number>
   activeChurch: number; groupFilter: string; modal: ReactNode | null
   groups: Group[]; churches: Church[]; pastorat: PastoratData[]; users: UserDef[]
   currentUser: any; profile: any; loadingAuth: boolean; staffPerms: StaffPerms
@@ -94,7 +94,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<MessageData[]>([])
   const [notifications, setNotifications] = useState<NotifData[]>([])
   const [selfBookings, setSelfBookings] = useState<Record<number, boolean>>({})
-  const [selfWaitlist, setSelfWaitlist] = useState<Record<number, boolean>>({})
+  const [selfWaitlist, setSelfWaitlist] = useState<Record<number, number>>({})
   const [activeChurch, setActiveChurch] = useState(0)
   const [groupFilter, setGroupFilter] = useState('alla')
   const [modal, setModal] = useState<ReactNode | null>(null)
@@ -155,12 +155,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } else {
         setStaffPerms(NO_PERMS)
       }
-      // Hämta kö-anmälningar
-      const { data: waitlistData } = await supabase.from('waitlist').select('pass_id').eq('profile_id', userId)
-      if (waitlistData) {
-        const wl: Record<number, boolean> = {}
-        waitlistData.forEach((w: any) => { wl[w.pass_id] = true })
-        setSelfWaitlist(wl)
+      // Hämta kö-anmälningar och position
+      const { data: myWaitlist } = await supabase.from('waitlist').select('pass_id, created_at').eq('profile_id', userId)
+      if (myWaitlist?.length) {
+        const passIds = myWaitlist.map((w: any) => w.pass_id)
+        const { data: allWl } = await supabase.from('waitlist').select('pass_id, profile_id, created_at').in('pass_id', passIds).order('created_at')
+        const positions: Record<number, number> = {}
+        if (allWl) {
+          passIds.forEach((pid: number) => {
+            const entries = allWl.filter((e: any) => e.pass_id === pid)
+            const idx = entries.findIndex((e: any) => e.profile_id === userId)
+            if (idx !== -1) positions[pid] = idx + 1
+          })
+        }
+        setSelfWaitlist(positions)
       }
       // Hämta notiser
       const { data: notifData } = await supabase
@@ -325,9 +333,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSelfBookings(prev => { const n = { ...prev }; delete n[id]; return n })
   }
   const joinWaitlist = (id: number) => {
-    setSelfWaitlist(prev => ({ ...prev, [id]: true }))
+    // Optimistisk position = antal i kön + 1
+    const pass = passes.find(p => p.id === id)
+    const optimisticPos = (pass?.waitlistCount ?? 0) + 1
+    setSelfWaitlist(prev => ({ ...prev, [id]: optimisticPos }))
+    setPasses(prev => prev.map(p => p.id === id ? { ...p, waitlistCount: (p.waitlistCount ?? 0) + 1 } : p))
     fetch('/api/waitlist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pass_id: id }) })
-      .then(r => { if (!r.ok) { setSelfWaitlist(prev => { const n = { ...prev }; delete n[id]; return n }) } })
+      .then(r => { if (!r.ok) { setSelfWaitlist(prev => { const n = { ...prev }; delete n[id]; return n }); setPasses(prev => prev.map(p => p.id === id ? { ...p, waitlistCount: Math.max(0, (p.waitlistCount ?? 1) - 1) } : p)) } })
   }
   const leaveWaitlist = (id: number) => {
     setSelfWaitlist(prev => { const n = { ...prev }; delete n[id]; return n })
