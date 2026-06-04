@@ -154,7 +154,7 @@ function EditPersonModal({ personId }: { personId: number }) {
 }
 
 export default function PersonalPage() {
-  const { people, churches, isPAdmin, u, activeChurch, setChurch, showModal, deletePerson, currentChurchId } = useApp()
+  const { people, churches, groups, isPAdmin, u, activeChurch, setChurch, showModal, deletePerson, currentChurchId } = useApp()
   const [search, setSearch] = useState('')
   const cid = currentChurchId()
   const all = people.filter(p => p.church === cid && (p as any).role !== 'guest')
@@ -208,7 +208,7 @@ export default function PersonalPage() {
                     {!p.available && <span className="role-tag" style={{ background: '#FCEBEB', color: '#791F1F', marginLeft: 4 }}>Otillgänglig</span>}
                   </div>
                   <div className="person-email">{p.mail}</div>
-                  <div className="person-tags">{p.groups.map(g => <span key={g} className={`tag ${gCls(g)}`}>{gLabel(g)}</span>)}</div>
+                  <div className="person-tags">{p.groups.map(g => <span key={g} className={`tag ${gCls(g, groups)}`}>{gLabel(g, groups)}</span>)}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button className="btn btn-secondary btn-sm" onClick={() => showModal(<EditPersonModal personId={p.id} />)}>✏️</button>

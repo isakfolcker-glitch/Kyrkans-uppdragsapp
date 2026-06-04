@@ -62,7 +62,7 @@ export default function PassPage() {
 }
 
 function AdminPassPage() {
-  const { passes, isPAdmin, churches, activeChurch, setChurch, showModal, currentChurchId, groups } = useApp()
+  const { passes, isPAdmin, isSuperAdmin, churches, activeChurch, setChurch, showModal, currentChurchId, groups } = useApp()
   const [search, setSearch] = useState('')
   const [groupFilter, setGroupFilter] = useState('alla')
   const cid = currentChurchId()
@@ -88,7 +88,7 @@ function AdminPassPage() {
         <button className="btn btn-primary" onClick={() => showModal(<NewPassModal />)}>+ Nytt pass</button>
       </div>
 
-      {isPAdmin() && (
+      {(isPAdmin() || isSuperAdmin()) && (
         <div className="church-bar">
           {churches.map((c, i) => (
             <button key={i} className={`church-btn${activeChurch === i ? ' on' : ''}`} onClick={() => setChurch(i)}>{c.name}</button>

@@ -400,7 +400,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPasses(prev => prev.map(p => p.id === passId ? { ...p, bookings: p.bookings.filter((_, i) => i !== idx), filled: Math.max(0, p.filled - 1) } : p))
   }
   const addPerson    = (p: PersonData) => setPeople(prev => [...prev, p])
-  const updatePerson = (p: PersonData) => setPeople(prev => prev.map(x => x.id === p.id ? p : x))
+  const updatePerson = (p: PersonData) => {
+    setPeople(prev => prev.map(x => x.id === p.id ? p : x))
+    fetch(`/api/people/${p.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groups: p.groups }),
+    }).catch(() => {})
+  }
   const deletePerson = (id: number)    => setPeople(prev => prev.filter(x => x.id !== id))
   const addMessage   = (m: MessageData) => setMessages(prev => [m, ...prev])
   const addChurch    = (c: Church)     => setChurches(prev => [...prev, c])
