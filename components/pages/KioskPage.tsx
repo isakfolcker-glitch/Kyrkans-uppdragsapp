@@ -71,7 +71,7 @@ function KioskBookModal({ passId, onSuccess }: { passId: number; onSuccess: () =
 }
 
 export default function KioskPage() {
-  const { passes, showModal, closeModal, activeChurch } = useApp()
+  const { passes, churches, showModal, closeModal, activeChurch } = useApp()
 
   const visible = passes.filter(p =>
     p.pubStatus === 'live' &&
