@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useApp } from '@/lib/appStore'
+import { createClient } from '@/lib/supabase/client'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 
 
@@ -18,21 +19,20 @@ function NewGroupModal({ defaultChurchId }: { defaultChurchId: number }) {
   const { closeModal, addGroup, churches } = useApp()
   const [label, setLabel] = useState('')
   const [color, setColor] = useState('tag-extra')
-  const [churchIdx, setChurchIdx] = useState(defaultChurchId)
+  const [churchId, setChurchId] = useState(defaultChurchId)
   const [loading, setLoading] = useState(false)
 
   const save = async () => {
     if (!label.trim()) { alert('Ange gruppnamn'); return }
     setLoading(true)
-    const res = await fetch('/api/groups', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label: label.trim(), cls: color, church_id: churchIdx }),
-    })
-    const data = await res.json()
-    if (res.ok) {
-      addGroup({ id: data.id, label: data.label, cls: data.cls, churchId: churchIdx })
-    }
+    const id = label.trim().toLowerCase().replace(/[åä]/g, 'a').replace(/ö/g, 'o').replace(/\s+/g, '_') + '_' + Date.now()
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('groups')
+      .insert({ id, label: label.trim(), cls: color, church_id: churchId })
+      .select().single()
+    if (error) { alert('Kunde inte skapa gruppen: ' + error.message); setLoading(false); return }
+    addGroup({ id: data.id, label: data.label, cls: data.cls, churchId })
     setLoading(false)
     closeModal()
   }
@@ -49,8 +49,8 @@ function NewGroupModal({ defaultChurchId }: { defaultChurchId: number }) {
       </div>
       <div className="form-field">
         <label>Kyrka</label>
-        <select value={churchIdx} onChange={e => setChurchIdx(parseInt(e.target.value))}>
-          {churches.map((c, i) => <option key={i} value={i}>{c.name}</option>)}
+        <select value={churchId} onChange={e => setChurchId(parseInt(e.target.value))}>
+          {churches.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </div>
       <div className="modal-footer">
@@ -68,10 +68,10 @@ export default function GrupperPage() {
   const visibleGroups = groups.filter(g => g.churchId === cid)
 
   const handleDelete = async (groupId: string) => {
-    const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}`, { method: 'DELETE' })
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      alert('Kunde inte ta bort gruppen: ' + (data.error ?? res.status))
+    const supabase = createClient()
+    const { error } = await supabase.from('groups').delete().eq('id', groupId)
+    if (error) {
+      alert('Kunde inte ta bort gruppen: ' + error.message)
       closeModal()
       return
     }
