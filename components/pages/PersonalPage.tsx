@@ -60,7 +60,7 @@ function InvitePersonModal() {
 }
 
 function AddPersonModal({ defaultRole = 'ideell' }: { defaultRole?: string }) {
-  const { groups, churches, isPAdmin, u, addPerson, nextPersonId, closeModal } = useApp()
+  const { groups, churches, isPAdmin, isSuperAdmin, u, addPerson, nextPersonId, closeModal } = useApp()
   const [name, setName] = useState('')
   const [mail, setMail] = useState('')
   const [tel, setTel] = useState('')
