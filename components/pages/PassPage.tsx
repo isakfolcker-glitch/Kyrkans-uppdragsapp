@@ -83,7 +83,7 @@ function AdminPassPage() {
       <div className="page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h1 className="page-title">Pass</h1>
-          <p className="page-sub">{churches[cid]?.name}</p>
+          <p className="page-sub">{churches.find(c => c.id === cid)?.name}</p>
         </div>
         <button className="btn btn-primary" onClick={() => showModal(<NewPassModal />)}>+ Nytt pass</button>
       </div>

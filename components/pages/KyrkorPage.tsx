@@ -101,10 +101,11 @@ export default function KyrkorPage() {
       )}
 
       {churches.map((c, i) => {
-        const passCount = passes.filter(p => p.church === i && !p.cancelled && p.pubStatus === 'live').length
-        const peopleCount = people.filter(p => p.church === i && p.role === 'ideell').length
+        const cid = c.id!
+        const passCount = passes.filter(p => p.church === cid && !p.cancelled && p.pubStatus === 'live').length
+        const peopleCount = people.filter(p => p.church === cid && p.role === 'ideell').length
         return (
-          <div key={i} style={{ background: '#fff', border: '1px solid #D3D1C7', borderRadius: 12, padding: '14px 16px', marginBottom: 10 }}>
+          <div key={cid} style={{ background: '#fff', border: '1px solid #D3D1C7', borderRadius: 12, padding: '14px 16px', marginBottom: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 36, height: 36, background: '#EEEDFE', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#534AB7', fontSize: 18, flexShrink: 0 }}>⛪</div>
@@ -114,14 +115,14 @@ export default function KyrkorPage() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
-                <button className="btn btn-secondary btn-sm" onClick={() => showModal(<EditChurchModal idx={i} churchId={i + 1} />)}>✏️ Redigera</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => showModal(<EditChurchModal idx={i} churchId={cid} />)}>✏️ Redigera</button>
                 <button className="btn btn-danger btn-sm" onClick={() => showModal(
                   <ConfirmModal
                     title={`Ta bort ${c.name}?`}
-                    sub={`${passes.filter(p => p.church === i).length} pass och ${people.filter(p => p.church === i).length} personer är kopplade. Det går inte att ångra.`}
+                    sub={`${passes.filter(p => p.church === cid).length} pass och ${people.filter(p => p.church === cid).length} personer är kopplade. Det går inte att ångra.`}
                     confirmLabel="Ta bort"
                     onConfirm={async () => {
-                      await fetch(`/api/churches/${i + 1}`, { method: 'DELETE' })
+                      await fetch(`/api/churches/${cid}`, { method: 'DELETE' })
                       deleteChurch(i)
                     }}
                   />

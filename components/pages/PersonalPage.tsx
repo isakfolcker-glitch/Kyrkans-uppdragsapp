@@ -169,7 +169,7 @@ export default function PersonalPage() {
       <div className="page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h1 className="page-title">Personal</h1>
-          <p className="page-sub">{churches[cid]?.name}</p>
+          <p className="page-sub">{churches.find(c => c.id === cid)?.name}</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="btn btn-secondary" onClick={() => showModal(<InvitePersonModal />)}>✉ Bjud in</button>

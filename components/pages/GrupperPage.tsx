@@ -84,7 +84,7 @@ export default function GrupperPage() {
       <div className="page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h1 className="page-title">Grupper</h1>
-          <p className="page-sub">{churches[cid]?.name ?? 'Alla kyrkor'}</p>
+          <p className="page-sub">{churches.find(c => c.id === cid)?.name ?? 'Alla kyrkor'}</p>
         </div>
         <button className="btn btn-primary" onClick={() => showModal(<NewGroupModal defaultChurchId={cid} />)}>+ Ny grupp</button>
       </div>
@@ -101,7 +101,7 @@ export default function GrupperPage() {
 
       {visibleGroups.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem', color: '#888780' }}>
-          Inga grupper för {churches[cid]?.name ?? 'denna kyrka'} ännu.<br />
+          Inga grupper för {churches.find(c => c.id === cid)?.name ?? 'denna kyrka'} ännu.<br />
           <button className="btn btn-primary" style={{ marginTop: 14 }} onClick={() => showModal(<NewGroupModal defaultChurchId={cid} />)}>
             + Skapa första gruppen
           </button>

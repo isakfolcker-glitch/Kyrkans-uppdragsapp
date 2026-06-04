@@ -129,13 +129,13 @@ export default function ForsamlingarPage() {
       )}
 
       {churches.map((c, i) => {
-        const forsamlingId = i + 1 // Supabase ID (1-baserat)
-        const passCount = passes.filter(p => p.church === i && !p.cancelled && p.pubStatus === 'live').length
-        const peopleCount = people.filter(p => p.church === i && p.role === 'ideell').length
+        const forsamlingId = c.id!
+        const passCount = passes.filter(p => p.church === forsamlingId && !p.cancelled && p.pubStatus === 'live').length
+        const peopleCount = people.filter(p => p.church === forsamlingId && p.role === 'ideell').length
         const byggn = kyrkorMap[forsamlingId] || []
 
         return (
-          <div key={i} style={{ background: '#fff', border: '1px solid #D3D1C7', borderRadius: 12, padding: '16px', marginBottom: 12 }}>
+          <div key={forsamlingId} style={{ background: '#fff', border: '1px solid #D3D1C7', borderRadius: 12, padding: '16px', marginBottom: 12 }}>
             {/* Församlingshuvud */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

@@ -29,7 +29,7 @@ export default function ExporteraPage() {
   const exportPeopleCSV = () => {
     const rows = [
       ['Namn', 'E-post', 'Telefon', 'Roll', 'Kyrka'],
-      ...churchPeople.map(p => [p.name, p.mail || '', p.phone || '', p.role, churches[p.church]?.name || '']),
+      ...churchPeople.map(p => [p.name, p.mail || '', p.phone || '', p.role, churches.find(c => c.id === p.church)?.name || '']),
     ]
     downloadCSV(`personal-${new Date().toISOString().slice(0,10)}.csv`, rows)
   }

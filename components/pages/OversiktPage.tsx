@@ -162,9 +162,9 @@ export default function OversiktPage() {
           <div className="section-label">Alla församlingar</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {churches.map((c, i) => {
-              const aktiva = passes.filter(x => x.church === i && !x.cancelled && x.pubStatus === 'live').length
+              const aktiva = passes.filter(x => x.church === c.id && !x.cancelled && x.pubStatus === 'live').length
               return (
-                <div key={i} style={{
+                <div key={c.id ?? i} style={{
                   background: '#fff', border: '1px solid rgba(125,0,55,0.1)',
                   borderRadius: 14, padding: '14px 16px',
                   display: 'flex', alignItems: 'center', gap: 12,
