@@ -276,7 +276,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Använd riktig profil om inloggad, annars demo-användare
   const effectiveAdminLevel = profile?.admin_level ?? users[userIndex]?.adminLevel ?? 'none'
   const effectiveRole = profile?.role ?? users[userIndex]?.role ?? 'ideell'
-  const effectiveChurchId = profile?.church_id ?? users[userIndex]?.churches?.[0] ?? 0
+  const effectiveChurchId = profile?.church_id ?? users[userIndex]?.churches?.[0] ?? churches[0]?.id ?? 0
 
   const u = useCallback(() => users[userIndex], [users, userIndex])
   const isIdeell     = () => effectiveRole === 'ideell'

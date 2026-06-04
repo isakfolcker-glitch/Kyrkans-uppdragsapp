@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
 
   const { email, name, role, church_id } = await req.json()
   if (!email || !name || !role) return NextResponse.json({ error: 'Saknar fält' }, { status: 400 })
+  if (!church_id || isNaN(Number(church_id))) return NextResponse.json({ error: `Ogiltigt kyrk-ID: ${church_id}. Ladda om sidan och försök igen.` }, { status: 400 })
 
   const admin = createAdminClient()
 

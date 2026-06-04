@@ -30,7 +30,12 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { title, church_id, date_str, time_str, plats, spots, vk, tel, description, pub_status, pub_date, kiosk_visible, groups, responsible_ids } = body
 
-  const { data: pass, error } = await supabase.from('passes').insert({
+  if (!church_id || isNaN(Number(church_id))) {
+    return NextResponse.json({ error: `Ogiltigt kyrk-ID: ${church_id}. Ladda om sidan och försök igen.` }, { status: 400 })
+  }
+
+  const admin = createAdminClient()
+  const { data: pass, error } = await admin.from('passes').insert({
     title, church_id, date_str, time_str, plats, spots, vk, tel, description,
     pub_status: pub_status || 'live', pub_date: pub_date || '',
     kiosk_visible: kiosk_visible || false, created_by: user.id,
