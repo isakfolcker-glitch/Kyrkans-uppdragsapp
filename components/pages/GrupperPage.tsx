@@ -27,7 +27,7 @@ function NewGroupModal({ defaultChurchId }: { defaultChurchId: number }) {
     const res = await fetch('/api/groups', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label: label.trim(), cls: color, church_id: churchIdx + 1 }),
+      body: JSON.stringify({ label: label.trim(), cls: color, church_id: churchIdx }),
     })
     const data = await res.json()
     if (res.ok) {
