@@ -403,7 +403,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const addMessage   = (m: MessageData) => setMessages(prev => [m, ...prev])
   const addChurch    = (c: Church)     => setChurches(prev => [...prev, c])
   const updateChurch = (idx: number, c: Church) => setChurches(prev => prev.map((x, i) => i === idx ? c : x))
-  const deleteChurch = (idx: number)   => { setChurches(prev => prev.filter((_, i) => i !== idx)); setPasses(prev => prev.filter(p => p.church !== idx)); setPeople(prev => prev.filter(p => p.church !== idx)) }
+  const deleteChurch = (idx: number)   => { const cid = churches[idx]?.id; setChurches(prev => prev.filter((_, i) => i !== idx)); setPasses(prev => prev.filter(p => p.church !== cid)); setPeople(prev => prev.filter(p => p.church !== cid)) }
   const addPastorat = async (p: PastoratData) => {
     const { data, error } = await supabase.from('pastorat').insert({ name: p.name }).select().single()
     if (error) { alert('Kunde inte spara pastoratet: ' + error.message); return }

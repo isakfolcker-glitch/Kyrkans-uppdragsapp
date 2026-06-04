@@ -78,7 +78,7 @@ export default function KioskPage() {
     !p.cancelled &&
     p.filled < p.spots &&
     p.kioskVisible &&
-    (p.church === activeChurch || p.church === 0)
+    p.church === churches[activeChurch]?.id
   )
 
   const openModal = (passId: number) => {

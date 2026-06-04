@@ -10,7 +10,7 @@ function AddPastoratModal() {
   const [adminId, setAdminId] = useState('')
   const [selChurches, setSelChurches] = useState<number[]>([])
   const employees = people.filter(p => p.isEmployee)
-  const toggleChurch = (i: number) => setSelChurches(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])
+  const toggleChurch = (id: number) => setSelChurches(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   const save = async () => {
     if (!name.trim()) { alert('Namn krävs'); return }
     const adminPers = people.find(p => p.id === parseInt(adminId))
@@ -33,9 +33,9 @@ function AddPastoratModal() {
       <div className="form-field">
         <label>Välj kyrkor</label>
         <div style={{ background: '#F1EFE8', borderRadius: 8, padding: 10 }}>
-          {churches.map((c, i) => (
-            <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', cursor: 'pointer' }}>
-              <input type="checkbox" checked={selChurches.includes(i)} onChange={() => toggleChurch(i)} style={{ accentColor: '#534AB7' }} />
+          {churches.map((c) => (
+            <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', cursor: 'pointer' }}>
+              <input type="checkbox" checked={selChurches.includes(c.id!)} onChange={() => toggleChurch(c.id!)} style={{ accentColor: '#534AB7' }} />
               <span style={{ fontSize: 13 }}>{c.name}</span>
             </label>
           ))}
@@ -76,7 +76,7 @@ export default function PastoratPage() {
         <button className="btn btn-primary" onClick={() => showModal(<AddPastoratModal />)}>+ Nytt pastorat</button>
       </div>
       {pastorat.map(p => {
-        const churchNames = p.churches.map(i => churches[i]?.name).filter(Boolean)
+        const churchNames = p.churches.map(cid => churches.find(c => c.id === cid)?.name).filter(Boolean)
         return (
           <div key={p.id} style={{ background: '#fff', border: '1px solid #D3D1C7', borderRadius: 12, padding: 16, marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>

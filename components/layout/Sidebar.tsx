@@ -29,7 +29,7 @@ export default function Sidebar() {
   const subText = isSuperAdmin() ? 'Systemadministratör'
     : isPAdmin() ? 'Pastorat – alla församlingar'
     : isKiosk() ? 'Anmälningsstation'
-    : churches[profile?.church_id ?? usr.churches[0]]?.name ?? ''
+    : churches.find(c => c.id === (profile?.church_id ?? usr.churches[0]))?.name ?? ''
 
   const displayName = profile?.name || usr.name
   const displayIni = displayName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
