@@ -68,7 +68,13 @@ export default function GrupperPage() {
   const visibleGroups = groups.filter(g => g.churchId === cid || g.churchId === null || g.churchId === undefined)
 
   const handleDelete = async (groupId: string) => {
-    await fetch(`/api/groups/${encodeURIComponent(groupId)}`, { method: 'DELETE' })
+    const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      alert('Kunde inte ta bort gruppen: ' + (data.error ?? res.status))
+      closeModal()
+      return
+    }
     deleteGroup(groupId)
     closeModal()
   }

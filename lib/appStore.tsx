@@ -109,10 +109,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (user) fetchProfile(user.id)
       else setLoadingAuth(false)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setCurrentUser(session?.user ?? null)
-      if (session?.user) fetchProfile(session.user.id)
-      else { setProfile(null); setLoadingAuth(false) }
+      // Ladda bara om all data vid inloggning/utloggning — INTE vid token-refresh
+      if (event === 'SIGNED_IN') {
+        if (session?.user) fetchProfile(session.user.id)
+      } else if (event === 'SIGNED_OUT') {
+        setProfile(null); setLoadingAuth(false)
+      }
     })
     return () => subscription.unsubscribe()
   }, [])
