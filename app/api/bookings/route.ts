@@ -8,15 +8,20 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
 
-  const { pass_id, name, mail, tel, source, no_account, ini, av_color, ac_color } = await req.json()
+  const { pass_id, name, mail, tel, source, no_account, ini, av_color, ac_color, override_profile_id } = await req.json()
 
   // Kolla att passet har plats
   const { data: pass } = await supabase.from('passes').select('spots, filled, title, date_str, time_str, plats, vk, tel').eq('id', pass_id).single()
   if (!pass) return NextResponse.json({ error: 'Passet finns inte' }, { status: 404 })
   if (pass.filled >= pass.spots) return NextResponse.json({ error: 'Fullbokat' }, { status: 409 })
 
+  // Admin kan ange valfri profile_id (t.ex. vid manuell tilldelning)
+  const { data: profile } = await supabase.from('profiles').select('admin_level').eq('id', user.id).single()
+  const isAdmin = ['forsamling','pastorat','super'].includes(profile?.admin_level ?? '')
+  const profileId = (isAdmin && override_profile_id) ? override_profile_id : (no_account ? null : user.id)
+
   const { data: booking, error } = await supabase.from('bookings').insert({
-    pass_id, profile_id: no_account ? null : user.id,
+    pass_id, profile_id: profileId,
     name, mail: mail || '', tel: tel || '',
     source: source || 'app', no_account: no_account || false,
     ini: ini || '', av_color: av_color || '#EEEDFE', ac_color: ac_color || '#3C3489',

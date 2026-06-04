@@ -4,29 +4,56 @@ import { useApp } from '@/lib/appStore'
 import { ini2 } from '@/lib/appData'
 
 export default function ManualAssignModal({ passId }: { passId: number }) {
-  const { passes, people, closeModal, addBooking, addPerson, nextPersonId } = useApp()
+  const { passes, people, closeModal, addBooking } = useApp()
   const [tab, setTab] = useState(0)
   const [search, setSearch] = useState('')
   const [name, setName] = useState('')
   const [tel, setTel] = useState('')
   const [mail, setMail] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [sendMail, setSendMail] = useState(true)
 
   const p = passes.find(x => x.id === passId)
   if (!p) return null
   const candidates = people.filter(x => x.church === p.church && x.name.toLowerCase().includes(search.toLowerCase()))
 
-  const assignPerson = (personId: number) => {
+  const assignPerson = async (personId: any) => {
     const person = people.find(x => x.id === personId)
     if (!person) return
+    setLoading(true)
+    const res = await fetch('/api/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pass_id: passId, name: person.name, mail: sendMail ? (person.mail || '') : '', tel: person.phone || '',
+        source: 'manual', no_account: false,
+        ini: person.ini, av_color: person.av, ac_color: person.ac,
+        override_profile_id: personId,
+      }),
+    })
+    if (!res.ok) { const d = await res.json(); alert(d.error); setLoading(false); return }
+    const booking = await res.json()
     addBooking(passId, { personId, name: person.name, ini: person.ini, av: person.av, ac: person.ac, source: 'manual', noAccount: false, mail: person.mail, tel: person.phone })
+    setLoading(false)
     closeModal()
   }
 
-  const saveGuest = () => {
+  const saveGuest = async () => {
     if (!name.trim()) { alert('Namn krävs'); return }
-    const id = nextPersonId()
-    addPerson({ id, name: name.trim(), mail, phone: tel, ini: ini2(name), av: '#F1EFE8', ac: '#5F5E5A', church: p.church, groups: [], role: 'ideell', isEmployee: false, adminLevel: 'none', available: true })
-    addBooking(passId, { personId: id, name: name.trim(), ini: ini2(name), av: '#F1EFE8', ac: '#5F5E5A', source: 'manual', noAccount: true, mail, tel })
+    setLoading(true)
+    const ini = ini2(name)
+    const res = await fetch('/api/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pass_id: passId, name: name.trim(), mail: sendMail ? (mail || '') : '', tel: tel || '',
+        source: 'manual', no_account: true,
+        ini, av_color: '#F1EFE8', ac_color: '#5F5E5A',
+      }),
+    })
+    if (!res.ok) { const d = await res.json(); alert(d.error); setLoading(false); return }
+    addBooking(passId, { personId: null, name: name.trim(), ini, av: '#F1EFE8', ac: '#5F5E5A', source: 'manual', noAccount: true, mail, tel })
+    setLoading(false)
     closeModal()
   }
 
@@ -37,6 +64,10 @@ export default function ManualAssignModal({ passId }: { passId: number }) {
         <button className={`tab-switch-btn${tab === 0 ? ' on' : ''}`} onClick={() => setTab(0)}>Sök person</button>
         <button className={`tab-switch-btn${tab === 1 ? ' on' : ''}`} onClick={() => setTab(1)}>Utan konto</button>
       </div>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#5F5E5A', margin: '8px 0', cursor: 'pointer' }}>
+        <input type="checkbox" checked={sendMail} onChange={e => setSendMail(e.target.checked)} />
+        Skicka bokningsbekräftelse via e-post
+      </label>
       {tab === 0 ? (
         <>
           <div className="form-field">
@@ -56,7 +87,7 @@ export default function ManualAssignModal({ passId }: { passId: number }) {
             ))}
           </div>
           <div className="modal-footer">
-            <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
+            <button className="btn btn-secondary" onClick={closeModal} disabled={loading}>Avbryt</button>
           </div>
         </>
       ) : (
@@ -66,8 +97,8 @@ export default function ManualAssignModal({ passId }: { passId: number }) {
           <div className="form-field"><label>E-post</label><input type="email" placeholder="namn@example.com" value={mail} onChange={e => setMail(e.target.value)} /></div>
           <div className="alert alert-blue" style={{ marginTop: 0 }}>🔗 Kopplas till konto automatiskt om e-post matchar senare.</div>
           <div className="modal-footer">
-            <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
-            <button className="btn btn-primary" onClick={saveGuest}>✓ Tilldela</button>
+            <button className="btn btn-secondary" onClick={closeModal} disabled={loading}>Avbryt</button>
+            <button className="btn btn-primary" onClick={saveGuest} disabled={loading}>{loading ? 'Sparar...' : '✓ Tilldela'}</button>
           </div>
         </>
       )}
