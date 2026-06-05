@@ -4,6 +4,12 @@ import type { ReactNode } from 'react'
 export const metadata: Metadata = {
   title: 'Stämpla',
   description: 'Påminnelse om att stämpla in och ut i Medvind',
+  manifest: '/stampla-manifest.json',
+  appleWebApp: {
+    capable: true,
+    title: 'Stämpla',
+    statusBarStyle: 'black-translucent',
+  },
 }
 
 export const viewport: Viewport = {

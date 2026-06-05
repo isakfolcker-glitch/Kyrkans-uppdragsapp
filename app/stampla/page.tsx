@@ -9,6 +9,35 @@ const KEYS = {
   settings: 'stampla_settings',
   entries:  'stampla_entries',
   overrides: 'stampla_week_overrides',
+  push:     'stampla_push_settings',
+  deviceId: 'stampla_device_id',
+}
+
+interface PushSettings {
+  remindInTime: string
+  remindOutTime: string
+  subscribed: boolean
+}
+
+const PUSH_DEFAULTS: PushSettings = {
+  remindInTime:  '07:45',
+  remindOutTime: '16:30',
+  subscribed:    false,
+}
+
+function urlBase64ToUint8Array(b64: string) {
+  const pad = '='.repeat((4 - (b64.length % 4)) % 4)
+  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'))
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)))
+}
+
+function getOrCreateDeviceId(): string {
+  let id = localStorage.getItem(KEYS.deviceId)
+  if (!id) {
+    id = crypto.randomUUID()
+    localStorage.setItem(KEYS.deviceId, id)
+  }
+  return id
 }
 
 interface Settings {
@@ -77,6 +106,10 @@ export default function StämplaPage() {
   const [view, setView]               = useState<'home' | 'settings' | 'week' | 'history'>('home')
   const [savingLoc, setSavingLoc]     = useState(false)
   const [drafted, setDrafted]         = useState<Settings>(DEFAULTS)
+  const [pushSettings, setPushSettings] = useState<PushSettings>(PUSH_DEFAULTS)
+  const [pushLoading, setPushLoading]   = useState(false)
+  const [pushError, setPushError]       = useState<string | null>(null)
+  const [testResult, setTestResult]     = useState<string | null>(null)
 
   const prevAtWork  = useRef<boolean | null>(null)
   const settingsRef = useRef(settings)
@@ -102,6 +135,8 @@ export default function StämplaPage() {
       if (e) setEntries(JSON.parse(e))
       const o = localStorage.getItem(KEYS.overrides)
       if (o) setOverrides(JSON.parse(o))
+      const p = localStorage.getItem(KEYS.push)
+      if (p) setPushSettings({ ...PUSH_DEFAULTS, ...JSON.parse(p) })
     } catch { /* ignore */ }
     if ('Notification' in window) setNotifPerm(Notification.permission)
   }, [])
@@ -236,6 +271,110 @@ export default function StämplaPage() {
     persist(KEYS.entries, next)
   }
 
+  function savePushSettings(ps: PushSettings) {
+    setPushSettings(ps)
+    persist(KEYS.push, ps)
+  }
+
+  async function subscribeToPush() {
+    setPushError(null)
+    setPushLoading(true)
+    try {
+      const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+      if (!publicKey) throw new Error('VAPID-nyckel saknas — kontakta administratören.')
+
+      const reg = await navigator.serviceWorker.ready
+      let sub = await reg.pushManager.getSubscription()
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        })
+      }
+
+      const deviceId = getOrCreateDeviceId()
+      const res = await fetch('/api/stampla/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deviceId,
+          subscription: sub.toJSON(),
+          remindInTime:  pushSettings.remindInTime,
+          remindOutTime: pushSettings.remindOutTime,
+          workDays:      settings.defaultDays,
+        }),
+      })
+      if (!res.ok) throw new Error('Serverfel vid aktivering.')
+      savePushSettings({ ...pushSettings, subscribed: true })
+    } catch (err: unknown) {
+      setPushError(err instanceof Error ? err.message : 'Okänt fel.')
+    } finally {
+      setPushLoading(false)
+    }
+  }
+
+  async function unsubscribeFromPush() {
+    setPushLoading(true)
+    try {
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.getSubscription()
+      if (sub) await sub.unsubscribe()
+      const deviceId = getOrCreateDeviceId()
+      await fetch('/api/stampla/subscribe', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId }),
+      })
+      savePushSettings({ ...pushSettings, subscribed: false })
+    } catch { /* ignore */ } finally {
+      setPushLoading(false)
+    }
+  }
+
+  async function sendTestNotification() {
+    setTestResult(null)
+    setPushLoading(true)
+    try {
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.getSubscription()
+      if (!sub) throw new Error('Ingen aktiv prenumeration.')
+      const res = await fetch('/api/stampla/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: sub.toJSON() }),
+      })
+      if (!res.ok) throw new Error('Serverfel.')
+      setTestResult('Testnotis skickad! Du borde få den inom några sekunder.')
+    } catch (err: unknown) {
+      setTestResult('Fel: ' + (err instanceof Error ? err.message : 'okänt'))
+    } finally {
+      setPushLoading(false)
+    }
+  }
+
+  async function updatePushTimes(remindInTime: string, remindOutTime: string) {
+    const next = { ...pushSettings, remindInTime, remindOutTime }
+    savePushSettings(next)
+    if (next.subscribed) {
+      const deviceId = getOrCreateDeviceId()
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.getSubscription()
+      if (sub) {
+        await fetch('/api/stampla/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            deviceId,
+            subscription: sub.toJSON(),
+            remindInTime,
+            remindOutTime,
+            workDays: settings.defaultDays,
+          }),
+        }).catch(() => { /* ignore */ })
+      }
+    }
+  }
+
   // ─── VIEWS ──────────────────────────────────────────────────────────────────
 
   if (view === 'settings') {
@@ -279,13 +418,78 @@ export default function StämplaPage() {
           <DayToggle days={drafted.defaultDays} toggle={toggleDefaultDay} />
         </Section>
 
-        <Section label="Notiser">
-          {notifPerm === 'granted' ? (
-            <p style={{ ...styles.hint, color: '#1A7F5A' }}>Notiser är aktiverade.</p>
-          ) : notifPerm === 'denied' ? (
-            <p style={styles.hint}>Notiser är blockerade. Ändra i webbläsarens inställningar.</p>
+        <Section label="Bakgrundsnotiser (fungerar utan öppen app)">
+          {notifPerm === 'denied' ? (
+            <p style={{ ...styles.hint, color: '#C04D2D' }}>
+              Notiser är blockerade i webbläsaren. Gå till telefonens Inställningar → Safari → Notiser och tillåt.
+            </p>
           ) : (
-            <Btn label="Aktivera push-notiser" onClick={enableNotifs} secondary />
+            <>
+              <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>Påminnelse IN</div>
+                  <input
+                    type="time"
+                    value={pushSettings.remindInTime}
+                    onChange={e => updatePushTimes(e.target.value, pushSettings.remindOutTime)}
+                    style={styles.timeInput}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>Påminnelse UT</div>
+                  <input
+                    type="time"
+                    value={pushSettings.remindOutTime}
+                    onChange={e => updatePushTimes(pushSettings.remindInTime, e.target.value)}
+                    style={styles.timeInput}
+                  />
+                </div>
+              </div>
+
+              {pushSettings.subscribed ? (
+                <>
+                  <p style={{ ...styles.hint, color: '#1A7F5A', marginBottom: 8 }}>
+                    Bakgrundsnotiser är aktiva. Du får en notis kl {pushSettings.remindInTime} och {pushSettings.remindOutTime} på dina arbetsdagar.
+                  </p>
+                  <Btn
+                    label={pushLoading ? 'Skickar test…' : 'Skicka testnotis'}
+                    onClick={sendTestNotification}
+                    secondary
+                    disabled={pushLoading}
+                  />
+                  {testResult && (
+                    <p style={{ ...styles.hint, color: testResult.startsWith('Fel') ? '#C04D2D' : '#1A7F5A', marginTop: 6 }}>
+                      {testResult}
+                    </p>
+                  )}
+                  <Btn
+                    label={pushLoading ? 'Avaktiverar…' : 'Stäng av bakgrundsnotiser'}
+                    onClick={unsubscribeFromPush}
+                    secondary
+                    disabled={pushLoading}
+                  />
+                </>
+              ) : (
+                <>
+                  <p style={{ ...styles.hint, marginBottom: 8 }}>
+                    Aktivera för att få en notis med länk till Medvind — fungerar även när telefonen är låst.
+                  </p>
+                  {!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && (
+                    <p style={{ ...styles.hint, color: '#C04D2D', marginBottom: 8 }}>
+                      Saknar VAPID-nyckel. Lägg till NEXT_PUBLIC_VAPID_PUBLIC_KEY i Vercel-miljövariablerna.
+                    </p>
+                  )}
+                  <Btn
+                    label={pushLoading ? 'Aktiverar…' : 'Aktivera bakgrundsnotiser'}
+                    onClick={subscribeToPush}
+                    disabled={pushLoading}
+                  />
+                  {pushError && (
+                    <p style={{ ...styles.hint, color: '#C04D2D', marginTop: 6 }}>{pushError}</p>
+                  )}
+                </>
+              )}
+            </>
           )}
         </Section>
 
@@ -488,15 +692,30 @@ export default function StämplaPage() {
         )}
       </Section>
 
-      {/* Notif permission hint */}
-      {notifPerm !== 'granted' && !needsSetup && (
-        <div style={styles.notifHint}>
-          <span style={{ fontSize: 13, color: '#633806' }}>
-            Aktivera notiser för att få påminnelser när du anländer/lämnar jobbet.
-          </span>
-          <button onClick={enableNotifs} style={{ ...styles.link, color: '#412B72', marginTop: 6, display: 'block' }}>
-            Aktivera notiser
-          </button>
+      {/* Push subscription status */}
+      {!needsSetup && (
+        <div style={{
+          ...styles.notifHint,
+          background: pushSettings.subscribed ? '#E8F8F0' : '#FFF8EC',
+          borderColor: pushSettings.subscribed ? '#9FE1CB' : '#F5D48A',
+        }}>
+          {pushSettings.subscribed ? (
+            <span style={{ fontSize: 13, color: '#0D5C3A' }}>
+              Bakgrundsnotiser aktiva — påminnelse kl {pushSettings.remindInTime} och {pushSettings.remindOutTime}.
+            </span>
+          ) : (
+            <>
+              <span style={{ fontSize: 13, color: '#633806' }}>
+                Bakgrundsnotiser är inte aktiverade. Aktivera för att få påminnelser utan att öppna appen.
+              </span>
+              <button
+                onClick={() => setView('settings')}
+                style={{ ...styles.link, color: '#412B72', marginTop: 6, display: 'block' }}
+              >
+                Aktivera i inställningar
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -760,5 +979,16 @@ const styles = {
     color: '#CCC',
     fontSize: 12,
     padding: '2px 4px',
+  } as CSSProperties,
+  timeInput: {
+    width: '100%',
+    padding: '10px 12px',
+    borderRadius: 10,
+    border: '1.5px solid #DDD',
+    fontSize: 16,
+    fontFamily: 'inherit',
+    background: '#FAFAFA',
+    color: '#1A1A2E',
+    boxSizing: 'border-box',
   } as CSSProperties,
 }

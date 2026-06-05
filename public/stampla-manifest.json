@@ -1,0 +1,17 @@
+{
+  "name": "Stämpla",
+  "short_name": "Stämpla",
+  "description": "Påminnelse att stämpla in/ut i Medvind",
+  "start_url": "/stampla",
+  "scope": "/stampla",
+  "display": "standalone",
+  "background_color": "#1E1245",
+  "theme_color": "#1E1245",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ]
+}
