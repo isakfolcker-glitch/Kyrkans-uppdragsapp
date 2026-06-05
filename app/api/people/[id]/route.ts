@@ -53,8 +53,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   await admin.from('bookings').delete().eq('profile_id', targetId)
   await admin.from('profiles').delete().eq('id', targetId)
 
-  // Ta bort auth-användaren — ignorera fel om auth-konto saknas
-  await admin.auth.admin.deleteUser(targetId).catch(() => {})
+  // Hard delete — ta bort permanent, ingen soft delete
+  await admin.auth.admin.deleteUser(targetId, true).catch(() => {})
 
   return NextResponse.json({ ok: true })
 }
