@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
@@ -14,7 +14,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const admin = createAdminClient()
   const { groups, ...profileData } = await req.json()
-  const targetId = params.id
+  const { id: targetId } = await params
 
   if (Object.keys(profileData).length) {
     const { error } = await admin.from('profiles').update(profileData).eq('id', targetId)
