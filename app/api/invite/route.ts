@@ -47,8 +47,10 @@ export async function POST(req: NextRequest) {
   const { data: inviterProfile } = await supabase.from('profiles').select('name').eq('id', user.id).single()
 
   // Skicka välkomstmail via Resend
+  const { data: inviterAuthUser } = await supabase.auth.getUser()
   await sendInvitation({
     to: email, name, inviterName: inviterProfile?.name ?? 'Administratören',
+    inviterEmail: inviterAuthUser.user?.email,
     inviteUrl: `${process.env.NEXT_PUBLIC_APP_URL}/`,
     role,
   })

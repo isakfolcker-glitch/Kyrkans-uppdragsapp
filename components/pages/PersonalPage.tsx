@@ -220,6 +220,11 @@ export default function PersonalPage() {
                   <div className="person-tags">{p.groups.map(g => <span key={g} className={`tag ${gCls(g, groups)}`}>{gLabel(g, groups)}</span>)}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
+                  {p.mail && <button className="btn btn-secondary btn-sm" title="Skicka ny inbjudan" onClick={async () => {
+                    const res = await fetch('/api/invite/resend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ profileId: p.id }) })
+                    const d = await res.json()
+                    alert(res.ok ? `✓ Ny inbjudan skickad till ${p.mail}` : `Fel: ${d.error}`)
+                  }}>✉️</button>}
                   <button className="btn btn-secondary btn-sm" onClick={() => showModal(<EditPersonModal personId={p.id} />)}>✏️</button>
                   <button className="btn btn-danger btn-sm" onClick={() => showModal(<ConfirmModal title={`Ta bort ${p.name}?`} sub="Personen förlorar åtkomst och tas bort från alla bokningar." confirmLabel="Ta bort" onConfirm={() => deletePerson(p.id)} />)}>🗑</button>
                 </div>
