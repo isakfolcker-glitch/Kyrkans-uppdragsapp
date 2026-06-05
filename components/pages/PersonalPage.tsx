@@ -60,19 +60,28 @@ function InvitePersonModal() {
 }
 
 function AddPersonModal({ defaultRole = 'ideell' }: { defaultRole?: string }) {
-  const { groups, churches, isPAdmin, isSuperAdmin, u, addPerson, nextPersonId, closeModal } = useApp()
+  const { groups, churches, isPAdmin, isSuperAdmin, u, addPerson, closeModal } = useApp()
   const [name, setName] = useState('')
   const [mail, setMail] = useState('')
   const [tel, setTel] = useState('')
   const [role, setRole] = useState(defaultRole)
+  const [saving, setSaving] = useState(false)
   const defaultChurchId = (isPAdmin() || isSuperAdmin()) ? (churches[0]?.id ?? 0) : (churches.find(c => c.id === u().churches[0])?.id ?? churches[0]?.id ?? 0)
   const [churchId, setChurchId] = useState(defaultChurchId)
   const [selGroups, setSelGroups] = useState<string[]>([])
   const toggleGroup = (id: string) => setSelGroups(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
-  const save = () => {
+  const save = async () => {
     if (!name.trim()) { alert('Namn krävs'); return }
+    setSaving(true)
+    const res = await fetch('/api/people', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim(), email: mail || undefined, phone: tel || undefined, role, church_id: churchId, groups: selGroups }),
+    })
+    const json = await res.json()
+    if (!res.ok) { alert(json.error || 'Kunde inte spara'); setSaving(false); return }
     const adminLevel = role === 'padmin' ? 'pastorat' : role === 'fadmin' ? 'forsamling' : 'none'
-    addPerson({ id: nextPersonId(), name: name.trim(), mail, phone: tel, ini: ini2(name), av: '#EEEDFE', ac: '#3C3489', church: churchId, groups: selGroups, role: role as any, isEmployee: role !== 'ideell', adminLevel: adminLevel as any, available: true })
+    addPerson({ id: json.id, name: name.trim(), mail: mail || '', phone: tel, ini: json.ini || ini2(name), av: '#EEEDFE', ac: '#3C3489', church: churchId, groups: selGroups, role: role as any, isEmployee: role !== 'ideell', adminLevel: adminLevel as any, available: true })
     closeModal()
   }
   const churchOpts = (isPAdmin() || isSuperAdmin()) ? churches : churches.filter(c => c.id !== undefined && u().churches.includes(c.id as number))
@@ -112,7 +121,7 @@ function AddPersonModal({ defaultRole = 'ideell' }: { defaultRole?: string }) {
       )}
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
-        <button className="btn btn-primary" onClick={save}>✉ Lägg till</button>
+        <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? 'Sparar...' : '✉ Lägg till'}</button>
       </div>
     </>
   )
