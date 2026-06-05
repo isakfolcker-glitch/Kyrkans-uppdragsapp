@@ -408,7 +408,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify({ groups: p.groups }),
     }).catch(() => {})
   }
-  const deletePerson = (id: number)    => setPeople(prev => prev.filter(x => x.id !== id))
+  const deletePerson = (id: any) => {
+    setPeople(prev => prev.filter(x => x.id !== id))
+    fetch(`/api/people/${id}`, { method: 'DELETE' }).catch(() => {})
+  }
   const addMessage   = (m: MessageData) => setMessages(prev => [m, ...prev])
   const addChurch    = (c: Church)     => setChurches(prev => [...prev, c])
   const updateChurch = (idx: number, c: Church) => setChurches(prev => prev.map((x, i) => i === idx ? c : x))
