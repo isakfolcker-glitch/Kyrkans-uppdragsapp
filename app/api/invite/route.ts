@@ -22,7 +22,35 @@ export async function POST(req: NextRequest) {
   const adminLevel = role === 'fadmin' ? 'forsamling' : role === 'padmin' ? 'pastorat' : role === 'superadmin' ? 'super' : 'none'
   const isEmployee = role !== 'ideell'
 
-  // Skapa användare med inbjudningslänk – redirectTo måste vara en tillåten URL i Supabase Dashboard
+  // Kolla om e-posten redan finns (t.ex. borttagen och återskapad)
+  const { data: existingUsers } = await admin.auth.admin.listUsers()
+  const existingUser = existingUsers?.users?.find((u: any) => u.email === email)
+  if (existingUser) {
+    // Användaren finns redan — generera ny inloggningslänk istället för att skapa ny
+    const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
+      type: 'recovery',
+      email,
+      options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm` },
+    })
+    if (linkErr) return NextResponse.json({ error: linkErr.message }, { status: 400 })
+
+    // Uppdatera profilen
+    await admin.from('profiles').upsert({
+      id: existingUser.id, email, name, church_id, role, admin_level: adminLevel, is_employee: isEmployee,
+    }, { onConflict: 'id' })
+
+    const { data: inviterProfile } = await supabase.from('profiles').select('name').eq('id', user.id).single()
+    const { data: inviterAuthUser } = await supabase.auth.getUser()
+    await sendInvitation({
+      to: email, name, inviterName: inviterProfile?.name ?? 'Administratören',
+      inviterEmail: inviterAuthUser.user?.email,
+      inviteUrl: linkData.properties.action_link,
+      role,
+    })
+    return NextResponse.json({ ok: true })
+  }
+
+  // Skapa ny användare med inbjudningslänk
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
     data: { name, role, church_id, admin_level: adminLevel, is_employee: isEmployee },
     redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm`,
