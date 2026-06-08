@@ -1,0 +1,23 @@
+{
+  "pair": {
+    "login_credentials": {
+      "username": {
+        "label": "MG iSmart email",
+        "placeholder": "you@example.com"
+      },
+      "password": {
+        "label": "MG iSmart password"
+      }
+    }
+  },
+  "error": {
+    "login_failed": "Login failed. Check your MG iSmart credentials.",
+    "no_vehicles": "No vehicles found on this account.",
+    "api_error": "Could not reach the MG API. Try again later."
+  },
+  "settings": {
+    "poll_interval": "Polling interval (minutes)",
+    "region": "Server region",
+    "country_code": "Country calling code"
+  }
+}

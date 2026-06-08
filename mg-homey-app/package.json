@@ -1,0 +1,27 @@
+{
+  "name": "com.mg.electric",
+  "version": "1.0.0",
+  "description": "Control and monitor your MG electric vehicle via SAIC iSmart API",
+  "main": "app.js",
+  "scripts": {
+    "build": "homey app build",
+    "validate": "homey app validate",
+    "run": "homey app run"
+  },
+  "keywords": [
+    "homey",
+    "mg",
+    "electric",
+    "ev",
+    "saic"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "dependencies": {
+    "node-fetch": "2.7.0"
+  },
+  "devDependencies": {
+    "homey": "latest"
+  }
+}

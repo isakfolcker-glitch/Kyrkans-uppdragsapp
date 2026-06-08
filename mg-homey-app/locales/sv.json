@@ -1,0 +1,23 @@
+{
+  "pair": {
+    "login_credentials": {
+      "username": {
+        "label": "MG iSmart e-post",
+        "placeholder": "din@epost.se"
+      },
+      "password": {
+        "label": "MG iSmart lösenord"
+      }
+    }
+  },
+  "error": {
+    "login_failed": "Inloggning misslyckades. Kontrollera dina MG iSmart-uppgifter.",
+    "no_vehicles": "Inga fordon hittades på det här kontot.",
+    "api_error": "Kunde inte nå MG:s API. Försök igen senare."
+  },
+  "settings": {
+    "poll_interval": "Uppdateringsintervall (minuter)",
+    "region": "Serverregion",
+    "country_code": "Landskod (telefon)"
+  }
+}
