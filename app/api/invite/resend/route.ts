@@ -29,14 +29,18 @@ export async function POST(req: NextRequest) {
   })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  await sendInvitation({
-    to: profile.email,
-    name: profile.name,
-    inviterName: caller.name ?? 'Administratören',
-    inviterEmail: user.email,
-    inviteUrl: linkData.properties.action_link,
-    role: profile.role ?? 'ideell',
-  })
+  try {
+    await sendInvitation({
+      to: profile.email,
+      name: profile.name,
+      inviterName: caller.name ?? 'Administratören',
+      inviterEmail: user.email,
+      inviteUrl: linkData.properties.action_link,
+      role: profile.role ?? 'ideell',
+    })
+  } catch (e: any) {
+    return NextResponse.json({ error: `Mailet kunde inte skickas: ${e.message}` }, { status: 500 })
+  }
 
   return NextResponse.json({ ok: true })
 }
