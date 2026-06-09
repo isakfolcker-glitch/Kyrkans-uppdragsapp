@@ -60,6 +60,16 @@ function BookBtn({ pass }: { pass: PassData }) {
 
 export default function PassCard({ pass, adminMode }: { pass: PassData; adminMode: boolean }) {
   const { showModal, canViewBkgs, canEditPass, canCancelPass, canDeletePass, publishNow, cancelPass, deletePass, getResponsibleNames, groups } = useApp()
+  const [reminding, setReminding] = useState(false)
+
+  const sendReminder = async () => {
+    setReminding(true)
+    const res = await fetch(`/api/passes/${pass.id}/remind`, { method: 'POST' })
+    const data = await res.json()
+    setReminding(false)
+    if (!res.ok) alert(`Fel: ${data.error}`)
+    else alert(`✓ Påminnelse skickad till ${data.sent} person${data.sent !== 1 ? 'er' : ''}`)
+  }
   const isSch = pass.pubStatus === 'scheduled'
   const resp = getResponsibleNames(pass)
 
@@ -142,6 +152,11 @@ export default function PassCard({ pass, adminMode }: { pass: PassData; adminMod
               )}
               {!pass.cancelled && canViewBkgs(pass) && (
                 <button className="btn btn-purple btn-sm" onClick={() => showModal(<PassDetailModal passId={pass.id} />)}>👥 Bokningar</button>
+              )}
+              {!pass.cancelled && pass.bookings.length > 0 && (
+                <button className="btn btn-secondary btn-sm" onClick={sendReminder} disabled={reminding} title="Skicka påminnelse till bokade">
+                  {reminding ? '...' : '📧'}
+                </button>
               )}
               {!pass.cancelled && canEditPass(pass) && (
                 <button className="btn btn-secondary btn-sm" onClick={() => showModal(<EditPassModal passId={pass.id} />)}>✏️</button>
