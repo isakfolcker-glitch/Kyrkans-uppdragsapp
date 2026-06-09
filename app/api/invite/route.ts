@@ -50,10 +50,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
-  // Skapa ny användare med inbjudningslänk
-  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { name, role, church_id, admin_level: adminLevel, is_employee: isEmployee },
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm`,
+  // Skapa ny användare utan att Supabase skickar eget mail
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    email_confirm: false,
+    user_metadata: { name, role, church_id, admin_level: adminLevel, is_employee: isEmployee },
   })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })

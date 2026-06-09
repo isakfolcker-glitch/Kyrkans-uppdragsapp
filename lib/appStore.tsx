@@ -209,14 +209,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Hämta pastorat med admin-profil och kopplade kyrkor
     const { data: pastData } = await supabase
       .from('pastorat')
-      .select('id, name, profiles(name, email), churches(id)')
+      .select('id, name, churches(id)')
       .order('id')
     if (pastData?.length) {
       setPastorat(pastData.map((p: any) => ({
         id: p.id,
         name: p.name,
-        admin: p.profiles?.name ?? '',
-        adminEmail: p.profiles?.email ?? '',
+        admin: '',
+        adminEmail: '',
         churches: (p.churches ?? []).map((c: any) => c.id),
       })))
     }
