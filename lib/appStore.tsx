@@ -409,8 +409,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }).catch(() => {})
   }
   const deletePerson = (id: any) => {
+    fetch(`/api/people/${id}`, { method: 'DELETE' })
+      .then(res => res.json())
+      .then(d => { if (!d.ok) alert(`Kunde inte ta bort: ${d.error}`) })
+      .catch(() => alert('Nätverksfel vid borttagning'))
     setPeople(prev => prev.filter(x => x.id !== id))
-    fetch(`/api/people/${id}`, { method: 'DELETE' }).catch(() => {})
   }
   const addMessage   = (m: MessageData) => setMessages(prev => [m, ...prev])
   const addChurch    = (c: Church)     => setChurches(prev => [...prev, c])
