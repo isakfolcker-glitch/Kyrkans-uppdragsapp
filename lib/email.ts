@@ -19,11 +19,15 @@ async function send(to: string | string[], subject: string, html: string, replyT
       htmlContent: html,
     }
     if (replyTo) body.replyTo = { email: replyTo }
-    await fetch('https://api.brevo.com/v3/smtp/email', {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: { 'api-key': BREVO_API_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
+    if (!res.ok) {
+      const errText = await res.text()
+      throw new Error(`Brevo ${res.status}: ${errText}`)
+    }
   }
 }
 

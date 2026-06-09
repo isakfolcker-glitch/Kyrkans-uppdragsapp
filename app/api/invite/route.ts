@@ -41,12 +41,16 @@ export async function POST(req: NextRequest) {
 
     const { data: inviterProfile } = await supabase.from('profiles').select('name').eq('id', user.id).single()
     const { data: inviterAuthUser } = await supabase.auth.getUser()
-    await sendInvitation({
-      to: email, name, inviterName: inviterProfile?.name ?? 'Administratören',
-      inviterEmail: inviterAuthUser.user?.email,
-      inviteUrl: linkData.properties.action_link,
-      role,
-    })
+    try {
+      await sendInvitation({
+        to: email, name, inviterName: inviterProfile?.name ?? 'Administratören',
+        inviterEmail: inviterAuthUser.user?.email,
+        inviteUrl: linkData.properties.action_link,
+        role,
+      })
+    } catch (e: any) {
+      return NextResponse.json({ error: `Mailet kunde inte skickas: ${e.message}` }, { status: 500 })
+    }
     return NextResponse.json({ ok: true })
   }
 
@@ -80,12 +84,16 @@ export async function POST(req: NextRequest) {
 
     const { data: inviterProfile } = await supabase.from('profiles').select('name').eq('id', user.id).single()
     const { data: inviterAuthUser } = await supabase.auth.getUser()
-    await sendInvitation({
-      to: email, name, inviterName: inviterProfile?.name ?? 'Administratören',
-      inviterEmail: inviterAuthUser.user?.email,
-      inviteUrl: linkData?.properties?.action_link ?? `${process.env.NEXT_PUBLIC_APP_URL}/`,
-      role,
-    })
+    try {
+      await sendInvitation({
+        to: email, name, inviterName: inviterProfile?.name ?? 'Administratören',
+        inviterEmail: inviterAuthUser.user?.email,
+        inviteUrl: linkData?.properties?.action_link ?? `${process.env.NEXT_PUBLIC_APP_URL}/`,
+        role,
+      })
+    } catch (e: any) {
+      return NextResponse.json({ error: `Mailet kunde inte skickas: ${e.message}` }, { status: 500 })
+    }
   }
 
   return NextResponse.json({ ok: true })
