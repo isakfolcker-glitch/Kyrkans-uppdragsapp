@@ -69,19 +69,23 @@ export async function POST(req: NextRequest) {
       admin_level: adminLevel,
       is_employee: isEmployee,
     }, { onConflict: 'id' })
+
+    // Generera riktig inbjudningslänk för vårt eget mail
+    const { data: linkData } = await admin.auth.admin.generateLink({
+      type: 'recovery',
+      email,
+      options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm` },
+    })
+
+    const { data: inviterProfile } = await supabase.from('profiles').select('name').eq('id', user.id).single()
+    const { data: inviterAuthUser } = await supabase.auth.getUser()
+    await sendInvitation({
+      to: email, name, inviterName: inviterProfile?.name ?? 'Administratören',
+      inviterEmail: inviterAuthUser.user?.email,
+      inviteUrl: linkData?.properties?.action_link ?? `${process.env.NEXT_PUBLIC_APP_URL}/`,
+      role,
+    })
   }
-
-  // Hämta inbjudarens namn
-  const { data: inviterProfile } = await supabase.from('profiles').select('name').eq('id', user.id).single()
-
-  // Skicka välkomstmail via Resend
-  const { data: inviterAuthUser } = await supabase.auth.getUser()
-  await sendInvitation({
-    to: email, name, inviterName: inviterProfile?.name ?? 'Administratören',
-    inviterEmail: inviterAuthUser.user?.email,
-    inviteUrl: `${process.env.NEXT_PUBLIC_APP_URL}/`,
-    role,
-  })
 
   return NextResponse.json({ ok: true })
 }
