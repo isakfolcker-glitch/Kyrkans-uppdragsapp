@@ -89,7 +89,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // State — börjar tomt, fylls på från Supabase när inloggad
   const [userIndex, setUserIndex] = useState(0)
-  const [page, setPage] = useState('pass')
+  const [page, setPage] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('lastPage') || 'pass' : 'pass'))
   const [passes, setPasses] = useState<PassData[]>([])
   const [people, setPeople] = useState<PersonData[]>([])
   const [messages, setMessages] = useState<MessageData[]>([])
@@ -317,7 +317,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPage(NAV_ITEMS[users[next].role]?.[0]?.id ?? 'pass')
     setActiveChurch(0); setGroupFilter('alla'); setModal(null)
   }
-  const goTo     = (p: string) => { setPage(p); setModal(null) }
+  const goTo     = (p: string) => { setPage(p); setModal(null); if (typeof window !== 'undefined') localStorage.setItem('lastPage', p) }
   const setChurch = (i: number) => setActiveChurch(i)
   const setFilter = (f: string) => setGroupFilter(f)
   const showModal = (content: ReactNode) => setModal(content)
