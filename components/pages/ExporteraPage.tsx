@@ -33,18 +33,36 @@ function parseCSV(text: string): string[][] {
   return rows
 }
 
+function parsePaste(text: string, type: 'person' | 'pass') {
+  const lines = text.trim().split('\n').filter(l => l.trim())
+  return lines.map(line => {
+    const cols = line.split('\t').map(c => c.trim())
+    if (type === 'person') return { name: cols[0] || '', email: cols[1] || '', role: cols[2] || 'ideell', group: cols[3] || '' }
+    return { title: cols[0] || '', date: cols[1] || '', time: cols[2] || '', plats: cols[3] || '', spots: cols[4] || '5', vk: cols[5] || '', tel: cols[6] || '', group: cols[7] || '' }
+  }).filter((r: any) => type === 'person' ? (r.name && r.email) : (r.title && r.date))
+}
+
 function ImportPersoner({ churchId, groups }: { churchId: number; groups: { id: string; label: string }[] }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(0)
   const [errors, setErrors] = useState<string[]>([])
+  const [pasteText, setPasteText] = useState('')
+  const [tab, setTab] = useState<'paste' | 'file'>('paste')
 
   const mall = () => downloadCSV('mall-personer.csv', [
     ['namn', 'epost', 'roll', 'grupp'],
     ['Anna Svensson', 'anna@kyrka.se', 'ideell', groups[0]?.label || ''],
     ['Erik Johansson', 'erik@kyrka.se', 'anstalld', ''],
   ])
+
+  const onPaste = () => {
+    const parsed = parsePaste(pasteText, 'person')
+    setRows(parsed)
+    setDone(0)
+    setErrors([])
+  }
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -107,11 +125,34 @@ function ImportPersoner({ churchId, groups }: { churchId: number; groups: { id: 
         <div style={{ fontSize: 14, fontWeight: 600 }}>👥 Importera personer</div>
         <button className="btn btn-secondary btn-sm" onClick={mall}>⬇ Ladda ned mall</button>
       </div>
-      <p style={{ fontSize: 12, color: '#5F5E5A', marginBottom: 10 }}>
-        Ladda upp en CSV med kolumnerna: <strong>namn, epost, roll, grupp</strong>. Roll kan vara: ideell, anstalld, fadmin, padmin.
-      </p>
-      <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={onFile} />
-      <button className="btn btn-secondary" onClick={() => fileRef.current?.click()}>📂 Välj CSV-fil</button>
+
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+        <button className={`filter-btn${tab === 'paste' ? ' on' : ''}`} onClick={() => setTab('paste')}>📋 Klistra in</button>
+        <button className={`filter-btn${tab === 'file' ? ' on' : ''}`} onClick={() => setTab('file')}>📂 CSV-fil</button>
+      </div>
+
+      {tab === 'paste' ? (
+        <>
+          <p style={{ fontSize: 12, color: '#5F5E5A', marginBottom: 8 }}>
+            Kopiera rader från Excel/Google Sheets och klistra in här. Kolumnordning: <strong>namn → e-post → roll → grupp</strong>
+          </p>
+          <textarea
+            style={{ width: '100%', height: 100, fontSize: 12, fontFamily: 'monospace', padding: 8, border: '1.5px solid #D3D1C7', borderRadius: 8, resize: 'vertical', boxSizing: 'border-box' }}
+            placeholder={'Anna Svensson\tanna@kyrka.se\tideell\tDomkyrkans vänner\nErik Johansson\terik@kyrka.se\tanstalld'}
+            value={pasteText}
+            onChange={e => setPasteText(e.target.value)}
+          />
+          <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onPaste} disabled={!pasteText.trim()}>Förhandsgranska</button>
+        </>
+      ) : (
+        <>
+          <p style={{ fontSize: 12, color: '#5F5E5A', marginBottom: 8 }}>
+            Ladda upp en CSV med kolumnerna: <strong>namn, epost, roll, grupp</strong>
+          </p>
+          <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={onFile} />
+          <button className="btn btn-secondary" onClick={() => fileRef.current?.click()}>📂 Välj CSV-fil</button>
+        </>
+      )}
 
       {rows.length > 0 && (
         <div style={{ marginTop: 12 }}>
@@ -156,12 +197,21 @@ function ImportPass({ churchId, groups }: { churchId: number; groups: { id: stri
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(0)
   const [errors, setErrors] = useState<string[]>([])
+  const [pasteText, setPasteText] = useState('')
+  const [tab, setTab] = useState<'paste' | 'file'>('paste')
 
   const mall = () => downloadCSV('mall-pass.csv', [
     ['titel', 'datum', 'tid', 'plats', 'platser', 'vaktmastare', 'telefon', 'grupp'],
     ['Gudstjänst', '2026-06-15', '10:00', 'Domkyrkan', '5', 'Anna Svensson', '073-123456', groups[0]?.label || ''],
     ['Café', '2026-06-16', '14:00', 'Församlingshuset', '3', '', '', ''],
   ])
+
+  const onPaste = () => {
+    const parsed = parsePaste(pasteText, 'pass')
+    setRows(parsed)
+    setDone(0)
+    setErrors([])
+  }
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -224,11 +274,34 @@ function ImportPass({ churchId, groups }: { churchId: number; groups: { id: stri
         <div style={{ fontSize: 14, fontWeight: 600 }}>📅 Importera pass</div>
         <button className="btn btn-secondary btn-sm" onClick={mall}>⬇ Ladda ned mall</button>
       </div>
-      <p style={{ fontSize: 12, color: '#5F5E5A', marginBottom: 10 }}>
-        Ladda upp en CSV med kolumnerna: <strong>titel, datum (ÅÅÅÅ-MM-DD), tid, plats, platser, vaktmastare, telefon, grupp</strong>.
-      </p>
-      <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={onFile} />
-      <button className="btn btn-secondary" onClick={() => fileRef.current?.click()}>📂 Välj CSV-fil</button>
+
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+        <button className={`filter-btn${tab === 'paste' ? ' on' : ''}`} onClick={() => setTab('paste')}>📋 Klistra in</button>
+        <button className={`filter-btn${tab === 'file' ? ' on' : ''}`} onClick={() => setTab('file')}>📂 CSV-fil</button>
+      </div>
+
+      {tab === 'paste' ? (
+        <>
+          <p style={{ fontSize: 12, color: '#5F5E5A', marginBottom: 8 }}>
+            Kopiera rader från Excel/Google Sheets. Kolumnordning: <strong>titel → datum (ÅÅÅÅ-MM-DD) → tid → plats → platser → vaktmästare → telefon → grupp</strong>
+          </p>
+          <textarea
+            style={{ width: '100%', height: 100, fontSize: 12, fontFamily: 'monospace', padding: 8, border: '1.5px solid #D3D1C7', borderRadius: 8, resize: 'vertical', boxSizing: 'border-box' }}
+            placeholder={'Gudstjänst\t2026-06-15\t10:00\tDomkyrkan\t5\tAnna\t073-123\tDomkyrkans vänner'}
+            value={pasteText}
+            onChange={e => setPasteText(e.target.value)}
+          />
+          <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onPaste} disabled={!pasteText.trim()}>Förhandsgranska</button>
+        </>
+      ) : (
+        <>
+          <p style={{ fontSize: 12, color: '#5F5E5A', marginBottom: 8 }}>
+            Ladda upp en CSV med kolumnerna: <strong>titel, datum (ÅÅÅÅ-MM-DD), tid, plats, platser, vaktmastare, telefon, grupp</strong>
+          </p>
+          <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={onFile} />
+          <button className="btn btn-secondary" onClick={() => fileRef.current?.click()}>📂 Välj CSV-fil</button>
+        </>
+      )}
 
       {rows.length > 0 && (
         <div style={{ marginTop: 12 }}>
