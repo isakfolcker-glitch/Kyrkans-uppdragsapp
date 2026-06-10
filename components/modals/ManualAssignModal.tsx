@@ -133,29 +133,36 @@ export default function ManualAssignModal({ passId }: { passId: number }) {
         </>
       ) : (
         <>
-          <div className="tab-switch" style={{ marginBottom: 10 }}>
-            <button className={`tab-switch-btn${!pasteRows.length ? ' on' : ''}`} onClick={() => setPasteRows([])}>En person</button>
-            <button className={`tab-switch-btn${pasteRows.length > 0 || pasteText ? ' on' : ''}`} onClick={() => setPasteRows([])}>📋 Klistra in flera</button>
-          </div>
-
-          {!pasteText && !pasteRows.length ? (
+          {pasteRows.length === 0 ? (
             <>
               <div className="form-field"><label>Namn</label><input placeholder="För- och efternamn" value={name} onChange={e => setName(e.target.value)} /></div>
               <div className="form-field"><label>Telefon</label><input placeholder="073-..." value={tel} onChange={e => setTel(e.target.value)} /></div>
               <div className="form-field"><label>E-post</label><input type="email" placeholder="namn@example.com" value={mail} onChange={e => setMail(e.target.value)} /></div>
-              <div className="alert alert-blue" style={{ marginTop: 0 }}>🔗 Kopplas till konto automatiskt om e-post matchar senare.</div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                <button className="btn btn-secondary btn-sm" onClick={() => setPasteText(' ')}>Lägg till flera →</button>
+
+              <div style={{ borderTop: '1px solid #E5E3DC', marginTop: 12, paddingTop: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#5F5E5A', marginBottom: 6 }}>📋 Klistra in flera från Excel</div>
+                <p style={{ fontSize: 11, color: '#888780', marginBottom: 6 }}>Kolumner: namn → telefon → e-post</p>
+                <textarea
+                  style={{ width: '100%', height: 72, fontSize: 12, fontFamily: 'monospace', padding: 8, border: '1.5px solid #D3D1C7', borderRadius: 8, resize: 'none', boxSizing: 'border-box' }}
+                  placeholder={'Anna Svensson\t073-123456\tanna@mail.se\nErik Johansson\t070-654321'}
+                  value={pasteText}
+                  onChange={e => setPasteText(e.target.value)}
+                />
               </div>
+
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={closeModal} disabled={loading}>Avbryt</button>
-                <button className="btn btn-primary" onClick={saveGuest} disabled={loading}>{loading ? 'Sparar...' : '✓ Tilldela'}</button>
+                {pasteText.trim() ? (
+                  <button className="btn btn-primary" onClick={parsePasteRows}>Förhandsgranska</button>
+                ) : (
+                  <button className="btn btn-primary" onClick={saveGuest} disabled={loading}>{loading ? 'Sparar...' : '✓ Tilldela'}</button>
+                )}
               </div>
             </>
-          ) : pasteRows.length > 0 ? (
+          ) : (
             <>
-              <div className="alert alert-blue" style={{ marginBottom: 8 }}>{pasteRows.length} personer hittade</div>
-              <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid #E5E3DC', borderRadius: 8, marginBottom: 10 }}>
+              <div className="alert alert-blue" style={{ marginBottom: 8 }}>{pasteRows.length} personer redo att bokas</div>
+              <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid #E5E3DC', borderRadius: 8, marginBottom: 10 }}>
                 <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
                   <thead><tr style={{ background: '#F1EFE8' }}>
                     <th style={{ padding: '5px 8px', textAlign: 'left' }}>Namn</th>
@@ -179,27 +186,10 @@ export default function ManualAssignModal({ passId }: { passId: number }) {
                 </div>
               )}
               <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => { setPasteRows([]); setPasteText('') }} disabled={loading}>Tillbaka</button>
+                <button className="btn btn-secondary" onClick={() => { setPasteRows([]); setPasteText('') }} disabled={loading}>Ändra</button>
                 <button className="btn btn-primary" onClick={saveAllGuests} disabled={loading}>
                   {loading ? `Bokar... ${progress}/${pasteRows.length}` : `✓ Boka ${pasteRows.length} pers`}
                 </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <p style={{ fontSize: 12, color: '#5F5E5A', marginBottom: 8 }}>
-                Kopiera från Excel/Google Sheets. Kolumner: <strong>namn → telefon → e-post</strong>
-              </p>
-              <textarea
-                style={{ width: '100%', height: 100, fontSize: 12, fontFamily: 'monospace', padding: 8, border: '1.5px solid #D3D1C7', borderRadius: 8, resize: 'vertical', boxSizing: 'border-box' }}
-                placeholder={'Anna Svensson\t073-123456\tanna@mail.se\nErik Johansson\t070-654321\t'}
-                value={pasteText === ' ' ? '' : pasteText}
-                onChange={e => setPasteText(e.target.value)}
-                autoFocus
-              />
-              <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => { setPasteText(''); setPasteRows([]) }}>Avbryt</button>
-                <button className="btn btn-primary" onClick={parsePasteRows} disabled={!pasteText.trim() || pasteText === ' '}>Förhandsgranska</button>
               </div>
             </>
           )}
