@@ -198,6 +198,7 @@ function ImportPersoner({ churchId, groups }: { churchId: number; groups: { id: 
 }
 
 function ImportPass({ churchId, groups }: { churchId: number; groups: { id: string; label: string }[] }) {
+  const { reloadPasses } = useApp()
   const fileRef = useRef<HTMLInputElement>(null)
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -278,6 +279,7 @@ function ImportPass({ churchId, groups }: { churchId: number; groups: { id: stri
     setErrors(errs)
     setRows([])
     setLoading(false)
+    if (ok > 0) await reloadPasses()
   }
 
   return (

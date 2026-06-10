@@ -60,6 +60,7 @@ interface AppCtx {
   updateUserNotif: (key: string, val: boolean) => void
   addPass: (p: PassData) => Promise<void>; updatePass: (p: PassData) => void
   deletePass: (id: number) => void; cancelPass: (id: number) => void
+  reloadPasses: () => Promise<void>
   addBooking: (passId: number, b: PassData['bookings'][0]) => void
   removeBooking: (passId: number, idx: number) => void
   addPerson: (p: PersonData) => void; updatePerson: (p: PersonData) => void
@@ -393,6 +394,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPasses(prev => prev.map(p => p.id === id ? { ...p, cancelled: true, history: [...p.history, 'Ställdes in – Idag'] } : p))
     fetch(`/api/passes/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cancelled: true }) })
   }
+  const reloadPasses = async () => {
+    const { data: passData } = await supabase
+      .from('passes')
+      .select('*, pass_groups(group_id), pass_responsible(profile_id), bookings(id, name, ini, av_color, ac_color, mail, tel, source, no_account, profile_id), pass_history(entry), waitlist(id)')
+      .order('created_at', { ascending: false })
+    if (passData) {
+      setPasses(passData.map((p: any) => ({
+        id: p.id, church: p.church_id, title: p.title,
+        groups: p.pass_groups?.map((g: any) => g.group_id) || [],
+        date: p.date_str, time: p.time_str, plats: p.plats,
+        spots: p.spots, filled: p.bookings?.length ?? 0,
+        vk: p.vk ?? '', tel: p.tel ?? '', desc: p.description ?? '',
+        pubStatus: p.pub_status, pubDate: p.pub_date ?? '',
+        kioskVisible: p.kiosk_visible ?? false, cancelled: p.cancelled ?? false,
+        bookings: (p.bookings ?? []).map((b: any) => ({ id: b.id, name: b.name, ini: b.ini, av: b.av_color, ac: b.ac_color, mail: b.mail, tel: b.tel, source: b.source, noAccount: b.no_account, profile_id: b.profile_id })),
+        history: p.pass_history?.map((h: any) => h.entry) ?? [],
+        waitlistCount: p.waitlist?.length ?? 0,
+        responsibleUserIds: p.pass_responsible?.map((r: any) => r.profile_id) ?? [],
+      })))
+    }
+  }
   const addBooking = (passId: number, b: PassData['bookings'][0]) => {
     setPasses(prev => prev.map(p => p.id === passId ? { ...p, bookings: [...p.bookings, b], filled: p.filled + 1 } : p))
   }
@@ -469,7 +491,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       canMakePAdmin, canMakeFAdmin, perm,
       cycleUser, goTo, setChurch, setFilter, showModal, closeModal,
       doBook, doUnbook, joinWaitlist, leaveWaitlist, publishNow, toggleAvail, updateUserNotif,
-      addPass, updatePass, deletePass, cancelPass, addBooking, removeBooking,
+      addPass, updatePass, deletePass, cancelPass, reloadPasses, addBooking, removeBooking,
       addPerson, updatePerson, deletePerson, addMessage,
       addChurch, updateChurch, deleteChurch,
       addPastorat, updatePastorat, deletePastorat, addGroup, deleteGroup,
