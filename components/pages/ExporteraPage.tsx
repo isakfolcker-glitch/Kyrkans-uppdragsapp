@@ -246,12 +246,16 @@ function ImportPass({ churchId, groups }: { churchId: number; groups: { id: stri
     reader.readAsText(file, 'utf-8')
   }
 
+  const [progress, setProgress] = useState(0)
+
   const importAll = async () => {
     setLoading(true)
     setErrors([])
+    setProgress(0)
     let ok = 0
     const errs: string[] = []
-    for (const row of rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
       const groupObj = groups.find(g => g.label.toLowerCase() === row.group.toLowerCase())
       const res = await fetch('/api/passes', {
         method: 'POST',
@@ -268,6 +272,7 @@ function ImportPass({ churchId, groups }: { churchId: number; groups: { id: stri
       const data = await res.json()
       if (res.ok) ok++
       else errs.push(`${row.title}: ${data.error}`)
+      setProgress(i + 1)
     }
     setDone(ok)
     setErrors(errs)
@@ -340,8 +345,13 @@ function ImportPass({ churchId, groups }: { churchId: number; groups: { id: stri
             </table>
           </div>
           <button className="btn btn-primary" onClick={importAll} disabled={loading}>
-            {loading ? 'Importerar...' : `✓ Importera ${rows.length} pass`}
+            {loading ? `Importerar... ${progress}/${rows.length}` : `✓ Importera ${rows.length} pass`}
           </button>
+          {loading && (
+            <div style={{ marginTop: 10, background: '#F1EFE8', borderRadius: 8, height: 8, overflow: 'hidden' }}>
+              <div style={{ background: '#7D0037', height: '100%', width: `${(progress / rows.length) * 100}%`, transition: 'width 0.3s ease' }} />
+            </div>
+          )}
         </div>
       )}
 
