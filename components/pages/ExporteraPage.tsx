@@ -35,11 +35,14 @@ function parseCSV(text: string): string[][] {
 
 function parsePaste(text: string, type: 'person' | 'pass') {
   const lines = text.trim().split('\n').filter(l => l.trim())
+  // Stöd både tab (Excel) och semikolon/komma som separator
+  const sep = lines[0]?.includes('\t') ? '\t' : lines[0]?.includes(';') ? ';' : ','
   return lines.map(line => {
-    const cols = line.split('\t').map(c => c.trim())
+    const cols = line.split(sep).map(c => c.trim().replace(/^"|"$/g, ''))
     if (type === 'person') return { name: cols[0] || '', email: cols[1] || '', role: cols[2] || 'ideell', group: cols[3] || '' }
     return { title: cols[0] || '', date: cols[1] || '', time: cols[2] || '', plats: cols[3] || '', spots: cols[4] || '5', vk: cols[5] || '', tel: cols[6] || '', group: cols[7] || '' }
-  }).filter((r: any) => type === 'person' ? (r.name && r.email) : (r.title && r.date))
+  })
+  // Filtrera inte bort rader — visa allt och låt användaren se vad som parsats
 }
 
 function ImportPersoner({ churchId, groups }: { churchId: number; groups: { id: string; label: string }[] }) {
@@ -59,6 +62,7 @@ function ImportPersoner({ churchId, groups }: { churchId: number; groups: { id: 
 
   const onPaste = () => {
     const parsed = parsePaste(pasteText, 'person')
+    if (!parsed.length) { alert('Inga rader hittades. Kontrollera att du klistrat in data.'); return }
     setRows(parsed)
     setDone(0)
     setErrors([])
@@ -97,17 +101,19 @@ function ImportPersoner({ churchId, groups }: { churchId: number; groups: { id: 
   }
 
   const importAll = async () => {
+    const validRows = rows.filter(r => r.name && r.email && r.email.includes('@'))
+    if (!validRows.length) { alert('Inga giltiga rader med namn och e-post hittades.'); return }
     setLoading(true)
     setErrors([])
     let ok = 0
     const errs: string[] = []
-    for (const row of rows) {
-      const role = roleMap[row.role.toLowerCase()] ?? 'ideell'
-      const groupObj = groups.find(g => g.label.toLowerCase() === row.group.toLowerCase())
+    for (const row of validRows) {
+      const role = roleMap[row.role?.toLowerCase()] ?? 'ideell'
+      const groupObj = groups.find(g => g.label.toLowerCase() === (row.group || '').toLowerCase())
       const res = await fetch('/api/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: row.name, email: row.email, role, church_id: churchId, groups: groupObj ? [groupObj.id] : [] }),
+        body: JSON.stringify({ name: row.name, email: row.email, role, church_id: churchId }),
       })
       const data = await res.json()
       if (res.ok) ok++
@@ -208,6 +214,7 @@ function ImportPass({ churchId, groups }: { churchId: number; groups: { id: stri
 
   const onPaste = () => {
     const parsed = parsePaste(pasteText, 'pass')
+    if (!parsed.length) { alert('Inga rader hittades. Kontrollera att du klistrat in data.'); return }
     setRows(parsed)
     setDone(0)
     setErrors([])
