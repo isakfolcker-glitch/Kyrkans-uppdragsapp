@@ -163,7 +163,7 @@ function EditPersonModal({ personId }: { personId: number }) {
 }
 
 export default function PersonalPage() {
-  const { people, churches, groups, isPAdmin, u, activeChurch, setChurch, showModal, deletePerson, currentChurchId } = useApp()
+  const { people, churches, groups, isPAdmin, isSuperAdmin, u, activeChurch, setChurch, showModal, deletePerson, currentChurchId } = useApp()
   const [search, setSearch] = useState('')
   const cid = currentChurchId()
   const all = people.filter(p => p.church === cid && (p as any).role !== 'guest')
@@ -187,7 +187,7 @@ export default function PersonalPage() {
         </div>
       </div>
 
-      {isPAdmin() && (
+      {(isPAdmin() || isSuperAdmin()) && (
         <div className="church-bar">
           {churches.map((c, i) => <button key={i} className={`church-btn${activeChurch === i ? ' on' : ''}`} onClick={() => setChurch(i)}>{c.name}</button>)}
         </div>
