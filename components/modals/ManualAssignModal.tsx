@@ -90,7 +90,8 @@ export default function ManualAssignModal({ passId }: { passId: number }) {
         }),
       })
       if (res.ok) {
-        addBooking(passId, { personId: null, name: row.name, ini, av: '#F1EFE8', ac: '#5F5E5A', source: 'manual', noAccount: true, mail: row.mail, tel: row.tel })
+        const booking = await res.json()
+        addBooking(passId, { id: booking.id, personId: null, name: row.name, ini, av: '#F1EFE8', ac: '#5F5E5A', source: 'manual', noAccount: true, mail: row.mail, tel: row.tel })
         ok++
       }
       setProgress(i + 1)

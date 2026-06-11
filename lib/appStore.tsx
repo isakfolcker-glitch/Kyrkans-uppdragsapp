@@ -334,6 +334,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const doUnbook = (id: number) => {
     setPasses(prev => prev.map(p => p.id === id ? { ...p, filled: Math.max(0, p.filled - 1) } : p))
     setSelfBookings(prev => { const n = { ...prev }; delete n[id]; return n })
+    // Hitta bokningens ID för att kunna ta bort den i databasen
+    const pass = passes.find(p => p.id === id)
+    const booking = pass?.bookings.find(b => b.personId === currentUser?.id || (profile && b.personId === profile.id))
+    if (booking?.id) {
+      fetch('/api/bookings', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ booking_id: booking.id }) })
+    }
   }
   const joinWaitlist = (id: number) => {
     // Optimistisk position = antal i kön + 1
