@@ -36,7 +36,7 @@ export default function ManualAssignModal({ passId }: { passId: number }) {
     })
     if (!res.ok) { const d = await res.json(); alert(d.error); setLoading(false); return }
     const booking = await res.json()
-    addBooking(passId, { personId, name: person.name, ini: person.ini, av: person.av, ac: person.ac, source: 'manual', noAccount: false, mail: person.mail, tel: person.phone })
+    addBooking(passId, { id: booking.id, personId, name: person.name, ini: person.ini, av: person.av, ac: person.ac, source: 'manual', noAccount: false, mail: person.mail, tel: person.phone })
     setLoading(false)
     closeModal()
   }
@@ -55,7 +55,8 @@ export default function ManualAssignModal({ passId }: { passId: number }) {
       }),
     })
     if (!res.ok) { const d = await res.json(); alert(d.error); setLoading(false); return }
-    addBooking(passId, { personId: null, name: name.trim(), ini, av: '#F1EFE8', ac: '#5F5E5A', source: 'manual', noAccount: true, mail, tel })
+    const booking = await res.json()
+    addBooking(passId, { id: booking.id, personId: null, name: name.trim(), ini, av: '#F1EFE8', ac: '#5F5E5A', source: 'manual', noAccount: true, mail, tel })
     setLoading(false)
     closeModal()
   }

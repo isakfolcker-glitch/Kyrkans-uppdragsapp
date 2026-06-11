@@ -243,7 +243,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           kioskVisible: p.kiosk_visible,
           responsibleUserIds: p.pass_responsible?.map((r: any) => r.profile_id) || [],
           bookings: p.bookings?.map((b: any) => ({
-            personId: b.profile_id, name: b.name, ini: b.ini || '',
+            id: b.id, personId: b.profile_id, name: b.name, ini: b.ini || '',
             av: b.av_color || '#F1EFE8', ac: b.ac_color || '#5F5E5A',
             source: b.source, noAccount: b.no_account, mail: b.mail, tel: b.tel,
           })) || [],
@@ -408,7 +408,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         vk: p.vk ?? '', tel: p.tel ?? '', desc: p.description ?? '',
         pubStatus: p.pub_status, pubDate: p.pub_date ?? '',
         kioskVisible: p.kiosk_visible ?? false, cancelled: p.cancelled ?? false,
-        bookings: (p.bookings ?? []).map((b: any) => ({ id: b.id, name: b.name, ini: b.ini, av: b.av_color, ac: b.ac_color, mail: b.mail, tel: b.tel, source: b.source, noAccount: b.no_account, profile_id: b.profile_id })),
+        bookings: (p.bookings ?? []).map((b: any) => ({ id: b.id, personId: b.profile_id, name: b.name, ini: b.ini, av: b.av_color, ac: b.ac_color, mail: b.mail, tel: b.tel, source: b.source, noAccount: b.no_account })),
         history: p.pass_history?.map((h: any) => h.entry) ?? [],
         waitlistCount: p.waitlist?.length ?? 0,
         responsibleUserIds: p.pass_responsible?.map((r: any) => r.profile_id) ?? [],
@@ -419,7 +419,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPasses(prev => prev.map(p => p.id === passId ? { ...p, bookings: [...p.bookings, b], filled: p.filled + 1 } : p))
   }
   const removeBooking = (passId: number, idx: number) => {
+    const pass = passes.find(p => p.id === passId)
+    const bookingId = pass?.bookings[idx]?.id
     setPasses(prev => prev.map(p => p.id === passId ? { ...p, bookings: p.bookings.filter((_, i) => i !== idx), filled: Math.max(0, p.filled - 1) } : p))
+    if (bookingId) {
+      fetch(`/api/bookings?booking_id=${bookingId}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(d => { if (!d.ok) alert('Kunde inte ta bort bokningen: ' + d.error) })
+    }
   }
   const addPerson    = (p: PersonData) => setPeople(prev => [...prev, p])
   const updatePerson = (p: PersonData) => {

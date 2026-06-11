@@ -10,7 +10,7 @@ export interface PersonData {
   church: any; groups: string[]; available: boolean
 }
 export interface BookingData {
-  personId: any; name: string; ini: string; av: string; ac: string
+  id?: number; personId: any; name: string; ini: string; av: string; ac: string
   source: 'app' | 'manual' | 'kiosk'; noAccount: boolean; mail?: string; tel?: string
 }
 export interface PassData {
