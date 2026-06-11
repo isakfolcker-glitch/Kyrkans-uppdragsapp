@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   // Kolla om användaren har satt lösenord — använd invite för nya, recovery för befintliga
   const { data: authUsers } = await admin.auth.admin.listUsers()
   const authUser = authUsers?.users?.find((u: any) => u.email === profile.email)
-  const hasPassword = !!authUser?.encrypted_password
+  const hasPassword = !!(authUser as any)?.encrypted_password
   const linkType = hasPassword ? 'recovery' : 'invite'
 
   const { data: linkData, error } = await admin.auth.admin.generateLink({
