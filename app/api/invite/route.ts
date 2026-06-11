@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
 
     // Generera riktig inbjudningslänk för vårt eget mail
     const { data: linkData } = await admin.auth.admin.generateLink({
-      type: 'recovery',
+      type: 'invite',
       email,
       options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm` },
     })

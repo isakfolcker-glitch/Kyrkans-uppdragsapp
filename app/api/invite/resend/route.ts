@@ -21,9 +21,14 @@ export async function POST(req: NextRequest) {
   const { data: profile } = await admin.from('profiles').select('email, name, role').eq('id', profileId).single()
   if (!profile?.email) return NextResponse.json({ error: 'Ingen e-post registrerad på personen' }, { status: 400 })
 
-  // Generera en ny inloggningslänk (recovery = lösenordsåterställning fungerar som ny inbjudan)
+  // Kolla om användaren har satt lösenord — använd invite för nya, recovery för befintliga
+  const { data: authUsers } = await admin.auth.admin.listUsers()
+  const authUser = authUsers?.users?.find((u: any) => u.email === profile.email)
+  const hasPassword = !!authUser?.encrypted_password
+  const linkType = hasPassword ? 'recovery' : 'invite'
+
   const { data: linkData, error } = await admin.auth.admin.generateLink({
-    type: 'recovery',
+    type: linkType,
     email: profile.email,
     options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm` },
   })
