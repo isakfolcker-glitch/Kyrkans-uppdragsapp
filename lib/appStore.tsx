@@ -423,7 +423,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const bookingId = pass?.bookings[idx]?.id
     setPasses(prev => prev.map(p => p.id === passId ? { ...p, bookings: p.bookings.filter((_, i) => i !== idx), filled: Math.max(0, p.filled - 1) } : p))
     if (bookingId) {
-      fetch(`/api/bookings?booking_id=${bookingId}`, { method: 'DELETE' })
+      fetch(`/api/bookings`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ booking_id: bookingId }),
+      })
         .then(r => r.json())
         .then(d => { if (!d.ok) alert('Kunde inte ta bort bokningen: ' + d.error) })
     }
