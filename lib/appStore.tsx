@@ -19,14 +19,14 @@ export interface StaffPerms {
   kan_skicka_utskick: boolean
 }
 
-const ALL_PERMS: StaffPerms = {
+export const ALL_PERMS: StaffPerms = {
   kan_skapa_pass: true, kan_redigera_pass: true,
   kan_se_bokningar: true, kan_hantera_bokningar: true,
   kan_se_personal: true, kan_lagg_till_personal: true,
   kan_hantera_grupper: true, kan_skicka_utskick: true,
 }
 
-const NO_PERMS: StaffPerms = {
+export const NO_PERMS: StaffPerms = {
   kan_skapa_pass: false, kan_redigera_pass: false,
   kan_se_bokningar: false, kan_hantera_bokningar: false,
   kan_se_personal: false, kan_lagg_till_personal: false,
@@ -76,7 +76,7 @@ interface AppCtx {
 }
 
 let _nextPersonId = 100, _nextPassId = 200, _nextPasId = 2
-const Ctx = createContext<AppCtx>(null!)
+export const Ctx = createContext<AppCtx>(null!)
 export const useApp = () => useContext(Ctx)
 
 export function AppProvider({ children }: { children: ReactNode }) {

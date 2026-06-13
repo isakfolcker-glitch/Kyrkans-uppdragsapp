@@ -81,6 +81,16 @@ export interface Notification {
   read: boolean
 }
 
+export interface PassMessage {
+  id: number
+  passId: number
+  authorId: string | null
+  authorName: string
+  body: string
+  isStaffReply: boolean
+  createdAt: string
+}
+
 export interface MessageLog {
   id: number
   from: string
