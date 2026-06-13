@@ -10,11 +10,12 @@ function fmt(iso: string) {
 }
 
 export default function PassQASection({ passId }: { passId: number }) {
-  const { currentUser, profile, passes, isResponsible, isAdmin } = useApp()
+  const { currentUser, passes, isResponsible, isAdmin, u } = useApp()
   const pass = passes.find(p => p.id === passId)
+  const isDemo = !currentUser
 
   const [messages, setMessages] = useState<PassMessage[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!isDemo)
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -22,6 +23,7 @@ export default function PassQASection({ passId }: { passId: number }) {
   const staffMode = pass ? (isAdmin() || isResponsible(pass)) : false
 
   useEffect(() => {
+    if (isDemo) return
     setLoading(true)
     fetch(`/api/passes/${passId}/messages`)
       .then(r => r.json())
@@ -35,7 +37,7 @@ export default function PassQASection({ passId }: { passId: number }) {
         }
       })
       .finally(() => setLoading(false))
-  }, [passId])
+  }, [passId, isDemo])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -44,6 +46,18 @@ export default function PassQASection({ passId }: { passId: number }) {
   const send = async () => {
     if (!body.trim() || sending) return
     setSending(true)
+
+    if (isDemo) {
+      setMessages(prev => [...prev, {
+        id: Date.now(), passId, authorId: null,
+        authorName: u().name, body: body.trim(),
+        isStaffReply: staffMode, createdAt: new Date().toISOString(),
+      }])
+      setBody('')
+      setSending(false)
+      return
+    }
+
     const res = await fetch(`/api/passes/${passId}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -61,9 +75,83 @@ export default function PassQASection({ passId }: { passId: number }) {
     setSending(false)
   }
 
-  if (!currentUser) return null
-
   return (
+    <div style={{ marginTop: 20 }}>
+      <div className="section-label" style={{ marginBottom: 8 }}>
+        Frågor &amp; svar
+        {messages.length > 0 && (
+          <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 400, color: '#888780' }}>
+            ({messages.length})
+          </span>
+        )}
+      </div>
+
+      {loading ? (
+        <div style={{ fontSize: 12, color: '#888780', padding: '8px 0' }}>Laddar…</div>
+      ) : messages.length === 0 ? (
+        <div style={{ fontSize: 12, color: '#888780', textAlign: 'center', padding: '12px 0' }}>
+          Inga frågor ännu. Skriv gärna om du undrar något!
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12, maxHeight: 260, overflowY: 'auto', paddingRight: 2 }}>
+          {messages.map(m => (
+            <div
+              key={m.id}
+              style={{
+                background: m.isStaffReply ? '#F0EDFF' : '#F7F6F1',
+                border: m.isStaffReply ? '1px solid #C8C2F5' : '1px solid #E8E5DC',
+                borderRadius: 8,
+                padding: '8px 10px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#2C2C2A' }}>{m.authorName}</span>
+                {m.isStaffReply && (
+                  <span style={{
+                    fontSize: 10, fontWeight: 600, background: '#7C6FE0', color: '#fff',
+                    borderRadius: 4, padding: '1px 5px', letterSpacing: 0.3,
+                  }}>Svar</span>
+                )}
+                <span style={{ fontSize: 11, color: '#888780', marginLeft: 'auto' }}>{fmt(m.createdAt)}</span>
+              </div>
+              <div style={{ fontSize: 13, color: '#3C3A34', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>{m.body}</div>
+            </div>
+          ))}
+          <div ref={bottomRef} />
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
+        <textarea
+          value={body}
+          onChange={e => setBody(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+          placeholder={staffMode ? 'Skriv ett svar…' : 'Skriv en fråga…'}
+          rows={2}
+          style={{
+            flex: 1, resize: 'none', borderRadius: 8,
+            border: '1px solid #E8E5DC', padding: '8px 10px',
+            fontSize: 13, fontFamily: 'inherit', outline: 'none',
+          }}
+        />
+        <button
+          className="btn btn-purple btn-sm"
+          onClick={send}
+          disabled={!body.trim() || sending}
+          style={{ alignSelf: 'flex-end', minWidth: 64 }}
+        >
+          {sending ? '…' : staffMode ? 'Svara' : 'Fråga'}
+        </button>
+      </div>
+      {staffMode && (
+        <div style={{ fontSize: 11, color: '#7C6FE0', marginTop: 4 }}>
+          Du svarar som ansvarig — ditt svar visas med "Svar"-badge för alla.
+        </div>
+      )}
+    </div>
+  )
+}
+
     <div style={{ marginTop: 20 }}>
       <div className="section-label" style={{ marginBottom: 8 }}>
         Frågor &amp; svar
