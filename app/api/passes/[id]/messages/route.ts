@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -45,5 +46,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Skicka notis till ansvariga (alla utom den som skriver)
+  const admin = createAdminClient()
+  const { data: pass } = await admin
+    .from('passes')
+    .select('title, pass_responsible(profile_id)')
+    .eq('id', parseInt(id))
+    .single()
+
+  if (pass?.pass_responsible?.length) {
+    const recipients = (pass.pass_responsible as any[])
+      .map((r: any) => r.profile_id as string)
+      .filter((rid: string) => rid !== user.id)
+
+    if (recipients.length) {
+      const isQuestion = !(is_staff_reply ?? false)
+      const notifTitle = isQuestion
+        ? `Ny fråga på "${pass.title}"`
+        : `Nytt svar på "${pass.title}"`
+      const preview = body.trim().slice(0, 120) + (body.trim().length > 120 ? '…' : '')
+
+      await admin.from('notifications').insert(
+        recipients.map((uid: string) => ({
+          user_id: uid,
+          type: 'message',
+          title: notifTitle,
+          body: `${profile?.name ?? 'Okänd'}: ${preview}`,
+        }))
+      )
+    }
+  }
+
   return NextResponse.json(data)
 }
