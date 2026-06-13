@@ -39,8 +39,8 @@ export async function proxy(request: NextRequest) {
     return response
   }
 
-  // Skicka oinloggade till /login (utom /login och /kiosk)
-  if (!user && pathname !== '/login' && !pathname.startsWith('/kiosk') && !pathname.startsWith('/api')) {
+  // Skicka oinloggade till /login (utom /login, /kiosk, /auth/* — /auth/confirm hanterar inbjudningslänkens token i hashen)
+  if (!user && pathname !== '/login' && !pathname.startsWith('/kiosk') && !pathname.startsWith('/api') && !pathname.startsWith('/auth')) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
