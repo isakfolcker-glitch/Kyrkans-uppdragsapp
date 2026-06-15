@@ -22,21 +22,42 @@ export async function POST(req: NextRequest) {
   const adminLevel = role === 'fadmin' ? 'forsamling' : role === 'padmin' ? 'pastorat' : role === 'superadmin' ? 'super' : 'none'
   const isEmployee = role !== 'ideell'
 
-  // Kolla om e-posten redan finns (t.ex. borttagen och återskapad)
-  const { data: existingUsers } = await admin.auth.admin.listUsers()
-  const existingUser = existingUsers?.users?.find((u: any) => u.email === email)
-  if (existingUser) {
-    // Användaren finns redan — generera ny inloggningslänk istället för att skapa ny
+  // Sök befintlig användare via profiles-tabellen (case-insensitiv, mer pålitlig än listUsers)
+  const { data: existingProfile } = await admin
+    .from('profiles')
+    .select('id')
+    .ilike('email', email)
+    .maybeSingle()
+
+  let existingAuthUser: any = null
+  if (existingProfile?.id) {
+    const { data } = await admin.auth.admin.getUserById(existingProfile.id)
+    existingAuthUser = data.user ?? null
+  } else {
+    // Fallback: skanna auth.users (fångar användare vars profil inte skapades)
+    const { data: page } = await admin.auth.admin.listUsers({ perPage: 1000 })
+    existingAuthUser = page?.users?.find(
+      (u: any) => u.email?.toLowerCase() === email.toLowerCase()
+    ) ?? null
+  }
+
+  if (existingAuthUser) {
+    // Har användaren satt lösenord? → recovery till /auth/reset, annars invite till /auth/confirm
+    const hasPassword = !!(existingAuthUser as any).encrypted_password
+    const linkType = hasPassword ? 'recovery' : 'invite'
+    const redirectTo = hasPassword
+      ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset`
+      : `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm`
+
     const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
-      type: 'recovery',
+      type: linkType,
       email,
-      options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm` },
+      options: { redirectTo },
     })
     if (linkErr) return NextResponse.json({ error: linkErr.message }, { status: 400 })
 
-    // Uppdatera profilen
     await admin.from('profiles').upsert({
-      id: existingUser.id, email, name, church_id, role, admin_level: adminLevel, is_employee: isEmployee,
+      id: existingAuthUser.id, email, name, church_id, role, admin_level: adminLevel, is_employee: isEmployee,
     }, { onConflict: 'id' })
 
     const { data: inviterProfile } = await supabase.from('profiles').select('name').eq('id', user.id).single()
@@ -63,7 +84,6 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-  // Uppdatera profilen med church_id och roll direkt (trigger kan ha skapat den redan)
   if (data.user) {
     await admin.from('profiles').upsert({
       id: data.user.id,
@@ -75,7 +95,6 @@ export async function POST(req: NextRequest) {
       is_employee: isEmployee,
     }, { onConflict: 'id' })
 
-    // Generera riktig inbjudningslänk för vårt eget mail
     const { data: linkData } = await admin.auth.admin.generateLink({
       type: 'invite',
       email,
