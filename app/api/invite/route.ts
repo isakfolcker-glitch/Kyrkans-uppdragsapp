@@ -57,10 +57,12 @@ export async function POST(req: NextRequest) {
       id: existingUser.id, email, name, church_id, role, admin_level: adminLevel, is_employee: isEmployee,
     }, { onConflict: 'id' })
 
-    // Har de satt lösenord? → recovery till /auth/reset, annars invite till /auth/confirm
+    // Har de satt lösenord eller bekräftat e-post? → recovery, annars invite
     const hasPassword = !!(existingUser as any).encrypted_password
-    const linkType = hasPassword ? 'recovery' : 'invite'
-    const redirectTo = hasPassword
+    const isConfirmed = !!(existingUser as any).email_confirmed_at
+    const useRecovery = hasPassword || isConfirmed
+    const linkType = useRecovery ? 'recovery' : 'invite'
+    const redirectTo = useRecovery
       ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset`
       : `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm`
 

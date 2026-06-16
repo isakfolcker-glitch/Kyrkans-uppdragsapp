@@ -21,16 +21,22 @@ export async function POST(req: NextRequest) {
   const { data: profile } = await admin.from('profiles').select('email, name, role').eq('id', profileId).single()
   if (!profile?.email) return NextResponse.json({ error: 'Ingen e-post registrerad på personen' }, { status: 400 })
 
-  // Kolla om användaren har satt lösenord — använd invite för nya, recovery för befintliga
-  const { data: authUsers } = await admin.auth.admin.listUsers()
+  // Kolla om användaren har satt lösenord eller bekräftat sin e-post
+  const { data: authUsers } = await admin.auth.admin.listUsers({ perPage: 1000 })
   const authUser = authUsers?.users?.find((u: any) => u.email === profile.email)
   const hasPassword = !!(authUser as any)?.encrypted_password
-  const linkType = hasPassword ? 'recovery' : 'invite'
+  const isConfirmed = !!(authUser as any)?.email_confirmed_at
+  // Bekräftade användare och de med lösenord får recovery-länk; övriga får invite-länk
+  const useRecovery = hasPassword || isConfirmed
+  const linkType = useRecovery ? 'recovery' : 'invite'
+  const redirectTo = useRecovery
+    ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset`
+    : `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm`
 
   const { data: linkData, error } = await admin.auth.admin.generateLink({
     type: linkType,
     email: profile.email,
-    options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm` },
+    options: { redirectTo },
   })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
