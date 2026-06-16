@@ -12,6 +12,7 @@ import GrupperPage from '@/components/pages/GrupperPage'
 import UtskickPage from '@/components/pages/UtskickPage'
 import BehorigheterPage from '@/components/pages/BehorigheterPage'
 import ExporteraPage from '@/components/pages/ExporteraPage'
+import ImporteraPage from '@/components/pages/ImporteraPage'
 import OversiktPage from '@/components/pages/OversiktPage'
 import ForsamlingarPage from '@/components/pages/ForsamlingarPage'
 import PastoratPage from '@/components/pages/PastoratPage'
@@ -30,6 +31,7 @@ function PageContent() {
     case 'grupper':        return <GrupperPage />
     case 'utskick':        return <UtskickPage />
     case 'behorigheter':   return <BehorigheterPage />
+    case 'importera':      return <ImporteraPage />
     case 'exportera':      return <ExporteraPage />
     case 'oversikt':       return <OversiktPage />
     case 'forsamlingar':   return <ForsamlingarPage />
