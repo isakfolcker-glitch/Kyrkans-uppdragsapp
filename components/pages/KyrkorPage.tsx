@@ -29,7 +29,11 @@ function AddChurchModal() {
 
   return (
     <>
-      <div className="modal-title">⛪ Ny kyrka / församling</div>
+      <div className="modal-header">
+        <div className="modal-header-quarter" />
+        <div className="modal-title">⛪ Ny kyrka / församling</div>
+      </div>
+      <div className="modal-body">
       <div className="form-field"><label>Namn</label><input placeholder="ex. Araby kyrka" value={name} onChange={e => setName(e.target.value)} /></div>
       <div className="form-row">
         <div className="form-field"><label>Ansvarig admin</label><input placeholder="Namn" value={admin} onChange={e => setAdmin(e.target.value)} /></div>
@@ -39,6 +43,7 @@ function AddChurchModal() {
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
         <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? 'Sparar...' : '✓ Lägg till kyrka'}</button>
+      </div>
       </div>
     </>
   )
@@ -67,7 +72,11 @@ function EditChurchModal({ idx, churchId }: { idx: number; churchId: number }) {
 
   return (
     <>
-      <div className="modal-title">✏️ Redigera kyrka</div>
+      <div className="modal-header">
+        <div className="modal-header-quarter" />
+        <div className="modal-title">✏️ Redigera kyrka</div>
+      </div>
+      <div className="modal-body">
       <div className="form-field"><label>Namn</label><input value={name} onChange={e => setName(e.target.value)} /></div>
       <div className="form-row">
         <div className="form-field"><label>Ansvarig admin</label><input value={admin} onChange={e => setAdmin(e.target.value)} /></div>
@@ -77,6 +86,7 @@ function EditChurchModal({ idx, churchId }: { idx: number; churchId: number }) {
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
         <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? 'Sparar...' : '✓ Spara'}</button>
+      </div>
       </div>
     </>
   )

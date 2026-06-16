@@ -31,7 +31,11 @@ function ForsamlingModal({ idx, forsamlingId }: { idx?: number; forsamlingId?: n
 
   return (
     <>
-      <div className="modal-title">{existing ? '✏️ Redigera församling' : '⛪ Ny församling'}</div>
+      <div className="modal-header">
+        <div className="modal-header-quarter" />
+        <div className="modal-title">{existing ? '✏️ Redigera församling' : '⛪ Ny församling'}</div>
+      </div>
+      <div className="modal-body">
       <div className="form-field"><label>Församlingens namn</label><input placeholder="ex. Växjö domkyrkoförsamling" value={name} onChange={e => setName(e.target.value)} autoFocus /></div>
       <div className="form-row">
         <div className="form-field"><label>Ansvarig admin</label><input placeholder="Namn" value={admin} onChange={e => setAdmin(e.target.value)} /></div>
@@ -40,6 +44,7 @@ function ForsamlingModal({ idx, forsamlingId }: { idx?: number; forsamlingId?: n
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
         <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? 'Sparar...' : '✓ Spara'}</button>
+      </div>
       </div>
     </>
   )
@@ -68,13 +73,18 @@ function KyrkaModal({ forsamlingId, onSaved }: { forsamlingId: number; onSaved: 
 
   return (
     <>
-      <div className="modal-title">🏛 Lägg till kyrka</div>
+      <div className="modal-header">
+        <div className="modal-header-quarter" />
+        <div className="modal-title">🏛 Lägg till kyrka</div>
+      </div>
+      <div className="modal-body">
       <div className="alert alert-blue">En kyrka är en fysisk byggnad inom en församling.</div>
       <div className="form-field"><label>Kyrkans namn</label><input placeholder="ex. Växjö domkyrka" value={name} onChange={e => setName(e.target.value)} autoFocus /></div>
       <div className="form-field"><label>Adress</label><input placeholder="ex. Stortorget 1, Växjö" value={address} onChange={e => setAddress(e.target.value)} /></div>
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
         <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? 'Sparar...' : '✓ Lägg till'}</button>
+      </div>
       </div>
     </>
   )

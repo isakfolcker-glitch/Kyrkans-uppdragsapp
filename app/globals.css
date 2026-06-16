@@ -561,37 +561,6 @@ body {
   border-top: 1px solid #EFE4DB;
 }
 
-/* ── Auto-layout: modal-innehåll direkt i modal-box ─────── */
-/* Aktiveras när .modal-header saknas som direkt barn         */
-.modal-box:not(:has(> .modal-header)) {
-  padding: 30px;
-}
-.modal-box:not(:has(> .modal-header)) > .modal-title {
-  margin: -30px -30px 0;
-  padding: 26px 30px 24px;
-  background: var(--morklila);
-  border-radius: 24px 24px 0 0;
-  position: relative;
-  overflow: hidden;
-}
-.modal-box:not(:has(> .modal-header)) > .modal-title::after {
-  content: '';
-  position: absolute; top: 0; right: 0;
-  width: 130px; height: 130px;
-  border-radius: 0 0 0 100%;
-  background: var(--lila);
-  opacity: .35;
-  pointer-events: none;
-}
-.modal-box:not(:has(> .modal-header)) > .modal-title + * {
-  margin-top: 26px;
-}
-.modal-box:not(:has(> .modal-header)) > .modal-footer-split {
-  margin-left: -30px;
-  margin-right: -30px;
-  padding-left: 30px;
-  padding-right: 30px;
-}
 
 /* ── Formulär ────────────────────────────────────────────── */
 .form-field { margin-bottom: 16px; }

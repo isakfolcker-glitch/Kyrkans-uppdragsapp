@@ -93,8 +93,11 @@ function PermModal({ personId }: { personId: any }) {
 
   return (
     <>
-      <div className="modal-title">🛡 Behörighet – {p.name}</div>
-
+      <div className="modal-header">
+        <div className="modal-header-quarter" />
+        <div className="modal-title">🛡 Behörighet – {p.name}</div>
+      </div>
+      <div className="modal-body">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 14, background: '#FFEBE1', borderRadius: 12, marginBottom: 18 }}>
         <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#7D0037', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, flexShrink: 0 }}>{ini}</div>
         <div>
@@ -159,6 +162,7 @@ function PermModal({ personId }: { personId: any }) {
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
         <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? 'Sparar...' : '✓ Spara'}</button>
+      </div>
       </div>
     </>
   )

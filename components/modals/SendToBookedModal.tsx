@@ -18,7 +18,11 @@ export default function SendToBookedModal({ passId }: { passId: number }) {
 
   return (
     <>
-      <div className="modal-title">✉ Skicka till bokade</div>
+      <div className="modal-header">
+        <div className="modal-header-quarter" />
+        <div className="modal-title">✉ Skicka till bokade</div>
+      </div>
+      <div className="modal-body">
       <div style={{ background: '#F1EFE8', borderRadius: 8, padding: '10px 13px', marginBottom: 12 }}>
         <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2A' }}>{p.title}</div>
         <div style={{ fontSize: 12, color: '#888780' }}>{p.date} · {p.time} · {p.bookings.length} mottagare</div>
@@ -31,6 +35,7 @@ export default function SendToBookedModal({ passId }: { passId: number }) {
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
         <button className="btn btn-primary" onClick={send}>✉ Skicka ({withMail} pers)</button>
+      </div>
       </div>
     </>
   )

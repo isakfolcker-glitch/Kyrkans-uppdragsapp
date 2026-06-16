@@ -11,7 +11,11 @@ export default function PassDetailModal({ passId }: { passId: number }) {
 
   return (
     <>
-      <div className="modal-title">📅 {p.title}</div>
+      <div className="modal-header">
+        <div className="modal-header-quarter" />
+        <div className="modal-title">📅 {p.title}</div>
+      </div>
+      <div className="modal-body">
       <div style={{ fontSize: 12, color: '#5F5E5A', marginBottom: 12, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <span>📅 {p.date}</span><span>🕐 {p.time}</span><span>📍 {p.plats}</span>
       </div>
@@ -70,6 +74,7 @@ export default function PassDetailModal({ passId }: { passId: number }) {
       )}
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Stäng</button>
+      </div>
       </div>
     </>
   )

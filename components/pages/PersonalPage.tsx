@@ -23,14 +23,18 @@ function InvitePersonModal() {
     setLoading(false)
   }
   if (done) return (
-    <>
+    <div className="modal-body">
       <div className="alert alert-green">✓ Inbjudan skickad till {email}! De får ett e-postmeddelande med länk för att skapa konto.</div>
       <div className="modal-footer"><button className="btn btn-primary" onClick={closeModal}>Stäng</button></div>
-    </>
+    </div>
   )
   return (
     <>
-      <div className="modal-title">✉ Bjud in ny användare</div>
+      <div className="modal-header">
+        <div className="modal-header-quarter" />
+        <div className="modal-title">✉ Bjud in ny användare</div>
+      </div>
+      <div className="modal-body">
       <div className="alert alert-blue">🔗 Personen får ett e-postmeddelande med länk för att skapa sitt konto och lösenord.</div>
       <div className="form-field"><label>Namn</label><input placeholder="För- och efternamn" value={name} onChange={e => setName(e.target.value)} /></div>
       <div className="form-field"><label>E-post</label><input type="email" placeholder="namn@example.com" value={email} onChange={e => setEmail(e.target.value)} /></div>
@@ -54,6 +58,7 @@ function InvitePersonModal() {
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
         <button className="btn btn-primary" onClick={send} disabled={loading}>{loading ? 'Skickar...' : '✉ Skicka inbjudan'}</button>
+      </div>
       </div>
     </>
   )
@@ -87,7 +92,11 @@ function AddPersonModal({ defaultRole = 'ideell' }: { defaultRole?: string }) {
   const churchOpts = (isPAdmin() || isSuperAdmin()) ? churches : churches.filter(c => c.id !== undefined && u().churches.includes(c.id as number))
   return (
     <>
-      <div className="modal-title">👤 Lägg till person</div>
+      <div className="modal-header">
+        <div className="modal-header-quarter" />
+        <div className="modal-title">👤 Lägg till person</div>
+      </div>
+      <div className="modal-body">
       <div className="form-field"><label>Namn</label><input placeholder="För- och efternamn" value={name} onChange={e => setName(e.target.value)} /></div>
       <div className="form-field"><label>E-post</label><input type="email" placeholder="namn@example.com" value={mail} onChange={e => setMail(e.target.value)} /></div>
       <div className="form-field"><label>Telefon</label><input placeholder="070-..." value={tel} onChange={e => setTel(e.target.value)} /></div>
@@ -123,6 +132,7 @@ function AddPersonModal({ defaultRole = 'ideell' }: { defaultRole?: string }) {
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
         <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? 'Sparar...' : '✉ Lägg till'}</button>
       </div>
+      </div>
     </>
   )
 }
@@ -136,7 +146,11 @@ function EditPersonModal({ personId }: { personId: number }) {
   const save = () => { updatePerson({ ...p, groups: selGroups }); closeModal() }
   return (
     <>
-      <div className="modal-title">✏️ Ändra uppdrag – {p.name}</div>
+      <div className="modal-header">
+        <div className="modal-header-quarter" />
+        <div className="modal-title">✏️ Ändra uppdrag – {p.name}</div>
+      </div>
+      <div className="modal-body">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, background: '#F1EFE8', borderRadius: 10, marginBottom: 14 }}>
         <div style={{ width: 36, height: 36, borderRadius: '50%', background: p.av, color: p.ac, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600 }}>{p.ini}</div>
         <div><div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2A' }}>{p.name}</div><div style={{ fontSize: 12, color: '#888780' }}>{p.mail}</div></div>
@@ -157,6 +171,7 @@ function EditPersonModal({ personId }: { personId: number }) {
           <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
           <button className="btn btn-primary" onClick={save}>✓ Spara</button>
         </div>
+      </div>
       </div>
     </>
   )

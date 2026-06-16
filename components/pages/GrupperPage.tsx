@@ -39,7 +39,11 @@ function NewGroupModal({ defaultChurchId }: { defaultChurchId: number }) {
 
   return (
     <>
-      <div className="modal-title">👥 Ny grupp</div>
+      <div className="modal-header">
+        <div className="modal-header-quarter" />
+        <div className="modal-title">👥 Ny grupp</div>
+      </div>
+      <div className="modal-body">
       <div className="form-field"><label>Gruppnamn</label><input placeholder="ex. Körvärd, Barnvakt..." value={label} onChange={e => setLabel(e.target.value)} autoFocus /></div>
       <div className="form-field">
         <label>Färg</label>
@@ -56,6 +60,7 @@ function NewGroupModal({ defaultChurchId }: { defaultChurchId: number }) {
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
         <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? 'Sparar...' : '✓ Skapa'}</button>
+      </div>
       </div>
     </>
   )

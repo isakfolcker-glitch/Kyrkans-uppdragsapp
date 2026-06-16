@@ -65,8 +65,11 @@ function SendMessageModal() {
 
   return (
     <>
-      <div className="modal-title">✉ Skicka meddelande</div>
-
+      <div className="modal-header">
+        <div className="modal-header-quarter" />
+        <div className="modal-title">✉ Skicka meddelande</div>
+      </div>
+      <div className="modal-body">
       <div className="form-field">
         <label>Skicka till</label>
         <div style={{ background: '#FFEBE1', borderRadius: 10, padding: '10px 14px' }}>
@@ -105,6 +108,7 @@ function SendMessageModal() {
         <button className="btn btn-primary" onClick={send} disabled={loading}>
           {loading ? 'Skickar...' : `✉ Skicka till ${recipients.length || '?'} pers`}
         </button>
+      </div>
       </div>
     </>
   )
