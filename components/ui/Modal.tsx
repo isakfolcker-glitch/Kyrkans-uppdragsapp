@@ -6,7 +6,9 @@ export default function Modal() {
   if (!modal) return null
   return (
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) closeModal() }}>
-      <div className="modal-box">{modal}</div>
+      <div className="modal-box">
+        <div className="modal-body-wrap">{modal}</div>
+      </div>
     </div>
   )
 }
