@@ -19,14 +19,14 @@ export interface StaffPerms {
   kan_skicka_utskick: boolean
 }
 
-const ALL_PERMS: StaffPerms = {
+export const ALL_PERMS: StaffPerms = {
   kan_skapa_pass: true, kan_redigera_pass: true,
   kan_se_bokningar: true, kan_hantera_bokningar: true,
   kan_se_personal: true, kan_lagg_till_personal: true,
   kan_hantera_grupper: true, kan_skicka_utskick: true,
 }
 
-const NO_PERMS: StaffPerms = {
+export const NO_PERMS: StaffPerms = {
   kan_skapa_pass: false, kan_redigera_pass: false,
   kan_se_bokningar: false, kan_hantera_bokningar: false,
   kan_se_personal: false, kan_lagg_till_personal: false,
@@ -60,6 +60,7 @@ interface AppCtx {
   updateUserNotif: (key: string, val: boolean) => void
   addPass: (p: PassData) => Promise<void>; updatePass: (p: PassData) => void
   deletePass: (id: number) => void; cancelPass: (id: number) => void
+  reloadPasses: () => Promise<void>
   addBooking: (passId: number, b: PassData['bookings'][0]) => void
   removeBooking: (passId: number, idx: number) => void
   addPerson: (p: PersonData) => void; updatePerson: (p: PersonData) => void
@@ -75,7 +76,7 @@ interface AppCtx {
 }
 
 let _nextPersonId = 100, _nextPassId = 200, _nextPasId = 2
-const Ctx = createContext<AppCtx>(null!)
+export const Ctx = createContext<AppCtx>(null!)
 export const useApp = () => useContext(Ctx)
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -88,7 +89,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // State — börjar tomt, fylls på från Supabase när inloggad
   const [userIndex, setUserIndex] = useState(0)
-  const [page, setPage] = useState('pass')
+  const [page, setPage] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('lastPage') || 'pass' : 'pass'))
   const [passes, setPasses] = useState<PassData[]>([])
   const [people, setPeople] = useState<PersonData[]>([])
   const [messages, setMessages] = useState<MessageData[]>([])
@@ -209,14 +210,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Hämta pastorat med admin-profil och kopplade kyrkor
     const { data: pastData } = await supabase
       .from('pastorat')
-      .select('id, name, profiles(name, email), churches(id)')
+      .select('id, name, churches(id)')
       .order('id')
     if (pastData?.length) {
       setPastorat(pastData.map((p: any) => ({
         id: p.id,
         name: p.name,
-        admin: p.profiles?.name ?? '',
-        adminEmail: p.profiles?.email ?? '',
+        admin: '',
+        adminEmail: '',
         churches: (p.churches ?? []).map((c: any) => c.id),
       })))
     }
@@ -242,7 +243,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           kioskVisible: p.kiosk_visible,
           responsibleUserIds: p.pass_responsible?.map((r: any) => r.profile_id) || [],
           bookings: p.bookings?.map((b: any) => ({
-            personId: b.profile_id, name: b.name, ini: b.ini || '',
+            id: b.id, personId: b.profile_id, name: b.name, ini: b.ini || '',
             av: b.av_color || '#F1EFE8', ac: b.ac_color || '#5F5E5A',
             source: b.source, noAccount: b.no_account, mail: b.mail, tel: b.tel,
           })) || [],
@@ -316,7 +317,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPage(NAV_ITEMS[users[next].role]?.[0]?.id ?? 'pass')
     setActiveChurch(0); setGroupFilter('alla'); setModal(null)
   }
-  const goTo     = (p: string) => { setPage(p); setModal(null) }
+  const goTo     = (p: string) => { setPage(p); setModal(null); if (typeof window !== 'undefined') localStorage.setItem('lastPage', p) }
   const setChurch = (i: number) => setActiveChurch(i)
   const setFilter = (f: string) => setGroupFilter(f)
   const showModal = (content: ReactNode) => setModal(content)
@@ -333,6 +334,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const doUnbook = (id: number) => {
     setPasses(prev => prev.map(p => p.id === id ? { ...p, filled: Math.max(0, p.filled - 1) } : p))
     setSelfBookings(prev => { const n = { ...prev }; delete n[id]; return n })
+    // Hitta bokningens ID för att kunna ta bort den i databasen
+    const pass = passes.find(p => p.id === id)
+    const booking = pass?.bookings.find(b => b.personId === currentUser?.id || (profile && b.personId === profile.id))
+    if (booking?.id) {
+      fetch('/api/bookings', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ booking_id: booking.id }) })
+    }
   }
   const joinWaitlist = (id: number) => {
     // Optimistisk position = antal i kön + 1
@@ -393,11 +400,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPasses(prev => prev.map(p => p.id === id ? { ...p, cancelled: true, history: [...p.history, 'Ställdes in – Idag'] } : p))
     fetch(`/api/passes/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cancelled: true }) })
   }
+  const reloadPasses = async () => {
+    const { data: passData } = await supabase
+      .from('passes')
+      .select('*, pass_groups(group_id), pass_responsible(profile_id), bookings(id, name, ini, av_color, ac_color, mail, tel, source, no_account, profile_id), pass_history(entry), waitlist(id)')
+      .order('created_at', { ascending: false })
+    if (passData) {
+      setPasses(passData.map((p: any) => ({
+        id: p.id, church: p.church_id, title: p.title,
+        groups: p.pass_groups?.map((g: any) => g.group_id) || [],
+        date: p.date_str, time: p.time_str, plats: p.plats,
+        spots: p.spots, filled: p.bookings?.length ?? 0,
+        vk: p.vk ?? '', tel: p.tel ?? '', desc: p.description ?? '',
+        pubStatus: p.pub_status, pubDate: p.pub_date ?? '',
+        kioskVisible: p.kiosk_visible ?? false, cancelled: p.cancelled ?? false,
+        bookings: (p.bookings ?? []).map((b: any) => ({ id: b.id, personId: b.profile_id, name: b.name, ini: b.ini, av: b.av_color, ac: b.ac_color, mail: b.mail, tel: b.tel, source: b.source, noAccount: b.no_account })),
+        history: p.pass_history?.map((h: any) => h.entry) ?? [],
+        waitlistCount: p.waitlist?.length ?? 0,
+        responsibleUserIds: p.pass_responsible?.map((r: any) => r.profile_id) ?? [],
+      })))
+    }
+  }
   const addBooking = (passId: number, b: PassData['bookings'][0]) => {
     setPasses(prev => prev.map(p => p.id === passId ? { ...p, bookings: [...p.bookings, b], filled: p.filled + 1 } : p))
   }
   const removeBooking = (passId: number, idx: number) => {
+    const pass = passes.find(p => p.id === passId)
+    const bookingId = pass?.bookings[idx]?.id
     setPasses(prev => prev.map(p => p.id === passId ? { ...p, bookings: p.bookings.filter((_, i) => i !== idx), filled: Math.max(0, p.filled - 1) } : p))
+    if (bookingId) {
+      fetch(`/api/bookings`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ booking_id: bookingId }),
+      })
+        .then(r => r.json())
+        .then(d => { if (!d.ok) alert('Kunde inte ta bort bokningen: ' + d.error) })
+    }
   }
   const addPerson    = (p: PersonData) => setPeople(prev => [...prev, p])
   const updatePerson = (p: PersonData) => {
@@ -408,7 +447,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify({ groups: p.groups }),
     }).catch(() => {})
   }
-  const deletePerson = (id: number)    => setPeople(prev => prev.filter(x => x.id !== id))
+  const deletePerson = (id: any) => {
+    fetch(`/api/people/${id}`, { method: 'DELETE' })
+      .then(res => res.json())
+      .then(d => { if (!d.ok) alert(`Kunde inte ta bort: ${d.error}`) })
+      .catch(() => alert('Nätverksfel vid borttagning'))
+    setPeople(prev => prev.filter(x => x.id !== id))
+  }
   const addMessage   = (m: MessageData) => setMessages(prev => [m, ...prev])
   const addChurch    = (c: Church)     => setChurches(prev => [...prev, c])
   const updateChurch = (idx: number, c: Church) => setChurches(prev => prev.map((x, i) => i === idx ? c : x))
@@ -463,7 +508,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       canMakePAdmin, canMakeFAdmin, perm,
       cycleUser, goTo, setChurch, setFilter, showModal, closeModal,
       doBook, doUnbook, joinWaitlist, leaveWaitlist, publishNow, toggleAvail, updateUserNotif,
-      addPass, updatePass, deletePass, cancelPass, addBooking, removeBooking,
+      addPass, updatePass, deletePass, cancelPass, reloadPasses, addBooking, removeBooking,
       addPerson, updatePerson, deletePerson, addMessage,
       addChurch, updateChurch, deleteChurch,
       addPastorat, updatePastorat, deletePastorat, addGroup, deleteGroup,

@@ -24,8 +24,23 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
-  // Skicka oinloggade till /login (utom /login och /kiosk)
-  if (!user && pathname !== '/login' && !pathname.startsWith('/kiosk') && !pathname.startsWith('/api')) {
+  // Demo-lösenordsskydd: /demo kräver cookie, /demo-login och /api/demo är öppna
+  if (pathname.startsWith('/demo') && !pathname.startsWith('/demo-login') && !pathname.startsWith('/api/demo')) {
+    const demoPassword = process.env.DEMO_PASSWORD
+    const demoCookie = request.cookies.get('demo_auth')?.value
+    if (demoPassword && demoCookie !== demoPassword) {
+      return NextResponse.redirect(new URL('/demo-login', request.url))
+    }
+    return response
+  }
+
+  // /demo-login och /api/demo behöver ingen Supabase-auth
+  if (pathname.startsWith('/demo-login') || pathname.startsWith('/api/demo')) {
+    return response
+  }
+
+  // Skicka oinloggade till /login (utom /login, /kiosk, /auth/* — /auth/confirm hanterar inbjudningslänkens token i hashen)
+  if (!user && pathname !== '/login' && !pathname.startsWith('/kiosk') && !pathname.startsWith('/api') && !pathname.startsWith('/auth')) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 

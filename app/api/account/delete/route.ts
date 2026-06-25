@@ -19,7 +19,7 @@ export async function DELETE() {
   await admin.from('profiles').delete().eq('id', id)
 
   // Ta bort auth-användaren sist
-  const { error } = await admin.auth.admin.deleteUser(id)
+  const { error } = await admin.auth.admin.deleteUser(id, true)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ ok: true })

@@ -10,7 +10,7 @@ export interface PersonData {
   church: any; groups: string[]; available: boolean
 }
 export interface BookingData {
-  personId: any; name: string; ini: string; av: string; ac: string
+  id?: number; personId: any; name: string; ini: string; av: string; ac: string
   source: 'app' | 'manual' | 'kiosk'; noAccount: boolean; mail?: string; tel?: string
 }
 export interface PassData {
@@ -56,7 +56,7 @@ export const NAV_ITEMS: Record<string, {id:string;icon:string;lbl:string}[]> = {
   anstalld:   [{id:'pass',icon:'Calendar',lbl:'Pass'},{id:'mina-ansvar',icon:'ShieldCheck',lbl:'Mina ansvar'},{id:'mina-bokningar',icon:'Bookmark',lbl:'Mina bokningar'},{id:'notiser',icon:'Bell',lbl:'Notiser'},{id:'profil',icon:'User',lbl:'Min profil'}],
   fadmin:     [{id:'pass',icon:'Calendar',lbl:'Pass'},{id:'personal',icon:'Users',lbl:'Personal'},{id:'grupper',icon:'UsersGroup',lbl:'Grupper'},{id:'utskick',icon:'Send',lbl:'Utskick'},{id:'behorigheter',icon:'Shield',lbl:'Behörigheter'},{id:'exportera',icon:'Download',lbl:'Exportera'},{id:'mina-bokningar',icon:'Bookmark',lbl:'Mina bokningar'},{id:'notiser',icon:'Bell',lbl:'Notiser'},{id:'profil',icon:'User',lbl:'Min profil'}],
   padmin:     [{id:'oversikt',icon:'LayoutDashboard',lbl:'Översikt'},{id:'pass',icon:'Calendar',lbl:'Pass'},{id:'personal',icon:'Users',lbl:'Personal'},{id:'grupper',icon:'UsersGroup',lbl:'Grupper'},{id:'utskick',icon:'Send',lbl:'Utskick'},{id:'behorigheter',icon:'Shield',lbl:'Behörigheter'},{id:'forsamlingar',icon:'BuildingChurch',lbl:'Församlingar'},{id:'exportera',icon:'Download',lbl:'Exportera'},{id:'mina-bokningar',icon:'Bookmark',lbl:'Mina bokningar'},{id:'notiser',icon:'Bell',lbl:'Notiser'},{id:'profil',icon:'User',lbl:'Min profil'}],
-  superadmin: [{id:'pastorat',icon:'World',lbl:'Pastorat'},{id:'oversikt',icon:'LayoutDashboard',lbl:'Översikt'},{id:'pass',icon:'Calendar',lbl:'Pass'},{id:'personal',icon:'Users',lbl:'Personal'},{id:'grupper',icon:'UsersGroup',lbl:'Grupper'},{id:'behorigheter',icon:'Shield',lbl:'Behörigheter'},{id:'forsamlingar',icon:'BuildingChurch',lbl:'Församlingar'},{id:'exportera',icon:'Download',lbl:'Exportera'},{id:'profil',icon:'User',lbl:'Min profil'}],
+  superadmin: [{id:'pastorat',icon:'World',lbl:'Pastorat'},{id:'oversikt',icon:'LayoutDashboard',lbl:'Översikt'},{id:'pass',icon:'Calendar',lbl:'Pass'},{id:'personal',icon:'Users',lbl:'Personal'},{id:'grupper',icon:'UsersGroup',lbl:'Grupper'},{id:'utskick',icon:'Send',lbl:'Utskick'},{id:'behorigheter',icon:'Shield',lbl:'Behörigheter'},{id:'forsamlingar',icon:'BuildingChurch',lbl:'Församlingar'},{id:'exportera',icon:'Download',lbl:'Exportera'},{id:'profil',icon:'User',lbl:'Min profil'}],
   kiosk:      [{id:'kiosk',icon:'DeviceIpad',lbl:'Kiosk'}],
 }
 

@@ -7,19 +7,23 @@ import NewPassModal from '@/components/modals/NewPassModal'
 
 export default function PassPage() {
   const { u, passes, isAdmin, isPAdmin, isFAdmin, activeChurch, groupFilter, churches, setChurch, setFilter, showModal, toggleAvail, currentChurchId } = useApp()
+  const [showOld, setShowOld] = useState(false)
   const usr = u()
 
   if (isAdmin()) return <AdminPassPage />
 
   const myGroups = usr.groups
   const cid = usr.churches[0] ?? 0
+  const today = new Date().toISOString().slice(0, 10)
 
-  const visible = passes.filter(p =>
+  const base = passes.filter(p =>
     p.church === cid &&
     p.pubStatus === 'live' && !p.cancelled &&
     p.groups.some(g => myGroups.includes(g)) &&
     (groupFilter === 'alla' || p.groups.includes(groupFilter))
   )
+  const visible = base.filter(p => p.date >= today).sort((a, b) => a.date.localeCompare(b.date))
+  const old     = base.filter(p => p.date < today).sort((a, b) => b.date.localeCompare(a.date))
 
   return (
     <div>
@@ -50,11 +54,27 @@ export default function PassPage() {
           </div>
           <div className="pass-list">
             {visible.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '3rem', color: '#888780' }}>Inga pass hittades för dina grupper just nu.</div>
+              <div style={{ textAlign: 'center', padding: '3rem', color: '#888780' }}>Inga kommande pass hittades för dina grupper just nu.</div>
             ) : (
               visible.map(p => <PassCard key={p.id} pass={p} adminMode={false} />)
             )}
           </div>
+          {old.length > 0 && (
+            <div style={{ marginTop: 24 }}>
+              <button
+                onClick={() => setShowOld(v => !v)}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#5F5E5A', fontSize: 13, fontWeight: 600, padding: '6px 0' }}
+              >
+                <span style={{ fontSize: 16 }}>{showOld ? '▾' : '▸'}</span>
+                {showOld ? 'Dölj gamla pass' : `Visa gamla pass (${old.length})`}
+              </button>
+              {showOld && (
+                <div className="pass-list" style={{ marginTop: 10, opacity: 0.75 }}>
+                  {old.map(p => <PassCard key={p.id} pass={p} adminMode={false} />)}
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>
@@ -65,6 +85,7 @@ function AdminPassPage() {
   const { passes, isPAdmin, isSuperAdmin, churches, activeChurch, setChurch, showModal, currentChurchId, groups } = useApp()
   const [search, setSearch] = useState('')
   const [groupFilter, setGroupFilter] = useState('alla')
+  const [showHistory, setShowHistory] = useState(false)
   const cid = currentChurchId()
   const today = new Date().toISOString().slice(0, 10)
 
@@ -73,10 +94,11 @@ function AdminPassPage() {
     .filter(p => !search || p.title.toLowerCase().includes(search.toLowerCase()))
     .filter(p => groupFilter === 'alla' || p.groups.includes(groupFilter))
 
-  const sch  = filtered.filter(p => p.pubStatus === 'scheduled' && !p.cancelled).sort((a,b) => a.date.localeCompare(b.date))
-  const live = filtered.filter(p => p.pubStatus === 'live' && !p.cancelled).sort((a,b) => a.date.localeCompare(b.date))
-  const inst = filtered.filter(p => p.cancelled)
-  const kioskN = passes.filter(p => p.church === cid && p.kioskVisible && p.pubStatus === 'live' && !p.cancelled).length
+  const sch     = filtered.filter(p => p.pubStatus === 'scheduled' && !p.cancelled && p.date >= today).sort((a,b) => a.date.localeCompare(b.date))
+  const live    = filtered.filter(p => p.pubStatus === 'live' && !p.cancelled && p.date >= today).sort((a,b) => a.date.localeCompare(b.date))
+  const inst    = filtered.filter(p => p.cancelled && p.date >= today)
+  const history = filtered.filter(p => p.date < today).sort((a, b) => b.date.localeCompare(a.date))
+  const kioskN  = passes.filter(p => p.church === cid && p.kioskVisible && p.pubStatus === 'live' && !p.cancelled && p.date >= today).length
 
   return (
     <div>
@@ -120,7 +142,7 @@ function AdminPassPage() {
         {sch.length > 0 && (<><div className="section-label">Schemalagda</div>{sch.map(p => <PassCard key={p.id} pass={p} adminMode />)}</>)}
         {live.length > 0 && (<><div className="section-label" style={{ marginTop: sch.length ? 16 : 0 }}>Live</div>{live.map(p => <PassCard key={p.id} pass={p} adminMode />)}</>)}
         {inst.length > 0 && (<><div className="section-label" style={{ marginTop: 16 }}>Inställda</div>{inst.map(p => <PassCard key={p.id} pass={p} adminMode />)}</>)}
-        {!sch.length && !live.length && !inst.length && (
+        {!sch.length && !live.length && !inst.length && !history.length && (
           <div style={{ background: '#fff', borderRadius: 16, padding: '40px 24px', textAlign: 'center', border: '1px solid rgba(125,0,55,0.08)' }}>
             <div style={{ fontSize: 48, marginBottom: 14 }}>📅</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: '#000', marginBottom: 6 }}>Inga pass skapade ännu</div>
@@ -129,6 +151,23 @@ function AdminPassPage() {
           </div>
         )}
       </div>
+
+      {history.length > 0 && (
+        <div style={{ marginTop: 24 }}>
+          <button
+            onClick={() => setShowHistory(v => !v)}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#5F5E5A', fontSize: 13, fontWeight: 600, padding: '6px 0' }}
+          >
+            <span style={{ fontSize: 16 }}>{showHistory ? '▾' : '▸'}</span>
+            {showHistory ? 'Dölj historik' : `Historik – gamla pass (${history.length})`}
+          </button>
+          {showHistory && (
+            <div className="pass-list" style={{ marginTop: 10, opacity: 0.75 }}>
+              {history.map(p => <PassCard key={p.id} pass={p} adminMode />)}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

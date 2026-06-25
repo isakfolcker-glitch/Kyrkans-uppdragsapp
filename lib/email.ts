@@ -6,23 +6,28 @@ function escapeHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-async function send(to: string | string[], subject: string, html: string) {
+async function send(to: string | string[], subject: string, html: string, replyTo?: string) {
   const toArr = Array.isArray(to) ? to : [to]
-  // Brevo max 99 mottagare per anrop
   const chunks: string[][] = []
   for (let i = 0; i < toArr.length; i += 99) chunks.push(toArr.slice(i, i + 99))
 
   for (const chunk of chunks) {
-    await fetch('https://api.brevo.com/v3/smtp/email', {
+    const body: any = {
+      sender: { name: FROM_NAME, email: FROM_EMAIL },
+      to: chunk.map(email => ({ email })),
+      subject,
+      htmlContent: html,
+    }
+    if (replyTo) body.replyTo = { email: replyTo }
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: { 'api-key': BREVO_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sender: { name: FROM_NAME, email: FROM_EMAIL },
-        to: chunk.map(email => ({ email })),
-        subject,
-        htmlContent: html,
-      }),
+      body: JSON.stringify(body),
     })
+    if (!res.ok) {
+      const errText = await res.text()
+      throw new Error(`Brevo ${res.status}: ${errText}`)
+    }
   }
 }
 
@@ -158,7 +163,7 @@ export async function sendWaitlistPromotion(opts: {
 }
 
 export async function sendInvitation(opts: {
-  to: string; name: string; inviterName: string; inviteUrl: string; role: string
+  to: string; name: string; inviterName: string; inviterEmail?: string; inviteUrl: string; role: string
 }) {
   const roleLabel: Record<string, string> = {
     ideell: 'Ideell volontär', anstalld: 'Anställd',
@@ -174,7 +179,7 @@ export async function sendInvitation(opts: {
           Skapa konto och logga in
         </a>
       </div>
-      <p style="color:#888780;font-size:12px">Länken är giltig i 24 timmar.</p>
+      <p style="color:#888780;font-size:12px">Länken är giltig i 24 timmar. Svarar du på detta mail når du ${opts.inviterName}.</p>
     </div>
-  `)
+  `, opts.inviterEmail)
 }

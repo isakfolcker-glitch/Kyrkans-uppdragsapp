@@ -2,6 +2,7 @@
 import { useApp } from '@/lib/appStore'
 import ManualAssignModal from './ManualAssignModal'
 import SendToBookedModal from './SendToBookedModal'
+import PassQASection from './PassQASection'
 
 export default function PassDetailModal({ passId }: { passId: number }) {
   const { passes, closeModal, removeBooking, canAddBkg, canRemoveBkg, canMsgBooked, showModal } = useApp()
@@ -56,6 +57,8 @@ export default function PassDetailModal({ passId }: { passId: number }) {
           ✉ Skicka till bokade ({p.bookings.length} pers)
         </button>
       )}
+
+      <PassQASection passId={passId} />
 
       {p.history?.length > 0 && (
         <>

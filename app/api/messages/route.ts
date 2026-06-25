@@ -19,8 +19,12 @@ export async function POST(req: NextRequest) {
   if (!subject?.trim()) return NextResponse.json({ error: 'Ämne saknas' }, { status: 400 })
   if (!body?.trim())    return NextResponse.json({ error: 'Meddelande saknas' }, { status: 400 })
 
-  // Skicka mail via Resend
-  await sendBulkMessage({ to, subject, body, fromName: sender?.name ?? 'Admin' })
+  // Skicka mail via Brevo
+  try {
+    await sendBulkMessage({ to, subject, body, fromName: sender?.name ?? 'Admin' })
+  } catch (e: any) {
+    return NextResponse.json({ error: `Mailet kunde inte skickas: ${e.message}` }, { status: 500 })
+  }
 
   // Logga utskicket
   await supabase.from('message_logs').insert({

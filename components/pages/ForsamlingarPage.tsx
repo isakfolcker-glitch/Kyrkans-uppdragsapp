@@ -23,7 +23,7 @@ function ForsamlingModal({ idx, forsamlingId }: { idx?: number; forsamlingId?: n
     } else {
       const res = await fetch('/api/churches', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, admin, tel }) })
       const data = await res.json()
-      if (res.ok) addChurch({ name: data.name, admin: data.admin_name || '', tel: data.tel || '' })
+      if (res.ok) addChurch({ id: data.id, name: data.name, admin: data.admin_name || '', tel: data.tel || '' })
     }
     setLoading(false)
     closeModal()
