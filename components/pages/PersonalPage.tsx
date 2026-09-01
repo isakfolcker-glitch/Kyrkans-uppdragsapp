@@ -53,11 +53,11 @@ function SetPasswordModal({ personId, personName }: { personId: any; personName:
   )
 }
 
-function InvitePersonModal() {
+function InvitePersonModal({ defaultRole = 'ideell' }: { defaultRole?: string }) {
   const { churches, isPAdmin, isSuperAdmin, u, inviteUser, closeModal, currentChurchId } = useApp()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState('ideell')
+  const [role, setRole] = useState(defaultRole)
   const [churchId, setChurchId] = useState(currentChurchId())
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
@@ -231,7 +231,7 @@ export default function PersonalPage() {
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="btn btn-secondary" onClick={() => showModal(<InvitePersonModal />)}>✉ Bjud in</button>
-          <button className="btn btn-secondary" onClick={() => showModal(<AddPersonModal defaultRole="anstalld" />)}>👔 Ny anställd</button>
+          <button className="btn btn-secondary" onClick={() => showModal(<InvitePersonModal defaultRole="anstalld" />)}>👔 Ny anställd</button>
           <button className="btn btn-primary" onClick={() => showModal(<AddPersonModal defaultRole="ideell" />)}>+ Ny ideell</button>
         </div>
       </div>
