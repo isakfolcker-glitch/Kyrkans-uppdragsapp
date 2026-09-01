@@ -4,6 +4,55 @@ import { useApp } from '@/lib/appStore'
 import { gLabel, gCls, roleLabel, ini2, PersonData } from '@/lib/appData'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 
+function SetPasswordModal({ personId, personName }: { personId: any; personName: string }) {
+  const { closeModal } = useApp()
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [done, setDone] = useState(false)
+  const [err, setErr] = useState('')
+
+  const save = async () => {
+    if (password.length < 8) { setErr('Lösenordet måste vara minst 8 tecken.'); return }
+    if (password !== confirm) { setErr('Lösenorden matchar inte.'); return }
+    setLoading(true); setErr('')
+    const res = await fetch(`/api/people/${personId}/set-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    })
+    const d = await res.json()
+    if (!res.ok) { setErr(d.error ?? 'Något gick fel.'); setLoading(false); return }
+    setDone(true); setLoading(false)
+  }
+
+  if (done) return (
+    <>
+      <div className="alert alert-green">✓ Lösenordet för {personName} har uppdaterats.</div>
+      <div className="modal-footer"><button className="btn btn-primary" onClick={closeModal}>Stäng</button></div>
+    </>
+  )
+  return (
+    <>
+      <div className="modal-title">🔑 Sätt lösenord – {personName}</div>
+      <div className="alert alert-blue">Lösenordet sätts direkt. Personen kan logga in med det nya lösenordet omedelbart.</div>
+      <div className="form-field">
+        <label>Nytt lösenord</label>
+        <input type="password" placeholder="Minst 8 tecken" value={password} onChange={e => setPassword(e.target.value)} />
+      </div>
+      <div className="form-field">
+        <label>Bekräfta lösenord</label>
+        <input type="password" placeholder="Upprepa lösenordet" value={confirm} onChange={e => setConfirm(e.target.value)} />
+      </div>
+      {err && <div className="alert alert-red">⚠️ {err}</div>}
+      <div className="modal-footer">
+        <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
+        <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? 'Sparar...' : '🔑 Sätt lösenord'}</button>
+      </div>
+    </>
+  )
+}
+
 function InvitePersonModal() {
   const { churches, isPAdmin, isSuperAdmin, u, inviteUser, closeModal, currentChurchId } = useApp()
   const [name, setName] = useState('')
@@ -225,6 +274,7 @@ export default function PersonalPage() {
                     const d = await res.json()
                     alert(res.ok ? `✓ Ny inbjudan skickad till ${p.mail}` : `Fel: ${d.error}`)
                   }}>✉️</button>}
+                  <button className="btn btn-secondary btn-sm" title="Sätt lösenord" onClick={() => showModal(<SetPasswordModal personId={p.id} personName={p.name} />)}>🔑</button>
                   <button className="btn btn-secondary btn-sm" onClick={() => showModal(<EditPersonModal personId={p.id} />)}>✏️</button>
                   <button className="btn btn-danger btn-sm" onClick={() => showModal(<ConfirmModal title={`Ta bort ${p.name}?`} sub="Personen förlorar åtkomst och tas bort från alla bokningar." confirmLabel="Ta bort" onConfirm={() => deletePerson(p.id)} />)}>🗑</button>
                 </div>
