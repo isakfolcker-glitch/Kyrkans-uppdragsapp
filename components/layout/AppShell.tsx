@@ -8,6 +8,7 @@ import MinaBokningarPage from '@/components/pages/MinaBokningarPage'
 import NotiserPage from '@/components/pages/NotiserPage'
 import ProfilPage from '@/components/pages/ProfilPage'
 import PersonalPage from '@/components/pages/PersonalPage'
+import AnsokningarPage from '@/components/pages/AnsokningarPage'
 import GrupperPage from '@/components/pages/GrupperPage'
 import UtskickPage from '@/components/pages/UtskickPage'
 import BehorigheterPage from '@/components/pages/BehorigheterPage'
@@ -27,6 +28,7 @@ function PageContent() {
     case 'notiser':        return <NotiserPage />
     case 'profil':         return <ProfilPage />
     case 'personal':       return <PersonalPage />
+    case 'ansokningar':    return <AnsokningarPage />
     case 'grupper':        return <GrupperPage />
     case 'utskick':        return <UtskickPage />
     case 'behorigheter':   return <BehorigheterPage />

@@ -4,6 +4,9 @@ import { useApp } from '@/lib/appStore'
 import { gLabel, gCls } from '@/lib/appData'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import PasswordInput from '@/components/ui/PasswordInput'
+import PasswordStrengthMeter from '@/components/ui/PasswordStrengthMeter'
+import { passwordError } from '@/lib/passwordPolicy'
 
 const notifDefs = [
   { key: 'passdag',    lbl: 'Påminnelse samma dag',      sub: 'E-post kl 07:00 på uppdragsdagen' },
@@ -52,8 +55,9 @@ export default function ProfilPage() {
   const [pwMsg, setPwMsg] = useState('')
 
   const changePassword = async () => {
-    if (pw.length < 8) { setPwMsg('Minst 8 tecken.'); return }
-    if (pw !== pw2)    { setPwMsg('Lösenorden matchar inte.'); return }
+    const errMsg = passwordError(pw)
+    if (errMsg) { setPwMsg(errMsg); return }
+    if (pw !== pw2) { setPwMsg('Lösenorden matchar inte.'); return }
     const supabase = createClient()
     const { error } = await supabase.auth.updateUser({ password: pw })
     if (error) { setPwMsg('❌ ' + error.message); return }
@@ -175,13 +179,14 @@ export default function ProfilPage() {
         <div className="form-row">
           <div className="form-field">
             <label>Nytt lösenord</label>
-            <input type="password" placeholder="••••••••" value={pw} onChange={e => setPw(e.target.value)} autoComplete="new-password" />
+            <PasswordInput placeholder="••••••••" value={pw} onChange={e => setPw(e.target.value)} autoComplete="new-password" />
           </div>
           <div className="form-field">
             <label>Upprepa lösenord</label>
-            <input type="password" placeholder="••••••••" value={pw2} onChange={e => setPw2(e.target.value)} autoComplete="new-password" />
+            <PasswordInput placeholder="••••••••" value={pw2} onChange={e => setPw2(e.target.value)} autoComplete="new-password" />
           </div>
         </div>
+        <PasswordStrengthMeter password={pw} />
         {pwMsg && (
           <div className={`alert ${pwMsg.startsWith('✓') ? 'alert-green' : 'alert-red'}`} style={{ marginBottom: 12 }}>
             {pwMsg}

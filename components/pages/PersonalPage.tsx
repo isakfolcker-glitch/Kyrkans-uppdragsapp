@@ -3,6 +3,9 @@ import { useState } from 'react'
 import { useApp } from '@/lib/appStore'
 import { gLabel, gCls, roleLabel, ini2, PersonData } from '@/lib/appData'
 import ConfirmModal from '@/components/modals/ConfirmModal'
+import PasswordInput from '@/components/ui/PasswordInput'
+import PasswordStrengthMeter from '@/components/ui/PasswordStrengthMeter'
+import { passwordError } from '@/lib/passwordPolicy'
 
 function SetPasswordModal({ personId, personName }: { personId: any; personName: string }) {
   const { closeModal } = useApp()
@@ -13,7 +16,8 @@ function SetPasswordModal({ personId, personName }: { personId: any; personName:
   const [err, setErr] = useState('')
 
   const save = async () => {
-    if (password.length < 8) { setErr('Lösenordet måste vara minst 8 tecken.'); return }
+    const errMsg = passwordError(password)
+    if (errMsg) { setErr(errMsg); return }
     if (password !== confirm) { setErr('Lösenorden matchar inte.'); return }
     setLoading(true); setErr('')
     const res = await fetch(`/api/people/${personId}/set-password`, {
@@ -38,12 +42,13 @@ function SetPasswordModal({ personId, personName }: { personId: any; personName:
       <div className="alert alert-blue">Lösenordet sätts direkt. Personen kan logga in med det nya lösenordet omedelbart.</div>
       <div className="form-field">
         <label>Nytt lösenord</label>
-        <input type="password" placeholder="Minst 8 tecken" value={password} onChange={e => setPassword(e.target.value)} />
+        <PasswordInput placeholder="Minst 10 tecken" value={password} onChange={e => setPassword(e.target.value)} />
       </div>
       <div className="form-field">
         <label>Bekräfta lösenord</label>
-        <input type="password" placeholder="Upprepa lösenordet" value={confirm} onChange={e => setConfirm(e.target.value)} />
+        <PasswordInput placeholder="Upprepa lösenordet" value={confirm} onChange={e => setConfirm(e.target.value)} />
       </div>
+      <PasswordStrengthMeter password={password} />
       {err && <div className="alert alert-red">⚠️ {err}</div>}
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>

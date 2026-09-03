@@ -2,6 +2,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import PasswordInput from '@/components/ui/PasswordInput'
+import PasswordStrengthMeter from '@/components/ui/PasswordStrengthMeter'
+import { passwordError } from '@/lib/passwordPolicy'
 
 type Step = 'loading' | 'form' | 'saving' | 'done' | 'error'
 
@@ -28,7 +31,7 @@ export default function AuthConfirmPage() {
       // Kolla om onboarding redan är klar
       const { data: profile } = await supabase
         .from('profiles')
-        .select('onboarding_done, name, phone, email')
+        .select('onboarding_done, name, phone, email, birth_year, emergency_contact_name, emergency_contact_phone')
         .eq('id', session.user.id)
         .single()
 
@@ -40,6 +43,11 @@ export default function AuthConfirmPage() {
       setEmail(session.user.email ?? '')
       setName(profile?.name ?? '')
       setPhone(profile?.phone ?? '')
+      // Om personen redan fyllt i uppgifter i sin ansökan förifylls de här,
+      // så de bara behöver bekräfta och välja lösenord.
+      if (profile?.birth_year) setBirthYear(String(profile.birth_year))
+      if (profile?.emergency_contact_name) setEcName(profile.emergency_contact_name)
+      if (profile?.emergency_contact_phone) setEcPhone(profile.emergency_contact_phone)
       setStep('form')
     }
 
@@ -65,7 +73,8 @@ export default function AuthConfirmPage() {
     }
     if (!ecName.trim())  { setError('Ange namn på din kontaktperson.'); return }
     if (!ecPhone.trim()) { setError('Ange telefonnummer till din kontaktperson.'); return }
-    if (password.length < 8) { setError('Lösenordet måste vara minst 8 tecken.'); return }
+    const pwErrMsg = passwordError(password)
+    if (pwErrMsg) { setError(pwErrMsg); return }
     if (password !== password2) { setError('Lösenorden matchar inte.'); return }
 
     setStep('saving')
@@ -182,18 +191,19 @@ export default function AuthConfirmPage() {
 
         {/* Lösenord */}
         <div style={field}>
-          <label style={lbl}>Välj lösenord * (minst 8 tecken)</label>
-          <input
-            style={inp} type="password" placeholder="••••••••"
+          <label style={lbl}>Välj lösenord *</label>
+          <PasswordInput
+            style={inp} placeholder="••••••••"
             value={password} onChange={e => setPassword(e.target.value)}
             autoComplete="new-password"
           />
         </div>
+        <PasswordStrengthMeter password={password} />
 
         <div style={field}>
           <label style={lbl}>Upprepa lösenord *</label>
-          <input
-            style={inp} type="password" placeholder="••••••••"
+          <PasswordInput
+            style={inp} placeholder="••••••••"
             value={password2} onChange={e => setPassword2(e.target.value)}
             autoComplete="new-password"
           />

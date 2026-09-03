@@ -2,6 +2,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import PasswordInput from '@/components/ui/PasswordInput'
+import PasswordStrengthMeter from '@/components/ui/PasswordStrengthMeter'
+import { passwordError } from '@/lib/passwordPolicy'
 
 export default function ResetPasswordPage() {
   const router = useRouter()
@@ -25,7 +28,8 @@ export default function ResetPasswordPage() {
   }, [])
 
   const save = async () => {
-    if (password.length < 8) { setError('Lösenordet måste vara minst 8 tecken.'); return }
+    const pwErrMsg = passwordError(password)
+    if (pwErrMsg) { setError(pwErrMsg); return }
     if (password !== password2) { setError('Lösenorden matchar inte.'); return }
     setLoading(true)
     setError('')
@@ -61,16 +65,17 @@ export default function ResetPasswordPage() {
 
         <div style={{ marginBottom: 14 }}>
           <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#5F5E5A', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>Nytt lösenord *</label>
-          <input
-            type="password" placeholder="Minst 8 tecken"
+          <PasswordInput
+            placeholder="Minst 10 tecken"
             value={password} onChange={e => setPassword(e.target.value)}
             style={{ width: '100%', fontSize: 14, padding: '10px 13px', border: '1.5px solid rgba(0,0,0,0.12)', borderRadius: 10, background: '#FFEBE1', color: '#000', outline: 'none', fontFamily: 'inherit' }}
           />
         </div>
+        <PasswordStrengthMeter password={password} />
         <div style={{ marginBottom: 16 }}>
           <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#5F5E5A', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>Upprepa lösenord *</label>
-          <input
-            type="password" placeholder="••••••••"
+          <PasswordInput
+            placeholder="••••••••"
             value={password2} onChange={e => setPassword2(e.target.value)}
             style={{ width: '100%', fontSize: 14, padding: '10px 13px', border: '1.5px solid rgba(0,0,0,0.12)', borderRadius: 10, background: '#FFEBE1', color: '#000', outline: 'none', fontFamily: 'inherit' }}
           />

@@ -162,6 +162,48 @@ export async function sendWaitlistPromotion(opts: {
   `)
 }
 
+export async function sendApplicationReceived(opts: { to: string; name: string }) {
+  return send(opts.to, `Din ansökan är mottagen – Kyrkans uppdragsapp`, `
+    <div style="font-family:sans-serif;max-width:500px;margin:0 auto">
+      <h2 style="color:#7D0037">Tack för din ansökan, ${opts.name}!</h2>
+      <p>Vi har tagit emot din ansökan om att bli ideell i Kyrkans uppdragsapp.</p>
+      <p>En administratör granskar din ansökan och du får ett nytt mail så snart den är godkänd, med en länk för att skapa ditt konto och lösenord.</p>
+      <p style="color:#888780;font-size:12px">Kyrkans uppdragsapp</p>
+    </div>
+  `)
+}
+
+export async function sendApplicationRejected(opts: { to: string; name: string; reason?: string }) {
+  return send(opts.to, `Din ansökan – Kyrkans uppdragsapp`, `
+    <div style="font-family:sans-serif;max-width:500px;margin:0 auto">
+      <h2 style="color:#7D0037">Din ansökan</h2>
+      <p>Hej ${opts.name},</p>
+      <p>Tack för ditt intresse av att bli ideell i Kyrkans uppdragsapp. Just nu kan vi tyvärr inte gå vidare med din ansökan.</p>
+      ${opts.reason ? `<p style="background:#F1EFE8;border-radius:10px;padding:14px 16px">${escapeHtml(opts.reason)}</p>` : ''}
+      <p>Hör gärna av dig till din församling om du undrar över beslutet.</p>
+      <p style="color:#888780;font-size:12px">Kyrkans uppdragsapp</p>
+    </div>
+  `)
+}
+
+export async function sendNewApplicationNotice(opts: {
+  to: string[]; applicantName: string; churchName: string
+}) {
+  if (!opts.to.length) return
+  return send(opts.to, `Ny ansökan: ${opts.applicantName}`, `
+    <div style="font-family:sans-serif;max-width:500px;margin:0 auto">
+      <h2 style="color:#7D0037">Ny ansökan om konto</h2>
+      <p><strong>${escapeHtml(opts.applicantName)}</strong> har ansökt om att bli ideell i <strong>${escapeHtml(opts.churchName)}</strong>.</p>
+      <div style="margin:20px 0">
+        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" style="background:#7D0037;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">
+          Logga in och granska →
+        </a>
+      </div>
+      <p style="color:#888780;font-size:12px">Kyrkans uppdragsapp</p>
+    </div>
+  `)
+}
+
 export async function sendInvitation(opts: {
   to: string; name: string; inviterName: string; inviterEmail?: string; inviteUrl: string; role: string
 }) {

@@ -109,7 +109,7 @@ function iconFor(name: string): string {
   const map: Record<string, string> = {
     Calendar: '📅', Bookmark: '🔖', Bell: '🔔', User: '👤',
     ShieldCheck: '🛡', Users: '👥', UsersGroup: '👥', Send: '✉',
-    Shield: '🛡', Download: '⬇', LayoutDashboard: '📊',
+    Shield: '🛡', Download: '⬇', LayoutDashboard: '📊', FileCheck: '📝',
     BuildingChurch: '⛪', World: '🌐', DeviceIpad: '📟',
   }
   return map[name] ?? '•'

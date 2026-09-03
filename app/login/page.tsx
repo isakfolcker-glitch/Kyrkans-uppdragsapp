@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import PasswordInput from '@/components/ui/PasswordInput'
 
 export default function LoginPage() {
   const supabase = createClient()
@@ -9,6 +10,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
   const [showReset, setShowReset] = useState(false)
   const [resetSent, setResetSent] = useState(false)
@@ -21,6 +23,16 @@ export default function LoginPage() {
     if (error) { setError('Fel e-post eller lösenord.'); setLoading(false); return }
     router.push('/')
     router.refresh()
+  }
+
+  const loginWithGoogle = async () => {
+    setGoogleLoading(true)
+    setError('')
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=/dashboard` },
+    })
+    if (error) { setError('Kunde inte starta Google-inloggning: ' + error.message); setGoogleLoading(false) }
   }
 
   const sendReset = async (e: React.FormEvent) => {
@@ -43,6 +55,31 @@ export default function LoginPage() {
 
         {!showReset ? (
           <>
+            <button
+              type="button"
+              onClick={loginWithGoogle}
+              disabled={googleLoading}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                padding: '12px', background: '#fff', color: '#1A1024',
+                border: '1.5px solid #E7DAD0', borderRadius: 12, fontSize: 14, fontWeight: 600,
+                cursor: googleLoading ? 'wait' : 'pointer', marginBottom: 18,
+              }}
+            >
+              <span style={{
+                width: 20, height: 20, borderRadius: '50%', background: '#fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 13, fontWeight: 700, color: '#4285F4', border: '1px solid #E7DAD0',
+              }}>G</span>
+              {googleLoading ? 'Öppnar Google...' : 'Fortsätt med Google'}
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+              <div style={{ flex: 1, height: 1, background: '#EFE4DB' }} />
+              <span style={{ fontSize: 11, color: '#B7A9C2', textTransform: 'uppercase', letterSpacing: '0.06em' }}>eller</span>
+              <div style={{ flex: 1, height: 1, background: '#EFE4DB' }} />
+            </div>
+
             <form onSubmit={login}>
               <div className="form-field">
                 <label>E-post</label>
@@ -50,7 +87,7 @@ export default function LoginPage() {
               </div>
               <div className="form-field">
                 <label>Lösenord</label>
-                <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required autoComplete="current-password" />
+                <PasswordInput placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required autoComplete="current-password" />
               </div>
               {error && <div className="alert alert-red" style={{ marginBottom: 12 }}>⚠️ {error}</div>}
               <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%', justifyContent: 'center', marginTop: 4 }} disabled={loading}>
@@ -60,6 +97,12 @@ export default function LoginPage() {
             <button onClick={() => setShowReset(true)} style={{ background: 'none', border: 'none', color: '#7D0037', fontSize: 12, cursor: 'pointer', marginTop: 14, display: 'block', textAlign: 'center', width: '100%' }}>
               Glömt lösenord?
             </button>
+            <div style={{ borderTop: '1px solid #EFE4DB', marginTop: 18, paddingTop: 16, textAlign: 'center' }}>
+              <div style={{ fontSize: 12, color: '#5F5E5A', marginBottom: 8 }}>Ny volontär och saknar konto?</div>
+              <a href="/ansok" style={{ fontSize: 13, fontWeight: 700, color: '#7D0037', textDecoration: 'none' }}>
+                Ansök om att bli ideell →
+              </a>
+            </div>
           </>
         ) : (
           <>
