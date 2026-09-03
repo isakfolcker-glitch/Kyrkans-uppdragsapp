@@ -13,8 +13,7 @@ export default function EditPassModal({ passId }: { passId: number }) {
   const [time, setTime] = useState(p.time)
   const [plats, setPlats] = useState(p.plats)
   const [spots, setSpots] = useState(p.spots)
-  const [vk, setVk] = useState(p.vk)
-  const [tel, setTel] = useState(p.tel)
+  const [vkProfileId, setVkProfileId] = useState(p.vkProfileId?.toString() || '')
   const [desc, setDesc] = useState(p.desc)
   const [selGroups, setSelGroups] = useState<string[]>(p.groups)
   const [respId, setRespId] = useState(p.responsibleUserIds[0]?.toString() || '')
@@ -28,8 +27,11 @@ export default function EditPassModal({ passId }: { passId: number }) {
 
   const save = () => {
     const changed = date !== p.date || time !== p.time || plats !== p.plats
+    const vkEmployee = employees.find(e => e.id.toString() === vkProfileId)
     const updated = {
-      ...p, title, date, time, plats, spots, vk, tel, desc, groups: selGroups,
+      ...p, title, date, time, plats, spots,
+      vk: vkEmployee?.name ?? '', tel: vkEmployee?.phone ?? '', vkProfileId: vkProfileId || null,
+      desc, groups: selGroups,
       pubDate, pubStatus: pubDate ? 'scheduled' as const : 'live' as const,
       responsibleUserIds: respId ? [parseInt(respId)] : [],
       kioskVisible,
@@ -56,9 +58,14 @@ export default function EditPassModal({ passId }: { passId: number }) {
       <div className="form-field"><label>Plats</label><input value={plats} onChange={e => setPlats(e.target.value)} /></div>
       <div className="form-row">
         <div className="form-field"><label>Antal platser</label><input type="number" value={spots} min={1} onChange={e => setSpots(parseInt(e.target.value)||1)} /></div>
-        <div className="form-field"><label>Vakmästare</label><input value={vk} onChange={e => setVk(e.target.value)} /></div>
+        <div className="form-field">
+          <label>Vaktmästare</label>
+          <select value={vkProfileId} onChange={e => setVkProfileId(e.target.value)}>
+            <option value="">Ingen vaktmästare</option>
+            {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+          </select>
+        </div>
       </div>
-      <div className="form-field"><label>Vakmästare telefon</label><input value={tel} onChange={e => setTel(e.target.value)} /></div>
       <div className="form-field">
         <label>Grupper</label>
         <div className="group-grid">

@@ -120,7 +120,9 @@ export async function sendNewPassNotice(opts: {
 
 export async function sendPassReminder(opts: {
   to: string; name: string; passTitle: string; date: string; time: string; plats: string; vk: string; tel: string
+  ansvarig?: { name: string; tel?: string; mail?: string }
 }) {
+  const showAnsvarig = opts.ansvarig && opts.ansvarig.name && opts.ansvarig.name !== opts.vk
   return send(opts.to, `Påminnelse imorgon: ${opts.passTitle}`, `
     <div style="font-family:sans-serif;max-width:500px;margin:0 auto">
       <div style="background:#28A88E;padding:20px;border-radius:12px 12px 0 0">
@@ -133,8 +135,47 @@ export async function sendPassReminder(opts: {
           <span style="color:#5F5E5A">📅 ${opts.date} &nbsp;🕐 ${opts.time}</span><br>
           <span style="color:#5F5E5A">📍 ${opts.plats}</span>
         </div>
-        <p style="color:#5F5E5A">Vakmästare: <strong>${opts.vk}</strong>${opts.tel ? ' – ' + opts.tel : ''}</p>
+        <p style="color:#5F5E5A">Vaktmästare: <strong>${opts.vk || '–'}</strong>${opts.tel ? ' – ' + opts.tel : ''}</p>
+        ${showAnsvarig ? `<p style="color:#5F5E5A">Ansvarig: <strong>${opts.ansvarig!.name}</strong>${opts.ansvarig!.tel ? ' – ' + opts.ansvarig!.tel : ''}${opts.ansvarig!.mail ? ' – ' + opts.ansvarig!.mail : ''}</p>` : ''}
         <p style="color:#888;font-size:12px">Kyrkans uppdragsapp</p>
+      </div>
+    </div>
+  `)
+}
+
+export async function sendStaffDeltagarlista(opts: {
+  to: string; name: string; passTitle: string; date: string; time: string; plats: string
+  deltagare: { name: string; mail?: string; tel?: string }[]
+}) {
+  const rows = opts.deltagare.length
+    ? opts.deltagare.map(d => `
+        <tr>
+          <td style="padding:6px 8px;border-bottom:1px solid #F1EFE8">${escapeHtml(d.name)}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #F1EFE8">${escapeHtml(d.tel || '–')}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #F1EFE8">${escapeHtml(d.mail || '–')}</td>
+        </tr>`).join('')
+    : `<tr><td colspan="3" style="padding:8px;color:#888780">Inga anmälda ännu.</td></tr>`
+  return send(opts.to, `Deltagarlista imorgon: ${opts.passTitle}`, `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto">
+      <div style="background:#412B72;padding:20px;border-radius:12px 12px 0 0">
+        <h2 style="color:#fff;margin:0">Deltagarlista – imorgon</h2>
+      </div>
+      <div style="background:#FFEBE1;padding:20px;border-radius:0 0 12px 12px">
+        <p style="color:#000">Hej ${opts.name}, du är vaktmästare eller ansvarig för:</p>
+        <div style="background:#fff;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #412B72">
+          <strong style="font-size:16px;color:#000">${opts.passTitle}</strong><br>
+          <span style="color:#5F5E5A">📅 ${opts.date} &nbsp;🕐 ${opts.time}</span><br>
+          <span style="color:#5F5E5A">📍 ${opts.plats}</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden">
+          <thead>
+            <tr style="background:#F1EFE8;text-align:left">
+              <th style="padding:6px 8px">Namn</th><th style="padding:6px 8px">Telefon</th><th style="padding:6px 8px">Mail</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <p style="color:#888;font-size:12px;margin-top:16px">Kyrkans uppdragsapp</p>
       </div>
     </div>
   `)

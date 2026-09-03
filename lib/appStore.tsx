@@ -239,6 +239,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           groups: p.pass_groups?.map((g: any) => g.group_id) || [],
           date: p.date_str, time: p.time_str, plats: p.plats,
           spots: p.spots, filled: p.filled, vk: p.vk || '', tel: p.tel || '',
+          vkProfileId: p.vk_profile_id ?? null,
           desc: p.description || '', cancelled: p.cancelled,
           pubStatus: p.pub_status, pubDate: p.pub_date || '',
           kioskVisible: p.kiosk_visible,
@@ -393,7 +394,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: p.title, church_id: p.church, date_str: p.date, time_str: p.time,
-        plats: p.plats, spots: p.spots, vk: p.vk, tel: p.tel, description: p.desc,
+        plats: p.plats, spots: p.spots, vk: p.vk, tel: p.tel, vk_profile_id: p.vkProfileId || null, description: p.desc,
         pub_status: p.pubStatus, pub_date: p.pubDate, kiosk_visible: p.kioskVisible,
         groups: p.groups, responsible_ids: p.responsibleUserIds,
       }),
@@ -408,7 +409,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
   const updatePass = (p: PassData) => {
     setPasses(prev => prev.map(x => x.id === p.id ? p : x))
-    fetch(`/api/passes/${p.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: p.title, date_str: p.date, time_str: p.time, plats: p.plats, spots: p.spots, vk: p.vk, tel: p.tel, description: p.desc, pub_status: p.pubStatus, pub_date: p.pubDate, kiosk_visible: p.kioskVisible, groups: p.groups }) })
+    fetch(`/api/passes/${p.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: p.title, date_str: p.date, time_str: p.time, plats: p.plats, spots: p.spots, vk: p.vk, tel: p.tel, vk_profile_id: p.vkProfileId || null, description: p.desc, pub_status: p.pubStatus, pub_date: p.pubDate, kiosk_visible: p.kioskVisible, groups: p.groups }) })
   }
   const deletePass = (id: number) => {
     setPasses(prev => prev.filter(x => x.id !== id))
@@ -430,7 +431,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         groups: p.pass_groups?.map((g: any) => g.group_id) || [],
         date: p.date_str, time: p.time_str, plats: p.plats,
         spots: p.spots, filled: p.bookings?.length ?? 0,
-        vk: p.vk ?? '', tel: p.tel ?? '', desc: p.description ?? '',
+        vk: p.vk ?? '', tel: p.tel ?? '', vkProfileId: p.vk_profile_id ?? null, desc: p.description ?? '',
         pubStatus: p.pub_status, pubDate: p.pub_date ?? '',
         kioskVisible: p.kiosk_visible ?? false, cancelled: p.cancelled ?? false,
         bookings: (p.bookings ?? []).map((b: any) => ({ id: b.id, personId: b.profile_id, name: b.name, ini: b.ini, av: b.av_color, ac: b.ac_color, mail: b.mail, tel: b.tel, source: b.source, noAccount: b.no_account })),

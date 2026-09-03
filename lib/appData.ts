@@ -16,7 +16,7 @@ export interface BookingData {
 export interface PassData {
   id: any; church: any; title: string; groups: string[]
   date: string; time: string; plats: string; spots: number; filled: number
-  vk: string; tel: string; desc: string; cancelled: boolean
+  vk: string; tel: string; vkProfileId?: any; desc: string; cancelled: boolean
   pubStatus: 'live' | 'scheduled'; pubDate: string; kioskVisible: boolean
   responsibleUserIds: any[]; bookings: BookingData[]; history: string[]
   importRef?: string; waitlistCount?: number

@@ -10,8 +10,7 @@ export default function NewPassModal() {
   const [timeEnd, setTimeEnd] = useState('')
   const [plats, setPlats] = useState('')
   const [spots, setSpots] = useState(2)
-  const [vk, setVk] = useState('')
-  const [tel, setTel] = useState('')
+  const [vkProfileId, setVkProfileId] = useState('')
   const [desc, setDesc] = useState('')
   const [selGroups, setSelGroups] = useState<string[]>([])
   const [respId, setRespId] = useState('')
@@ -26,9 +25,11 @@ export default function NewPassModal() {
   const save = async () => {
     if (!title.trim()) { alert('Titel krävs'); return }
     const time = timeStart && timeEnd ? `${timeStart}–${timeEnd}` : timeStart || timeEnd || ''
+    const vkEmployee = employees.find(e => e.id.toString() === vkProfileId)
     await addPass({
       id: nextPassId(), church: currentChurchId(), title, date, time, plats, spots, filled: 0,
-      vk, tel, desc, groups: selGroups, cancelled: false,
+      vk: vkEmployee?.name ?? '', tel: vkEmployee?.phone ?? '', vkProfileId: vkProfileId || null,
+      desc, groups: selGroups, cancelled: false,
       pubStatus: pubDate ? 'scheduled' : 'live', pubDate, kioskVisible,
       responsibleUserIds: respId ? [parseInt(respId)] : [],
       bookings: [], history: [`Skapades av ${u().name} – Idag`],
@@ -48,9 +49,14 @@ export default function NewPassModal() {
       <div className="form-field"><label>Plats</label><input placeholder="ex. Kyrkorummet" value={plats} onChange={e => setPlats(e.target.value)} /></div>
       <div className="form-row">
         <div className="form-field"><label>Antal platser</label><input type="number" value={spots} min={1} onChange={e => setSpots(parseInt(e.target.value)||1)} /></div>
-        <div className="form-field"><label>Vakmästare</label><input placeholder="Namn" value={vk} onChange={e => setVk(e.target.value)} /></div>
+        <div className="form-field">
+          <label>Vaktmästare</label>
+          <select value={vkProfileId} onChange={e => setVkProfileId(e.target.value)}>
+            <option value="">Ingen vaktmästare</option>
+            {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+          </select>
+        </div>
       </div>
-      <div className="form-field"><label>Vakmästare telefon</label><input placeholder="073-..." value={tel} onChange={e => setTel(e.target.value)} /></div>
       <div className="form-field">
         <label>Grupper</label>
         <div className="group-grid">

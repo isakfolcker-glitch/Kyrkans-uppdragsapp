@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
 
   const body = await req.json()
-  const { title, church_id, date_str, time_str, plats, spots, vk, tel, description, pub_status, pub_date, kiosk_visible, groups, responsible_ids } = body
+  const { title, church_id, date_str, time_str, plats, spots, vk, tel, vk_profile_id, description, pub_status, pub_date, kiosk_visible, groups, responsible_ids } = body
 
   if (!church_id || isNaN(Number(church_id))) {
     return NextResponse.json({ error: `Ogiltigt kyrk-ID: ${church_id}. Ladda om sidan och försök igen.` }, { status: 400 })
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient()
   const { data: pass, error } = await admin.from('passes').insert({
-    title, church_id, date_str, time_str, plats, spots, vk, tel, description,
+    title, church_id, date_str, time_str, plats, spots, vk, tel, vk_profile_id: vk_profile_id || null, description,
     pub_status: pub_status || 'live', pub_date: pub_date || '',
     kiosk_visible: kiosk_visible || false, created_by: user.id,
   }).select().single()
