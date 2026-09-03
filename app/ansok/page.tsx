@@ -15,7 +15,6 @@ export default function AnsokPage() {
 
 function AnsokForm() {
   const searchParams = useSearchParams()
-  const fromGoogle = searchParams.get('google') === '1'
 
   const [churches, setChurches] = useState<Church[]>([])
   const [name, setName] = useState('')
@@ -86,12 +85,6 @@ function AnsokForm() {
             <p style={{ fontSize: 13, color: '#5F5E5A', marginTop: 2 }}>Fyll i formuläret så hör vi av oss.</p>
           </div>
         </div>
-
-        {fromGoogle && (
-          <div style={{ background: '#E8E0FF', border: '1px solid #8A6FB5', borderRadius: 10, padding: '10px 14px', color: '#412B72', fontSize: 13, marginBottom: 18 }}>
-            Vi hittade inget konto kopplat till din Google-adress. Skicka in en ansökan nedan så återkommer vi.
-          </div>
-        )}
 
         <form onSubmit={submit}>
           <div style={field}>

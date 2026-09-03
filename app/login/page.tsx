@@ -10,7 +10,6 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
   const [showReset, setShowReset] = useState(false)
   const [resetSent, setResetSent] = useState(false)
@@ -23,16 +22,6 @@ export default function LoginPage() {
     if (error) { setError('Fel e-post eller lösenord.'); setLoading(false); return }
     router.push('/')
     router.refresh()
-  }
-
-  const loginWithGoogle = async () => {
-    setGoogleLoading(true)
-    setError('')
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback?next=/dashboard` },
-    })
-    if (error) { setError('Kunde inte starta Google-inloggning: ' + error.message); setGoogleLoading(false) }
   }
 
   const sendReset = async (e: React.FormEvent) => {
@@ -55,31 +44,6 @@ export default function LoginPage() {
 
         {!showReset ? (
           <>
-            <button
-              type="button"
-              onClick={loginWithGoogle}
-              disabled={googleLoading}
-              style={{
-                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                padding: '12px', background: '#fff', color: '#1A1024',
-                border: '1.5px solid #E7DAD0', borderRadius: 12, fontSize: 14, fontWeight: 600,
-                cursor: googleLoading ? 'wait' : 'pointer', marginBottom: 18,
-              }}
-            >
-              <span style={{
-                width: 20, height: 20, borderRadius: '50%', background: '#fff',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 13, fontWeight: 700, color: '#4285F4', border: '1px solid #E7DAD0',
-              }}>G</span>
-              {googleLoading ? 'Öppnar Google...' : 'Fortsätt med Google'}
-            </button>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-              <div style={{ flex: 1, height: 1, background: '#EFE4DB' }} />
-              <span style={{ fontSize: 11, color: '#B7A9C2', textTransform: 'uppercase', letterSpacing: '0.06em' }}>eller</span>
-              <div style={{ flex: 1, height: 1, background: '#EFE4DB' }} />
-            </div>
-
             <form onSubmit={login}>
               <div className="form-field">
                 <label>E-post</label>
