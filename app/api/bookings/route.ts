@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { sendBookingConfirmation } from '@/lib/email'
 import { promoteFromWaitlist } from '@/app/api/waitlist/route'
 
@@ -36,6 +37,16 @@ export async function POST(req: NextRequest) {
       date: pass.date_str, time: pass.time_str,
       plats: pass.plats, vk: pass.vk, tel: pass.tel,
     }).catch(() => {}) // Tyst fel om mail misslyckas
+  }
+
+  // Notis i appen till den som är uppsatt
+  if (profileId) {
+    const admin = createAdminClient()
+    await admin.from('notifications').insert({
+      user_id: profileId, type: 'signup',
+      title: `Du är uppsatt: ${pass.title}`,
+      body: `${pass.date_str} kl ${pass.time_str} – ${pass.plats}`,
+    })
   }
 
   return NextResponse.json(booking)

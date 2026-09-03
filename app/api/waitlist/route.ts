@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendWaitlistPromotion } from '@/lib/email'
+import { sendWaitlistPromotion, sendWaitlistJoinedNotice } from '@/lib/email'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
 
   const { pass_id } = await req.json()
 
-  const { data: pass } = await supabase.from('passes').select('id, spots, filled, title').eq('id', pass_id).single()
+  const { data: pass } = await supabase.from('passes').select('id, spots, filled, title, date_str, time_str, plats').eq('id', pass_id).single()
   if (!pass) return NextResponse.json({ error: 'Passet finns inte' }, { status: 404 })
   if (pass.filled < pass.spots) return NextResponse.json({ error: 'Passet har lediga platser' }, { status: 400 })
 
@@ -23,6 +23,36 @@ export async function POST(req: NextRequest) {
   if (error) {
     if (error.code === '23505') return NextResponse.json({ error: 'Redan i kön' }, { status: 409 })
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  const admin = createAdminClient()
+
+  // Notis i appen till den som ställde sig i kön
+  await admin.from('notifications').insert({
+    user_id: user.id, type: 'waitlist_joined',
+    title: `Du är på väntelistan: ${pass.title}`,
+    body: `Vi hör av oss om en plats blir ledig.`,
+  })
+
+  // Mail + notis till ansvariga för passet
+  const { data: responsibles } = await admin
+    .from('pass_responsible')
+    .select('profile_id, profiles(name, email)')
+    .eq('pass_id', pass_id)
+  for (const r of (responsibles ?? []) as any[]) {
+    const respProfile = r.profiles
+    if (!respProfile || r.profile_id === user.id) continue
+    if (respProfile.email) {
+      await sendWaitlistJoinedNotice({
+        to: respProfile.email, name: respProfile.name, volunteerName: profile.name,
+        passTitle: pass.title, date: pass.date_str, time: pass.time_str, plats: pass.plats,
+      }).catch(() => {})
+    }
+    await admin.from('notifications').insert({
+      user_id: r.profile_id, type: 'waitlist_joined',
+      title: `Ny på väntelistan: ${pass.title}`,
+      body: `${profile.name} har ställt sig på väntelistan.`,
+    })
   }
 
   return NextResponse.json({ ok: true })
@@ -73,4 +103,11 @@ export async function promoteFromWaitlist(passId: number) {
       vk: pass.vk, tel: pass.tel,
     }).catch(() => {})
   }
+
+  // Notis i appen om uppflyttning
+  await admin.from('notifications').insert({
+    user_id: entry.profile_id, type: 'waitlist_promoted',
+    title: `Du har fått en plats: ${pass.title}`,
+    body: `${pass.date_str} kl ${pass.time_str} – ${pass.plats}`,
+  })
 }

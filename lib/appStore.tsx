@@ -58,6 +58,7 @@ interface AppCtx {
   joinWaitlist: (id: number) => void; leaveWaitlist: (id: number) => void
   publishNow: (id: number) => void; toggleAvail: () => void
   updateUserNotif: (key: string, val: boolean) => void
+  markAllNotifsRead: () => void
   addPass: (p: PassData) => Promise<void>; updatePass: (p: PassData) => void
   deletePass: (id: number) => void; cancelPass: (id: number) => void
   reloadPasses: () => Promise<void>
@@ -367,6 +368,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setProfile((p: any) => ({ ...p, notif_settings: [{ ...p.notif_settings?.[0], [key]: val }] }))
     fetch('/api/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notif_settings: { [key]: val } }) })
   }
+  const markAllNotifsRead = () => {
+    if (!currentUser) return
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    fetch('/api/notifications/read-all', { method: 'POST' }).catch(() => {})
+  }
 
   const addPass = async (p: PassData) => {
     const res = await fetch('/api/passes', {
@@ -507,7 +513,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       canEditPass, canCancelPass, canDeletePass, canCreatePass, canManage,
       canMakePAdmin, canMakeFAdmin, perm,
       cycleUser, goTo, setChurch, setFilter, showModal, closeModal,
-      doBook, doUnbook, joinWaitlist, leaveWaitlist, publishNow, toggleAvail, updateUserNotif,
+      doBook, doUnbook, joinWaitlist, leaveWaitlist, publishNow, toggleAvail, updateUserNotif, markAllNotifsRead,
       addPass, updatePass, deletePass, cancelPass, reloadPasses, addBooking, removeBooking,
       addPerson, updatePerson, deletePerson, addMessage,
       addChurch, updateChurch, deleteChurch,

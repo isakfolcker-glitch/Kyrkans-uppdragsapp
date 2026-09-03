@@ -162,6 +162,24 @@ export async function sendWaitlistPromotion(opts: {
   `)
 }
 
+export async function sendWaitlistJoinedNotice(opts: {
+  to: string; name: string; volunteerName: string; passTitle: string; date: string; time: string; plats: string
+}) {
+  return send(opts.to, `Ny på väntelistan: ${opts.passTitle}`, `
+    <div style="font-family:sans-serif;max-width:500px;margin:0 auto">
+      <h2 style="color:#534AB7">Ny person på väntelistan</h2>
+      <p>Hej ${opts.name},</p>
+      <p><strong>${opts.volunteerName}</strong> har ställt sig på väntelistan för:</p>
+      <div style="background:#F1EFE8;border-radius:10px;padding:16px;margin:16px 0">
+        <strong style="font-size:16px">${opts.passTitle}</strong><br>
+        📅 ${opts.date} &nbsp;🕐 ${opts.time}<br>
+        📍 ${opts.plats}
+      </div>
+      <p style="color:#888780;font-size:12px">Kyrkans uppdragsapp</p>
+    </div>
+  `)
+}
+
 export async function sendInvitation(opts: {
   to: string; name: string; inviterName: string; inviterEmail?: string; inviteUrl: string; role: string
 }) {
