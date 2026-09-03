@@ -6,6 +6,7 @@ import { gLabel, gCls } from '@/lib/appData'
 import PassDetailModal from '@/components/modals/PassDetailModal'
 import EditPassModal from '@/components/modals/EditPassModal'
 import ConfirmModal from '@/components/modals/ConfirmModal'
+import { isLockedForSelfCancel } from '@/lib/passTiming'
 
 function Dots({ spots, filled }: { spots: number; filled: number }) {
   return (
@@ -34,12 +35,19 @@ function SpotsText({ pass, adminMode }: { pass: PassData; adminMode?: boolean })
 function BookBtn({ pass }: { pass: PassData }) {
   const { selfBookings, selfWaitlist, doBook, doUnbook, joinWaitlist, leaveWaitlist, u } = useApp()
   if (pass.cancelled) return <span className="btn btn-disabled">Inställt</span>
-  if (selfBookings[pass.id]) return (
-    <div style={{ display: 'flex', gap: 6 }}>
-      <span className="btn btn-success">✓ Bokad</span>
-      <button className="btn btn-warn btn-sm" onClick={() => doUnbook(pass.id)}>Avboka</button>
-    </div>
-  )
+  if (selfBookings[pass.id]) {
+    const locked = isLockedForSelfCancel(pass.date, pass.time)
+    return (
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <span className="btn btn-success">✓ Bokad</span>
+        {locked ? (
+          <span className="btn btn-disabled" title="Mindre än 24 timmar kvar, kontakta ansvarig för att avboka">🔒 Låst</span>
+        ) : (
+          <button className="btn btn-warn btn-sm" onClick={() => doUnbook(pass.id)}>Avboka</button>
+        )}
+      </div>
+    )
+  }
   if (selfWaitlist[pass.id]) {
     const pos = selfWaitlist[pass.id]
     return (

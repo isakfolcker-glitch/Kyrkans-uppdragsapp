@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useApp } from '@/lib/appStore'
 import { gLabel, gCls } from '@/lib/appData'
+import { isLockedForSelfCancel } from '@/lib/passTiming'
 
 export default function MinaBokningarPage() {
   const { passes, selfBookings, doUnbook } = useApp()
@@ -25,9 +26,15 @@ export default function MinaBokningarPage() {
       <div className="pass-vk"><strong>{p.vk}</strong> &nbsp;{p.tel}</div>
       <div className="pass-footer">
         <span />
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <span className="btn btn-success btn-sm">✓ Bokad</span>
-          {!past && <button className="btn btn-warn btn-sm" onClick={() => doUnbook(p.id)}>Avboka</button>}
+          {!past && (
+            isLockedForSelfCancel(p.date, p.time) ? (
+              <span className="btn btn-disabled btn-sm" title="Mindre än 24 timmar kvar, kontakta ansvarig för att avboka">🔒 Låst</span>
+            ) : (
+              <button className="btn btn-warn btn-sm" onClick={() => doUnbook(p.id)}>Avboka</button>
+            )
+          )}
         </div>
       </div>
     </div>

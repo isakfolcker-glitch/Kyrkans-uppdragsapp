@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendBookingConfirmation } from '@/lib/email'
 import { promoteFromWaitlist } from '@/app/api/waitlist/route'
+import { isLockedForSelfCancel } from '@/lib/passTiming'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -70,6 +71,15 @@ export async function DELETE(req: NextRequest) {
 
   if (!isOwner && !isAdmin && !responsible) {
     return NextResponse.json({ error: 'Saknar behörighet' }, { status: 403 })
+  }
+
+  // Ideella kan inte avboka sig själva mindre än 24 timmar innan passet.
+  // Admin och ansvarig får fortfarande hantera bokningar hela vägen fram.
+  if (isOwner && !isAdmin && !responsible) {
+    const { data: pass } = await supabase.from('passes').select('date_str, time_str').eq('id', booking.pass_id).single()
+    if (pass && isLockedForSelfCancel(pass.date_str, pass.time_str)) {
+      return NextResponse.json({ error: 'Passet börjar inom 24 timmar och går inte längre att avboka själv. Kontakta ansvarig.' }, { status: 403 })
+    }
   }
 
   const { error } = await supabase.from('bookings').delete().eq('id', booking_id)
