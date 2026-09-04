@@ -62,6 +62,22 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
 
   const u = () => DEMO_USERS[userIndex]
 
+  const addNotif = (type: string, title: string, body: string) => {
+    setNotifs(prev => [{ id: Date.now(), userId: usr.id, type, title, body, time: new Date().toISOString(), read: false }, ...prev])
+  }
+  const markAllNotifsRead = () => setNotifs(prev => prev.map(n => n.userId === usr.id ? { ...n, read: true } : n))
+
+  // Simulerar väntelista-uppflyttning: om aktuell demo-användare står först i kön
+  // för passet och en plats öppnas, flyttas de upp precis som i skarpt läge.
+  const tryPromoteFromWaitlist = (passId: number) => {
+    const pass = passes.find(p => p.id === passId)
+    if (!pass || !(pass.waitlistCount ?? 0) || selfWaitlist[passId] !== 1) return
+    setSelfWl(prev => { const n = { ...prev }; delete n[passId]; return n })
+    setSelfBkgs(prev => ({ ...prev, [passId]: true }))
+    setPasses(prev => prev.map(p => p.id === passId ? { ...p, waitlistCount: Math.max(0, (p.waitlistCount ?? 1) - 1), filled: p.filled + 1 } : p))
+    addNotif('waitlist_promoted', `Du har fått en plats: ${pass.title}`, `${pass.date} kl ${pass.time} – ${pass.plats}`)
+  }
+
   const cycleUser = () => {
     const next = (userIndex + 1) % DEMO_USERS.length
     const nextUsr = DEMO_USERS[next]
@@ -80,17 +96,22 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
   const closeModal  = () => setModal(null)
 
   const doBook = (id: number) => {
+    const pass = passes.find(p => p.id === id)
     setPasses(prev => prev.map(p => p.id === id && p.filled < p.spots ? { ...p, filled: p.filled + 1 } : p))
     setSelfBkgs(prev => ({ ...prev, [id]: true }))
+    if (pass) addNotif('signup', `Du är uppsatt: ${pass.title}`, `${pass.date} kl ${pass.time} – ${pass.plats}`)
   }
   const doUnbook = (id: number) => {
     setPasses(prev => prev.map(p => p.id === id ? { ...p, filled: Math.max(0, p.filled - 1) } : p))
     setSelfBkgs(prev => { const n = { ...prev }; delete n[id]; return n })
+    tryPromoteFromWaitlist(id)
   }
   const joinWaitlist = (id: number) => {
-    const pos = (passes.find(p => p.id === id)?.waitlistCount ?? 0) + 1
+    const pass = passes.find(p => p.id === id)
+    const pos = (pass?.waitlistCount ?? 0) + 1
     setSelfWl(prev => ({ ...prev, [id]: pos }))
     setPasses(prev => prev.map(p => p.id === id ? { ...p, waitlistCount: (p.waitlistCount ?? 0) + 1 } : p))
+    if (pass) addNotif('waitlist_joined', `Du är på väntelistan: ${pass.title}`, `Vi hör av oss om en plats blir ledig.`)
   }
   const leaveWaitlist = (id: number) => {
     setSelfWl(prev => { const n = { ...prev }; delete n[id]; return n })
@@ -114,6 +135,7 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
   }
   const removeBooking = (passId: number, idx: number) => {
     setPasses(prev => prev.map(p => p.id === passId ? { ...p, bookings: p.bookings.filter((_, i) => i !== idx), filled: Math.max(0, p.filled - 1) } : p))
+    tryPromoteFromWaitlist(passId)
   }
 
   const addPerson    = (p: PersonData) => setPeople(prev => [...prev, { ...p, id: _nextId++ }])
@@ -152,7 +174,7 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
       canEditPass, canCancelPass, canDeletePass, canCreatePass, canManage,
       canMakePAdmin, canMakeFAdmin, perm,
       cycleUser, goTo, setChurch, setFilter, showModal, closeModal,
-      doBook, doUnbook, joinWaitlist, leaveWaitlist, publishNow, toggleAvail, updateUserNotif,
+      doBook, doUnbook, joinWaitlist, leaveWaitlist, publishNow, toggleAvail, updateUserNotif, markAllNotifsRead,
       addPass, updatePass, deletePass, cancelPass, reloadPasses, addBooking, removeBooking,
       addPerson, updatePerson, deletePerson, addMessage,
       addChurch, updateChurch, deleteChurch,
