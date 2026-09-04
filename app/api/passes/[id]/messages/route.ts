@@ -47,18 +47,33 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Skicka notis till ansvariga (alla utom den som skriver)
+  // Skicka notis till: ansvariga för passet, alla som redan är med i tråden
+  // (så den som frågat får veta när personalen svarar), och admin för kyrkan
+  // (så admin ser alla frågor, inte bara den som är satt som ansvarig).
   const admin = createAdminClient()
   const { data: pass } = await admin
     .from('passes')
-    .select('title, pass_responsible(profile_id)')
+    .select('title, church_id, pass_responsible(profile_id)')
     .eq('id', parseInt(id))
     .single()
 
-  if (pass?.pass_responsible?.length) {
-    const recipients = (pass.pass_responsible as any[])
-      .map((r: any) => r.profile_id as string)
-      .filter((rid: string) => rid !== user.id)
+  if (pass) {
+    const { data: churchAdmins } = await admin
+      .from('profiles')
+      .select('id')
+      .or(`admin_level.in.(pastorat,super),and(admin_level.eq.forsamling,church_id.eq.${pass.church_id})`)
+
+    const { data: allMessages } = await admin
+      .from('pass_messages')
+      .select('author_id')
+      .eq('pass_id', parseInt(id))
+
+    const responsibleIds = ((pass.pass_responsible ?? []) as any[]).map(r => r.profile_id as string)
+    const threadParticipantIds = ((allMessages ?? []) as any[]).map(m => m.author_id).filter(Boolean)
+    const adminIds = (churchAdmins ?? []).map(a => a.id as string)
+
+    const recipients = Array.from(new Set([...responsibleIds, ...threadParticipantIds, ...adminIds]))
+      .filter(rid => rid && rid !== user.id)
 
     if (recipients.length) {
       const isQuestion = !(is_staff_reply ?? false)

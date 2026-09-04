@@ -3,9 +3,10 @@ import { useState } from 'react'
 import { useApp } from '@/lib/appStore'
 import { gLabel, gCls } from '@/lib/appData'
 import { isLockedForSelfCancel } from '@/lib/passTiming'
+import PassQAModal from '@/components/modals/PassQAModal'
 
 export default function MinaBokningarPage() {
-  const { passes, selfBookings, doUnbook } = useApp()
+  const { passes, selfBookings, doUnbook, showModal } = useApp()
   const [showOld, setShowOld] = useState(false)
   const today = new Date().toISOString().slice(0, 10)
 
@@ -28,6 +29,7 @@ export default function MinaBokningarPage() {
         <span />
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <span className="btn btn-success btn-sm">✓ Bokad</span>
+          <button className="btn btn-secondary btn-sm" onClick={() => showModal(<PassQAModal passId={p.id} />)}>💬</button>
           {!past && (
             isLockedForSelfCancel(p.date, p.time) ? (
               <span className="btn btn-disabled btn-sm" title="Mindre än 24 timmar kvar, kontakta ansvarig för att avboka">🔒 Låst</span>
