@@ -46,7 +46,11 @@ export default function EditPassModal({ passId }: { passId: number }) {
 
   return (
     <>
-      <div className="modal-title">✏️ Redigera pass</div>
+      <div className="modal-header">
+        <div className="modal-header-quarter" />
+        <div className="modal-title">✏️ Redigera pass</div>
+      </div>
+      <div className="modal-body">
       {p.bookings.length > 0 && (
         <div className="alert alert-amber">🔔 {p.bookings.length} bokade – de får e-post om datum, tid eller plats ändras.</div>
       )}
@@ -102,6 +106,7 @@ export default function EditPassModal({ passId }: { passId: number }) {
           <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
           <button className="btn btn-primary" onClick={save}>✓ Spara</button>
         </div>
+      </div>
       </div>
     </>
   )

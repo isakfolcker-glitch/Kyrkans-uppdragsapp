@@ -287,7 +287,7 @@ body {
 }
 
 /* ── Passkort ────────────────────────────────────────────── */
-.pass-list { display: flex; flex-direction: column; gap: 16px; }
+.pass-list { display: flex; flex-direction: column; gap: 20px; }
 
 .pass-card {
   background: #fff;
@@ -305,14 +305,14 @@ body {
 .pass-card.cancelled { opacity: 0.55; }
 
 .pass-card-band {
-  width: 10px;
+  width: 8px;
   flex-shrink: 0;
-  border-radius: 0;
+  border-radius: 20px 0 0 20px;
 }
 
 .pass-card-body {
   flex: 1;
-  padding: 22px 24px;
+  padding: 20px 24px 22px;
   position: relative;
 }
 
@@ -342,10 +342,10 @@ body {
 
 .pass-meta {
   display: flex;
-  gap: 22px;
-  font-size: 14.5px;
+  gap: 20px;
+  font-size: 13.5px;
   color: #43394C;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   flex-wrap: wrap;
 }
 
@@ -561,14 +561,15 @@ body {
   border-top: 1px solid #EFE4DB;
 }
 
+
 /* ── Formulär ────────────────────────────────────────────── */
-.form-field { margin-bottom: 16px; }
+.form-field { margin-bottom: 18px; }
 
 .form-field label {
   font-size: 12.5px;
   color: #8A6FB5;
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -579,9 +580,9 @@ body {
 .form-field textarea {
   width: 100%;
   font-size: 15px;
-  padding: 12px 15px;
+  padding: 14px 18px;
   border: 1.5px solid #E7DAD0;
-  border-radius: 12px;
+  border-radius: 16px;
   background: #fff;
   color: #1A1024;
   outline: none;

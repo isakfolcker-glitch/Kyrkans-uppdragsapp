@@ -67,6 +67,17 @@ function BookBtn({ pass }: { pass: PassData }) {
   return <button className="btn btn-primary" onClick={() => doBook(pass.id)}>Jag tar passet</button>
 }
 
+const TAG_BAND_COLOR: Record<string, string> = {
+  'tag-kv':      '#0C447C',
+  'tag-bv':      '#00554B',
+  'tag-brand':   '#7D0037',
+  'tag-konsert': '#BC8E4C',
+  'tag-extra':   '#534AB7',
+  'tag-vakt':    '#6E6275',
+  'tag-kor':     '#7B1FA2',
+  'tag-kiosk':   '#412B72',
+}
+
 export default function PassCard({ pass, adminMode }: { pass: PassData; adminMode: boolean }) {
   const { showModal, canViewBkgs, canEditPass, canCancelPass, canDeletePass, publishNow, cancelPass, deletePass, getResponsibleNames, groups } = useApp()
   const [reminding, setReminding] = useState(false)
@@ -81,6 +92,8 @@ export default function PassCard({ pass, adminMode }: { pass: PassData; adminMod
   }
   const isSch = pass.pubStatus === 'scheduled'
   const resp = getResponsibleNames(pass)
+  const firstGroup = groups.find(g => pass.groups.includes(g.id))
+  const bandColor = TAG_BAND_COLOR[firstGroup?.cls ?? ''] ?? '#9B87FF'
 
   const confirmCancel = () => showModal(
     <ConfirmModal
@@ -108,6 +121,7 @@ export default function PassCard({ pass, adminMode }: { pass: PassData; adminMod
 
   return (
     <div className={`pass-card${isSch ? ' scheduled' : ''}${pass.cancelled ? ' cancelled' : ''}`}>
+      <div className="pass-card-band" style={{ background: bandColor }} />
       <div className="pass-card-body">
       {pass.cancelled && (
         <div className="alert alert-red" style={{ marginBottom: 10 }}>⚠️ Inställt – bokade har fått e-post</div>

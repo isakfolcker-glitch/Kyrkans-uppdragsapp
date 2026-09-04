@@ -39,7 +39,11 @@ export default function NewPassModal() {
 
   return (
     <>
-      <div className="modal-title">📅 Nytt pass</div>
+      <div className="modal-header">
+        <div className="modal-header-quarter" />
+        <div className="modal-title">📅 Nytt pass</div>
+      </div>
+      <div className="modal-body">
       <div className="form-field"><label>Titel</label><input placeholder="ex. Söndagsgudstjänst" value={title} onChange={e => setTitle(e.target.value)} /></div>
       <div className="form-row">
         <div className="form-field"><label>Datum</label><input type="date" value={date} onChange={e => setDate(e.target.value)} /></div>
@@ -86,6 +90,7 @@ export default function NewPassModal() {
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
         <button className="btn btn-primary" onClick={() => save()}>✓ Spara</button>
+      </div>
       </div>
     </>
   )

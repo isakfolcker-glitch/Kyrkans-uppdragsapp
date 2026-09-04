@@ -21,7 +21,11 @@ function AddPastoratModal() {
   }
   return (
     <>
-      <div className="modal-title">🌐 Nytt pastorat</div>
+      <div className="modal-header">
+        <div className="modal-header-quarter" />
+        <div className="modal-title">🌐 Nytt pastorat</div>
+      </div>
+      <div className="modal-body">
       <div className="form-field"><label>Namn på pastoratet</label><input placeholder="ex. Alvesta pastorat" value={name} onChange={e => setName(e.target.value)} /></div>
       <div className="form-field">
         <label>Pastoratsadmin</label>
@@ -45,6 +49,7 @@ function AddPastoratModal() {
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
         <button className="btn btn-primary" onClick={save}>✓ Skapa pastorat</button>
       </div>
+      </div>
     </>
   )
 }
@@ -57,11 +62,16 @@ function EditPastoratModal({ id }: { id: number }) {
   const save = async () => { await updatePastorat({ ...p, name }); closeModal() }
   return (
     <>
-      <div className="modal-title">✏️ Redigera – {p.name}</div>
+      <div className="modal-header">
+        <div className="modal-header-quarter" />
+        <div className="modal-title">✏️ Redigera – {p.name}</div>
+      </div>
+      <div className="modal-body">
       <div className="form-field"><label>Namn</label><input value={name} onChange={e => setName(e.target.value)} /></div>
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
         <button className="btn btn-primary" onClick={save}>✓ Spara</button>
+      </div>
       </div>
     </>
   )

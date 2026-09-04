@@ -102,7 +102,11 @@ export default function ManualAssignModal({ passId }: { passId: number }) {
 
   return (
     <>
-      <div className="modal-title">👤 Tilldela manuellt</div>
+      <div className="modal-header">
+        <div className="modal-header-quarter" />
+        <div className="modal-title">👤 Tilldela manuellt</div>
+      </div>
+      <div className="modal-body">
       <div className="tab-switch">
         <button className={`tab-switch-btn${tab === 0 ? ' on' : ''}`} onClick={() => setTab(0)}>Sök person</button>
         <button className={`tab-switch-btn${tab === 1 ? ' on' : ''}`} onClick={() => setTab(1)}>Utan konto</button>
@@ -197,6 +201,7 @@ export default function ManualAssignModal({ passId }: { passId: number }) {
           )}
         </>
       )}
+      </div>
     </>
   )
 }
