@@ -6,8 +6,35 @@ function escapeHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
+// I testmiljön sätts EMAIL_ALLOWLIST (kommaseparerad) så mail bara kan gå till
+// godkända testadresser, aldrig till riktiga volontärer/anställda av misstag.
+// Produktionen har ingen EMAIL_ALLOWLIST satt, så filtret är då inaktivt.
+// "namn@exempel.se" tillåter även alias som "namn+test@exempel.se".
+function isAllowedTestEmail(email: string, allowlist: string[]): boolean {
+  const lower = email.toLowerCase()
+  return allowlist.some(pattern => {
+    const p = pattern.trim().toLowerCase()
+    if (!p) return false
+    if (p.startsWith('@')) return lower.endsWith(p)
+    if (lower === p) return true
+    const [localPart, domain] = p.split('@')
+    return !!domain && lower.startsWith(localPart + '+') && lower.endsWith('@' + domain)
+  })
+}
+
+function filterToAllowlist(toArr: string[]): string[] {
+  const raw = process.env.EMAIL_ALLOWLIST
+  if (!raw) return toArr
+  const allowlist = raw.split(',').map(s => s.trim()).filter(Boolean)
+  const allowed = toArr.filter(addr => isAllowedTestEmail(addr, allowlist))
+  const blocked = toArr.filter(addr => !allowed.includes(addr))
+  if (blocked.length) console.warn(`[EMAIL_ALLOWLIST] Blockerade ${blocked.length} mottagare utanför testlistan:`, blocked)
+  return allowed
+}
+
 async function send(to: string | string[], subject: string, html: string, replyTo?: string) {
-  const toArr = Array.isArray(to) ? to : [to]
+  const toArr = filterToAllowlist(Array.isArray(to) ? to : [to])
+  if (!toArr.length) return
   const chunks: string[][] = []
   for (let i = 0; i < toArr.length; i += 99) chunks.push(toArr.slice(i, i + 99))
 
