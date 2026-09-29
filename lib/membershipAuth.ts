@@ -130,7 +130,8 @@ export async function hasStaffPermission(
     .eq('church_id', churchId)
     .maybeSingle()
 
-  return Boolean(data?.[permission])
+  if (!data) return false
+  return Boolean((data as Record<StaffPermissionKey, boolean>)[permission])
 }
 
 export async function canAssignRole(
