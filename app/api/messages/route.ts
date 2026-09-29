@@ -1,40 +1,87 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { sendBulkMessage } from '@/lib/email'
+import { canAdminChurch, hasStaffPermission } from '@/lib/membershipAuth'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
 
-  const { data: sender } = await supabase.from('profiles').select('name, admin_level').eq('id', user.id).single()
-  if (!['forsamling','pastorat','super'].includes(sender?.admin_level ?? '')) {
-    return NextResponse.json({ error: 'Saknar behörighet' }, { status: 403 })
+  const { church_id, to, to_label, subject, body } = await req.json()
+  const churchId = Number(church_id)
+
+  if (!churchId || Number.isNaN(churchId)) {
+    return NextResponse.json({ error: 'Församling krävs' }, { status: 400 })
   }
 
-  const body_json = await req.json()
-  const { to, to_label, subject, body } = body_json
+  const allowed = await canAdminChurch(supabase, churchId)
+    || await hasStaffPermission(supabase, user.id, churchId, 'kan_skicka_utskick')
+  if (!allowed) {
+    return NextResponse.json({ error: 'Saknar behörighet att skicka utskick i församlingen' }, { status: 403 })
+  }
 
-  if (!to?.length)      return NextResponse.json({ error: 'Inga mottagare' }, { status: 400 })
+  if (!Array.isArray(to) || !to.length) return NextResponse.json({ error: 'Inga mottagare' }, { status: 400 })
   if (!subject?.trim()) return NextResponse.json({ error: 'Ämne saknas' }, { status: 400 })
-  if (!body?.trim())    return NextResponse.json({ error: 'Meddelande saknas' }, { status: 400 })
+  if (!body?.trim()) return NextResponse.json({ error: 'Meddelande saknas' }, { status: 400 })
 
-  // Skicka mail via Brevo
+  const admin = createAdminClient()
+  const { data: sender } = await admin.from('profiles').select('name').eq('id', user.id).single()
+
+  const { data: memberships } = await admin
+    .from('profile_churches')
+    .select('profiles!inner(email)')
+    .eq('church_id', churchId)
+    .eq('active', true)
+
+  const allowedEmails = new Set(
+    (memberships ?? [])
+      .map((membership: any) => {
+        const profile = Array.isArray(membership.profiles) ? membership.profiles[0] : membership.profiles
+        return profile?.email?.toLowerCase()
+      })
+      .filter(Boolean)
+  )
+
+  const requestedRecipients = Array.from(new Set(
+    to
+      .filter((email: unknown): email is string => typeof email === 'string')
+      .map(email => email.trim().toLowerCase())
+      .filter(Boolean)
+  ))
+
+  const recipients = requestedRecipients.filter(email => allowedEmails.has(email))
+  if (!recipients.length) {
+    return NextResponse.json({ error: 'Inga giltiga mottagare i vald församling' }, { status: 400 })
+  }
+  if (recipients.length !== requestedRecipients.length) {
+    return NextResponse.json({ error: 'En eller flera mottagare tillhör inte vald församling' }, { status: 400 })
+  }
+
   try {
-    await sendBulkMessage({ to, subject, body, fromName: sender?.name ?? 'Admin' })
+    await sendBulkMessage({
+      to: recipients,
+      subject: subject.trim(),
+      body: body.trim(),
+      fromName: sender?.name ?? 'Admin',
+    })
   } catch (e: any) {
     return NextResponse.json({ error: `Mailet kunde inte skickas: ${e.message}` }, { status: 500 })
   }
 
-  // Logga utskicket
-  await supabase.from('message_logs').insert({
+  const { error: logError } = await admin.from('message_logs').insert({
     from_user_id: user.id,
     from_name: sender?.name ?? 'Admin',
+    church_id: churchId,
     to_label: to_label ?? 'Okänt',
-    to_count: to.length,
-    subject,
-    body,
+    to_count: recipients.length,
+    subject: subject.trim(),
+    body: body.trim(),
   })
+  if (logError) {
+    return NextResponse.json({ error: `Mailet skickades men kunde inte loggas: ${logError.message}` }, { status: 500 })
+  }
 
-  return NextResponse.json({ ok: true, count: to.length })
+  return NextResponse.json({ ok: true, count: recipients.length })
 }
