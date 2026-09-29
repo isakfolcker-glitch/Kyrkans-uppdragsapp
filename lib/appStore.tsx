@@ -447,16 +447,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const removeBooking = (passId: number, idx: number) => {
     const pass = passes.find(p => p.id === passId)
     const bookingId = pass?.bookings[idx]?.id
-    setPasses(prev => prev.map(p => p.id === passId ? { ...p, bookings: p.bookings.filter((_, i) => i !== idx), filled: Math.max(0, p.filled - 1) } : p))
-    if (bookingId) {
-      fetch(`/api/bookings`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ booking_id: bookingId }),
-      })
-        .then(r => r.json())
-        .then(d => { if (!d.ok) alert('Kunde inte ta bort bokningen: ' + d.error) })
+    if (!bookingId) {
+      alert('Kunde inte hitta bokningen.')
+      return
     }
+
+    setPasses(prev => prev.map(p => p.id === passId ? {
+      ...p,
+      bookings: p.bookings.filter((_, i) => i !== idx),
+      filled: Math.max(0, p.filled - 1),
+    } : p))
+
+    fetch('/api/bookings', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ booking_id: bookingId }),
+    })
+      .then(async r => ({ ok: r.ok, data: await r.json() }))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          alert('Kunde inte ta bort bokningen: ' + (data.error ?? 'Okänt fel'))
+          void reloadPasses()
+        }
+      })
+      .catch(() => {
+        alert('Nätverksfel när bokningen skulle tas bort.')
+        void reloadPasses()
+      })
   }
   const addPerson    = (p: PersonData) => setPeople(prev => [...prev, p])
   const updatePerson = (p: PersonData) => {
