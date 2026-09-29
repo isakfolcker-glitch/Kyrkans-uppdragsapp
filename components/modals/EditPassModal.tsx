@@ -52,7 +52,7 @@ export default function EditPassModal({ passId }: { passId: number }) {
       )}
       <div className="form-field"><label>Titel</label><input value={title} onChange={e => setTitle(e.target.value)} /></div>
       <div className="form-row">
-        <div className="form-field"><label>Datum</label><input value={date} onChange={e => setDate(e.target.value)} /></div>
+        <div className="form-field"><label>Datum</label><input type="date" value={date} onChange={e => setDate(e.target.value)} /></div>
         <div className="form-field"><label>Tid</label><input value={time} onChange={e => setTime(e.target.value)} /></div>
       </div>
       <div className="form-field"><label>Plats</label><input value={plats} onChange={e => setPlats(e.target.value)} /></div>
