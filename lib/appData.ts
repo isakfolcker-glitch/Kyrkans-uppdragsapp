@@ -22,7 +22,17 @@ export interface PassData {
   importRef?: string; waitlistCount?: number
 }
 export interface MessageData { id: any; from: string; to: string; toCount: number; subject: string; body: string; sentAt: string; church?: number | null }
-export interface NotifData { id: any; userId: any; type: string; title: string; body: string; time: string; read: boolean }
+export interface NotifData {
+  id: any
+  userId: any
+  type: string
+  title: string
+  body: string
+  time: string
+  read: boolean
+  passId?: number | null
+  commentId?: number | null
+}
 export interface PastoratData { id: any; name: string; admin: string; adminEmail: string; churches: number[] }
 
 export interface ChurchMembershipData {
