@@ -11,6 +11,7 @@ function SendMessageModal() {
   const [loading, setLoading]         = useState(false)
   const [error, setError]             = useState('')
   const cid = currentChurchId()
+  const visibleGroups = groups.filter(group => group.churchId === cid || group.churchId === null)
 
   const toggleGroup = (id: string) =>
     setSelGroups(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -24,7 +25,7 @@ function SendMessageModal() {
   } else {
     const ids = new Set<string>()
     selGroups.forEach(g => {
-      people.filter(p => p.groups.includes(g) && p.mail).forEach(p => ids.add(p.mail!))
+      people.filter(p => p.church === cid && p.groups.includes(g) && p.mail).forEach(p => ids.add(p.mail!))
     })
     recipients = Array.from(ids)
     toLabel = selGroups.length ? 'Grupp: ' + selGroups.join(', ') : ''
@@ -41,6 +42,7 @@ function SendMessageModal() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        church_id: cid,
         to: recipients,
         to_label: toLabel,
         subject,
@@ -58,6 +60,7 @@ function SendMessageModal() {
       subject,
       body,
       sentAt: new Date().toLocaleDateString('sv'),
+      church: cid,
     })
     setLoading(false)
     closeModal()
@@ -74,10 +77,10 @@ function SendMessageModal() {
             <input type="checkbox" checked={allChecked} onChange={e => { setAllChecked(e.target.checked); setSelGroups([]) }} style={{ accentColor: '#7D0037', width: 16, height: 16 }} />
             <span style={{ fontSize: 13, fontWeight: 500 }}>Alla i kyrkan – {people.filter(p => p.church === cid).length} pers</span>
           </label>
-          {!allChecked && groups.map(g => (
+          {!allChecked && visibleGroups.map(g => (
             <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', cursor: 'pointer' }}>
               <input type="checkbox" checked={selGroups.includes(g.id)} onChange={() => toggleGroup(g.id)} style={{ accentColor: '#7D0037', width: 16, height: 16 }} />
-              <span style={{ fontSize: 13 }}>{g.label} – {people.filter(p => p.groups.includes(g.id)).length} pers</span>
+              <span style={{ fontSize: 13 }}>{g.label} - {people.filter(p => p.church === cid && p.groups.includes(g.id)).length} pers</span>
             </label>
           ))}
         </div>
@@ -111,20 +114,23 @@ function SendMessageModal() {
 }
 
 export default function UtskickPage() {
-  const { messages, showModal } = useApp()
+  const { messages, showModal, currentChurchId, churches } = useApp()
+  const cid = currentChurchId()
+  const visibleMessages = messages.filter(message => message.church === cid)
+  const churchName = churches.find(church => church.id === cid)?.name ?? 'vald församling'
   return (
     <div>
       <div className="page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h1 className="page-title">Utskick</h1>
-          <p className="page-sub">Skicka meddelanden till ideella och anställda</p>
+          <p className="page-sub">Skicka meddelanden i {churchName}</p>
         </div>
         <button className="btn btn-primary" onClick={() => showModal(<SendMessageModal />)}>✉ Nytt utskick</button>
       </div>
 
       <div className="section-label">Tidigare utskick</div>
 
-      {messages.length === 0 ? (
+      {visibleMessages.length === 0 ? (
         <div style={{ background: '#fff', borderRadius: 16, padding: '32px 24px', textAlign: 'center', border: '1px solid rgba(125,0,55,0.08)' }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>✉</div>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#000', marginBottom: 6 }}>Inga utskick ännu</div>
@@ -132,7 +138,7 @@ export default function UtskickPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {messages.map(m => (
+          {visibleMessages.map(m => (
             <div key={m.id} style={{ background: '#fff', borderRadius: 14, padding: '14px 16px', border: '1px solid rgba(125,0,55,0.08)', display: 'flex', gap: 14 }}>
               <div style={{ width: 40, height: 40, background: '#CDC3FF', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>✉</div>
               <div style={{ flex: 1 }}>
