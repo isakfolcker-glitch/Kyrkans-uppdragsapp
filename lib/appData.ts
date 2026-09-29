@@ -2,7 +2,7 @@ export type Role = 'ideell' | 'anstalld' | 'fadmin' | 'padmin' | 'superadmin' | 
 export type AdminLevel = 'none' | 'forsamling' | 'pastorat' | 'super'
 
 export interface Group { id: string; label: string; cls: string; churchId?: number | null }
-export interface Church { id?: number; name: string; admin: string; tel: string; address?: string }
+export interface Church { id?: number; name: string; admin: string; tel: string; address?: string; pastoratId?: number | null }
 export interface PersonData {
   id: any; name: string; mail: string; phone?: string
   ini: string; av: string; ac: string
@@ -21,9 +21,19 @@ export interface PassData {
   responsibleUserIds: any[]; bookings: BookingData[]; history: string[]
   importRef?: string; waitlistCount?: number
 }
-export interface MessageData { id: any; from: string; to: string; toCount: number; subject: string; body: string; sentAt: string }
+export interface MessageData { id: any; from: string; to: string; toCount: number; subject: string; body: string; sentAt: string; church?: number | null }
 export interface NotifData { id: any; userId: any; type: string; title: string; body: string; time: string; read: boolean }
 export interface PastoratData { id: any; name: string; admin: string; adminEmail: string; churches: number[] }
+
+export interface ChurchMembershipData {
+  profileId: string
+  churchId: number
+  role: Role
+  adminLevel: AdminLevel
+  isEmployee: boolean
+  active: boolean
+  acceptedAt?: string | null
+}
 
 export interface UserDef {
   id: number; name: string; email: string
