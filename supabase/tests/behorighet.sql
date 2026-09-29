@@ -89,7 +89,9 @@ BEGIN
    (19,'Fadmin B ser personer i A',fadB,format($q$SELECT count(*)::text FROM profiles WHERE church_id=%s$q$,a),'0'),
    (20,'Pastoratsadmin ser personer i B (samma pastorat)',padA,format($q$SELECT (count(*) > 0)::text FROM profiles WHERE church_id=%s$q$,b),'true'),
    (21,'Superadmin ser alla',sup,$q$SELECT (count(*) >= 6)::text FROM profiles$q$,'true'),
-   (22,'Fadmin A ser personer i A',fadA,format($q$SELECT (count(*) >= 4)::text FROM profiles WHERE church_id=%s$q$,a),'true')
+   (22,'Fadmin A ser personer i A',fadA,format($q$SELECT (count(*) >= 4)::text FROM profiles WHERE church_id=%s$q$,a),'true'),
+   (23,'Fadmin A ändrar ideell A i egen församling',fadA,format(upd,$s$available=true$s$,ideA),'1'),
+   (24,'Fadmin A gör ideell A till anställd',fadA,format(upd,$s$is_employee=true, role='anstalld'$s$,ideA),'1')
   ) AS v(n,test,uid,sql,expected) LOOP
     PERFORM set_config('request.jwt.claims', json_build_object('sub',t.uid,'role','authenticated')::text, true);
     PERFORM set_config('role','authenticated', true);
@@ -105,6 +107,9 @@ BEGIN
   INSERT INTO sec_test.results
   SELECT results[i][1]::int, results[i][2], results[i][3], results[i][4] FROM generate_subscripts(results,1) i;
 END $$;
+
+-- Återställ testkontot efter test 24
+UPDATE profiles SET is_employee=false, role='ideell' WHERE email='sec-ideA@test.invalid';
 
 SELECT n, test, expected, got, CASE WHEN expected = got THEN 'OK' ELSE 'FEL' END AS status
 FROM sec_test.results ORDER BY n;
