@@ -1,9 +1,20 @@
 'use client'
 import { useState } from 'react'
 import { useApp } from '@/lib/appStore'
+import { validatePassForm } from '@/lib/passValidation'
+import type { PassFormErrors } from '@/lib/passValidation'
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null
+  return (
+    <div role="alert" style={{ color: '#B23A1E', fontSize: 12, marginTop: 6 }}>
+      {message}
+    </div>
+  )
+}
 
 export default function NewPassModal() {
-  const { groups, people, closeModal, addPass, nextPassId, isPAdmin, currentChurchId, u } = useApp()
+  const { groups, people, closeModal, addPass, nextPassId, currentChurchId, u } = useApp()
   const [title, setTitle] = useState('')
   const [date, setDate] = useState('')
   const [timeStart, setTimeStart] = useState('')
@@ -16,23 +27,36 @@ export default function NewPassModal() {
   const [respId, setRespId] = useState('')
   const [kioskVisible, setKioskVisible] = useState(false)
   const [pubDate, setPubDate] = useState('')
+  const [errors, setErrors] = useState<PassFormErrors>({})
 
   const employees = people.filter(p => p.isEmployee)
 
-  const toggleGroup = (id: string) =>
+  const toggleGroup = (id: string) => {
     setSelGroups(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+    setErrors(prev => ({ ...prev, groups: undefined }))
+  }
 
   const save = async () => {
-    if (!title.trim()) { alert('Titel krävs'); return }
-    const time = timeStart && timeEnd ? `${timeStart}–${timeEnd}` : timeStart || timeEnd || ''
+    const nextErrors = validatePassForm({
+      title,
+      date,
+      timeStart,
+      plats,
+      spots,
+      groups: selGroups,
+    })
+    setErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
+
+    const time = timeStart && timeEnd ? `${timeStart}-${timeEnd}` : timeStart || timeEnd || ''
     const vkEmployee = employees.find(e => e.id.toString() === vkProfileId)
     await addPass({
-      id: nextPassId(), church: currentChurchId(), title, date, time, plats, spots, filled: 0,
+      id: nextPassId(), church: currentChurchId(), title: title.trim(), date, time, plats: plats.trim(), spots, filled: 0,
       vk: vkEmployee?.name ?? '', tel: vkEmployee?.phone ?? '', vkProfileId: vkProfileId || null,
-      desc, groups: selGroups, cancelled: false,
+      desc: desc.trim(), groups: selGroups, cancelled: false,
       pubStatus: pubDate ? 'scheduled' : 'live', pubDate, kioskVisible,
       responsibleUserIds: respId ? [parseInt(respId)] : [],
-      bookings: [], history: [`Skapades av ${u().name} – Idag`],
+      bookings: [], history: [`Skapades av ${u().name} - Idag`],
     })
     closeModal()
   }
@@ -40,15 +64,88 @@ export default function NewPassModal() {
   return (
     <>
       <div className="modal-title">📅 Nytt pass</div>
-      <div className="form-field"><label>Titel</label><input placeholder="ex. Söndagsgudstjänst" value={title} onChange={e => setTitle(e.target.value)} /></div>
-      <div className="form-row">
-        <div className="form-field"><label>Datum</label><input type="date" value={date} onChange={e => setDate(e.target.value)} /></div>
-        <div className="form-field"><label>Starttid</label><input type="time" value={timeStart} onChange={e => setTimeStart(e.target.value)} /></div>
-        <div className="form-field"><label>Sluttid</label><input type="time" value={timeEnd} onChange={e => setTimeEnd(e.target.value)} /></div>
+
+      <div className="form-field">
+        <label>Titel <span aria-hidden="true">*</span></label>
+        <input
+          placeholder="ex. Söndagsgudstjänst"
+          value={title}
+          required
+          aria-invalid={Boolean(errors.title)}
+          onChange={e => {
+            setTitle(e.target.value)
+            setErrors(prev => ({ ...prev, title: undefined }))
+          }}
+        />
+        <FieldError message={errors.title} />
       </div>
-      <div className="form-field"><label>Plats</label><input placeholder="ex. Kyrkorummet" value={plats} onChange={e => setPlats(e.target.value)} /></div>
+
       <div className="form-row">
-        <div className="form-field"><label>Antal platser</label><input type="number" value={spots} min={1} onChange={e => setSpots(parseInt(e.target.value)||1)} /></div>
+        <div className="form-field">
+          <label>Datum <span aria-hidden="true">*</span></label>
+          <input
+            type="date"
+            value={date}
+            required
+            aria-invalid={Boolean(errors.date)}
+            onChange={e => {
+              setDate(e.target.value)
+              setErrors(prev => ({ ...prev, date: undefined }))
+            }}
+          />
+          <FieldError message={errors.date} />
+        </div>
+        <div className="form-field">
+          <label>Starttid <span aria-hidden="true">*</span></label>
+          <input
+            type="time"
+            value={timeStart}
+            required
+            aria-invalid={Boolean(errors.timeStart)}
+            onChange={e => {
+              setTimeStart(e.target.value)
+              setErrors(prev => ({ ...prev, timeStart: undefined }))
+            }}
+          />
+          <FieldError message={errors.timeStart} />
+        </div>
+        <div className="form-field">
+          <label>Sluttid</label>
+          <input type="time" value={timeEnd} onChange={e => setTimeEnd(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="form-field">
+        <label>Plats <span aria-hidden="true">*</span></label>
+        <input
+          placeholder="ex. Kyrkorummet"
+          value={plats}
+          required
+          aria-invalid={Boolean(errors.plats)}
+          onChange={e => {
+            setPlats(e.target.value)
+            setErrors(prev => ({ ...prev, plats: undefined }))
+          }}
+        />
+        <FieldError message={errors.plats} />
+      </div>
+
+      <div className="form-row">
+        <div className="form-field">
+          <label>Antal platser <span aria-hidden="true">*</span></label>
+          <input
+            type="number"
+            value={spots}
+            min={1}
+            required
+            aria-invalid={Boolean(errors.spots)}
+            onChange={e => {
+              setSpots(parseInt(e.target.value) || 1)
+              setErrors(prev => ({ ...prev, spots: undefined }))
+            }}
+          />
+          <FieldError message={errors.spots} />
+        </div>
         <div className="form-field">
           <label>Vaktmästare</label>
           <select value={vkProfileId} onChange={e => setVkProfileId(e.target.value)}>
@@ -57,16 +154,25 @@ export default function NewPassModal() {
           </select>
         </div>
       </div>
+
       <div className="form-field">
-        <label>Grupper</label>
-        <div className="group-grid">
+        <label>Grupper <span aria-hidden="true">*</span></label>
+        <div className="group-grid" aria-invalid={Boolean(errors.groups)}>
           {groups.map(g => (
-            <button key={g.id} className={`group-toggle${selGroups.includes(g.id) ? ' on' : ''}`} onClick={() => toggleGroup(g.id)}>
+            <button
+              key={g.id}
+              type="button"
+              className={`group-toggle${selGroups.includes(g.id) ? ' on' : ''}`}
+              aria-pressed={selGroups.includes(g.id)}
+              onClick={() => toggleGroup(g.id)}
+            >
               {selGroups.includes(g.id) ? '✓ ' : ''}{g.label}
             </button>
           ))}
         </div>
+        <FieldError message={errors.groups} />
       </div>
+
       <div className="form-field">
         <label>Ansvarig anställd</label>
         <select value={respId} onChange={e => setRespId(e.target.value)}>
@@ -74,18 +180,34 @@ export default function NewPassModal() {
           {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
         </select>
       </div>
-      <div className="form-field"><label>Beskrivning</label><textarea placeholder="Vad händer i kyrkan..." value={desc} onChange={e => setDesc(e.target.value)} /></div>
-      <div className="form-field"><label>Publiceringsdatum (tomt = live direkt)</label><input type="date" value={pubDate} onChange={e => setPubDate(e.target.value)} /></div>
+
+      <div className="form-field">
+        <label>Beskrivning</label>
+        <textarea placeholder="Vad händer i kyrkan..." value={desc} onChange={e => setDesc(e.target.value)} />
+      </div>
+
+      <div className="form-field">
+        <label>Publiceringsdatum (tomt = live direkt)</label>
+        <input type="date" value={pubDate} onChange={e => setPubDate(e.target.value)} />
+      </div>
+
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: '#F1EFE8', borderRadius: 8, marginBottom: 12 }}>
-        <button className={`toggle-switch${kioskVisible ? ' on' : ''}`} onClick={() => setKioskVisible(v => !v)} />
+        <button
+          type="button"
+          className={`toggle-switch${kioskVisible ? ' on' : ''}`}
+          aria-pressed={kioskVisible}
+          aria-label="Visa passet i kiosk"
+          onClick={() => setKioskVisible(v => !v)}
+        />
         <div>
           <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2A' }}>Visa i kiosk</div>
           <div style={{ fontSize: 11, color: '#888780' }}>Synlig på anmälningsstationen</div>
         </div>
       </div>
+
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
-        <button className="btn btn-primary" onClick={() => save()}>✓ Spara</button>
+        <button className="btn btn-primary" onClick={save}>✓ Spara</button>
       </div>
     </>
   )
