@@ -1,7 +1,7 @@
 'use client'
 import { useState, ReactNode } from 'react'
 import { Ctx, ALL_PERMS, NO_PERMS, StaffPerms } from '@/lib/appStore'
-import { Group, Church, PersonData, PassData, MessageData, NotifData, PastoratData, UserDef, NAV_ITEMS } from '@/lib/appData'
+import { Group, Church, PersonData, PassData, MessageData, NotifData, ChurchMembershipData, NAV_ITEMS } from '@/lib/appData'
 import { DEMO_GROUPS, DEMO_CHURCHES, DEMO_PASTORAT, DEMO_USERS, DEMO_PEOPLE, DEMO_PASSES, DEMO_MESSAGES, DEMO_NOTIFICATIONS } from '@/lib/demoData'
 
 let _nextId = 200
@@ -59,6 +59,17 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
   const currentChurchId = () => (isPAdmin() || isSuperAdmin())
     ? (churches[activeChurch]?.id ?? churches[0]?.id ?? 1)
     : (usr.churches[0] ?? 1)
+  const memberships: ChurchMembershipData[] = usr.churches.map(churchId => ({
+    profileId: String(usr.id),
+    churchId,
+    role: usr.role,
+    adminLevel: usr.adminLevel,
+    isEmployee: usr.isEmployee,
+    active: true,
+  }))
+  const availableChurches = churches.filter(church => church.id !== undefined && usr.churches.includes(church.id))
+  const currentMembership = () => memberships.find(membership => membership.churchId === currentChurchId()) ?? null
+  const currentGroups = () => usr.groups
 
   const u = () => DEMO_USERS[userIndex]
 
@@ -168,6 +179,7 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
       userIndex, page, passes, people, messages, notifications,
       selfBookings, selfWaitlist, activeChurch, groupFilter, modal,
       groups, churches, pastorat: DEMO_PASTORAT, users: DEMO_USERS,
+      memberships, availableChurches,
       currentUser: null, profile: null, loadingAuth: false, staffPerms,
       u, isIdeell, isAnstalld, isFAdmin, isPAdmin, isSuperAdmin, isAdmin, isKiosk,
       isResponsible, canBook, canViewBkgs, canAddBkg, canRemoveBkg, canMsgBooked,
@@ -180,7 +192,7 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
       addChurch, updateChurch, deleteChurch,
       addPastorat, updatePastorat, deletePastorat, addGroup, deleteGroup,
       nextPersonId, nextPassId, nextPastoratId, updateStaffPerms,
-      getResponsibleNames, currentChurchId, logout, inviteUser,
+      getResponsibleNames, currentChurchId, currentMembership, currentGroups, logout, inviteUser,
     }}>
       {children}
     </Ctx.Provider>
