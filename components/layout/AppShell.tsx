@@ -45,12 +45,63 @@ export default function AppShell() {
       <div className="app-shell">
         <Sidebar />
         <main className="main-content" style={{ paddingBottom: 80 }}>
+          <ChurchSwitcher />
           <PageContent />
         </main>
         <Modal />
       </div>
       <BottomNav />
     </>
+  )
+}
+
+function ChurchSwitcher() {
+  const { currentUser, isKiosk, availableChurches, churches, currentChurchId, currentMembership, setChurch } = useApp()
+  if (!currentUser || isKiosk() || availableChurches.length <= 1) return null
+
+  const churchId = currentChurchId()
+  const membership = currentMembership()
+  const roleLabel = membership?.adminLevel === 'super'
+    ? 'Systemadmin'
+    : membership?.adminLevel === 'pastorat'
+      ? 'Pastoratsadmin'
+      : membership?.adminLevel === 'forsamling'
+        ? 'Församlingsadmin'
+        : membership?.role === 'anstalld'
+          ? 'Anställd'
+          : 'Ideell'
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      gap: 10, background: '#fff', border: '1px solid rgba(125,0,55,0.1)',
+      borderRadius: 12, padding: '10px 12px', marginBottom: 16,
+    }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: '#7D0037', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Församling
+        </div>
+        <div style={{ fontSize: 11, color: '#888780', marginTop: 2 }}>{roleLabel} i vald församling</div>
+      </div>
+      <select
+        aria-label="Välj församling"
+        value={churchId}
+        onChange={event => {
+          const id = Number(event.target.value)
+          const index = churches.findIndex(church => church.id === id)
+          if (index >= 0) setChurch(index)
+        }}
+        style={{
+          minWidth: 180, maxWidth: '60%', fontSize: 13, padding: '8px 10px',
+          border: '1.5px solid rgba(0,0,0,0.12)', borderRadius: 10,
+          background: '#FFEBE1', color: '#000', fontFamily: 'inherit',
+        }}
+      >
+        {availableChurches.map(church => (
+          <option key={church.id} value={church.id}>{church.name}</option>
+        ))}
+      </select>
+    </div>
   )
 }
 
