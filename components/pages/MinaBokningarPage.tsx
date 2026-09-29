@@ -7,11 +7,12 @@ import PassQAModal from '@/components/modals/PassQAModal'
 import UnbookConfirmModal from '@/components/modals/UnbookConfirmModal'
 
 export default function MinaBokningarPage() {
-  const { passes, selfBookings, showModal } = useApp()
+  const { passes, selfBookings, showModal, currentChurchId } = useApp()
   const [showOld, setShowOld] = useState(false)
   const today = new Date().toISOString().slice(0, 10)
 
-  const mine = passes.filter(p => selfBookings[p.id])
+  const churchId = currentChurchId()
+  const mine = passes.filter(p => p.church === churchId && selfBookings[p.id])
   const upcoming  = mine.filter(p => !p.cancelled && p.date >= today).sort((a, b) => a.date.localeCompare(b.date))
   const old       = mine.filter(p => !p.cancelled && p.date < today).sort((a, b) => b.date.localeCompare(a.date))
   const cancelled = mine.filter(p => p.cancelled)
