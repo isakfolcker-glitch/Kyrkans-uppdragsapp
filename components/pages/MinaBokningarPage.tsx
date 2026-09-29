@@ -4,9 +4,10 @@ import { useApp } from '@/lib/appStore'
 import { gLabel, gCls } from '@/lib/appData'
 import { isLockedForSelfCancel } from '@/lib/passTiming'
 import PassQAModal from '@/components/modals/PassQAModal'
+import UnbookConfirmModal from '@/components/modals/UnbookConfirmModal'
 
 export default function MinaBokningarPage() {
-  const { passes, selfBookings, doUnbook, showModal } = useApp()
+  const { passes, selfBookings, showModal } = useApp()
   const [showOld, setShowOld] = useState(false)
   const today = new Date().toISOString().slice(0, 10)
 
@@ -34,7 +35,14 @@ export default function MinaBokningarPage() {
             isLockedForSelfCancel(p.date, p.time) ? (
               <span className="btn btn-disabled btn-sm" title="Mindre än 24 timmar kvar, kontakta ansvarig för att avboka">🔒 Låst</span>
             ) : (
-              <button className="btn btn-warn btn-sm" onClick={() => doUnbook(p.id)}>Avboka</button>
+              <button
+                className="btn btn-warn btn-sm"
+                onClick={() => showModal(
+                  <UnbookConfirmModal passId={p.id} title={p.title} date={p.date} time={p.time} />
+                )}
+              >
+                Avboka
+              </button>
             )
           )}
         </div>
