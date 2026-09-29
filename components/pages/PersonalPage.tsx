@@ -1,10 +1,10 @@
 'use client'
 import { useState } from 'react'
 import { useApp } from '@/lib/appStore'
-import { gLabel, gCls, roleLabel, ini2, PersonData } from '@/lib/appData'
+import { gLabel, gCls, roleLabel } from '@/lib/appData'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 
-function SetPasswordModal({ personId, personName }: { personId: any; personName: string }) {
+function SetPasswordModal({ personId, personName, churchId }: { personId: any; personName: string; churchId: number }) {
   const { closeModal } = useApp()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -19,7 +19,7 @@ function SetPasswordModal({ personId, personName }: { personId: any; personName:
     const res = await fetch(`/api/people/${personId}/set-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ password, church_id: churchId }),
     })
     const d = await res.json()
     if (!res.ok) { setErr(d.error ?? 'Något gick fel.'); setLoading(false); return }
@@ -32,10 +32,11 @@ function SetPasswordModal({ personId, personName }: { personId: any; personName:
       <div className="modal-footer"><button className="btn btn-primary" onClick={closeModal}>Stäng</button></div>
     </>
   )
+
   return (
     <>
-      <div className="modal-title">🔑 Sätt lösenord – {personName}</div>
-      <div className="alert alert-blue">Lösenordet sätts direkt. Personen kan logga in med det nya lösenordet omedelbart.</div>
+      <div className="modal-title">🔑 Sätt lösenord - {personName}</div>
+      <div className="alert alert-blue">Lösenordet sätts på personens gemensamma konto och gäller i alla församlingar där kontot har åtkomst.</div>
       <div className="form-field">
         <label>Nytt lösenord</label>
         <input type="password" placeholder="Minst 8 tecken" value={password} onChange={e => setPassword(e.target.value)} />
@@ -54,7 +55,7 @@ function SetPasswordModal({ personId, personName }: { personId: any; personName:
 }
 
 function InvitePersonModal({ defaultRole = 'ideell' }: { defaultRole?: string }) {
-  const { churches, isPAdmin, isSuperAdmin, u, inviteUser, closeModal, currentChurchId } = useApp()
+  const { availableChurches, isAdmin, perm, inviteUser, closeModal, currentChurchId } = useApp()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState(defaultRole)
@@ -62,40 +63,56 @@ function InvitePersonModal({ defaultRole = 'ideell' }: { defaultRole?: string })
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
   const [err, setErr] = useState('')
+
+  const canInviteStaff = isAdmin()
+  const canInviteIdeell = isAdmin() || perm('kan_lagg_till_personal')
+
   const send = async () => {
     if (!name.trim() || !email.trim()) { setErr('Namn och e-post krävs'); return }
+    if (role === 'ideell' && !canInviteIdeell) { setErr('Du saknar behörighet att bjuda in ideella.'); return }
+    if (role !== 'ideell' && !canInviteStaff) { setErr('Endast administratörer kan bjuda in anställda och administratörer.'); return }
+
     setLoading(true); setErr('')
     try {
       await inviteUser(email.trim(), name.trim(), role, churchId)
       setDone(true)
-    } catch (e: any) { setErr(e.message) }
+    } catch (e: any) {
+      setErr(e.message)
+    }
     setLoading(false)
   }
+
   if (done) return (
     <>
-      <div className="alert alert-green">✓ Inbjudan skickad till {email}! De får ett e-postmeddelande med länk för att skapa konto.</div>
+      <div className="alert alert-green">
+        ✓ Inbjudan skickad till {email}. Om personen redan har ett konto används samma konto och den nya församlingen läggs till.
+      </div>
       <div className="modal-footer"><button className="btn btn-primary" onClick={closeModal}>Stäng</button></div>
     </>
   )
+
   return (
     <>
-      <div className="modal-title">✉ Bjud in ny användare</div>
-      <div className="alert alert-blue">🔗 Personen får ett e-postmeddelande med länk för att skapa sitt konto och lösenord.</div>
+      <div className="modal-title">✉ Bjud in till församling</div>
+      <div className="alert alert-blue">
+        🔗 Personen får en personlig länk. Ett befintligt konto återanvänds, annars skapas kontot via onboarding.
+      </div>
       <div className="form-field"><label>Namn</label><input placeholder="För- och efternamn" value={name} onChange={e => setName(e.target.value)} /></div>
       <div className="form-field"><label>E-post</label><input type="email" placeholder="namn@example.com" value={email} onChange={e => setEmail(e.target.value)} /></div>
       <div className="form-row">
         <div className="form-field">
-          <label>Roll</label>
+          <label>Roll i församlingen</label>
           <select value={role} onChange={e => setRole(e.target.value)}>
             <option value="ideell">Ideell</option>
-            <option value="anstalld">Anställd</option>
-            {(isPAdmin() || isSuperAdmin()) && <><option value="fadmin">Församlingsadmin</option><option value="padmin">Pastoratsadmin</option></>}
+            {canInviteStaff && <option value="anstalld">Anställd</option>}
+            {canInviteStaff && <option value="fadmin">Församlingsadmin</option>}
+            {canInviteStaff && <option value="padmin">Pastoratsadmin</option>}
           </select>
         </div>
         <div className="form-field">
           <label>Församling</label>
           <select value={churchId} onChange={e => setChurchId(parseInt(e.target.value))}>
-            {churches.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {availableChurches.map(church => <option key={church.id} value={church.id}>{church.name}</option>)}
           </select>
         </div>
       </div>
@@ -108,103 +125,71 @@ function InvitePersonModal({ defaultRole = 'ideell' }: { defaultRole?: string })
   )
 }
 
-function AddPersonModal({ defaultRole = 'ideell' }: { defaultRole?: string }) {
-  const { groups, churches, isPAdmin, isSuperAdmin, u, addPerson, closeModal } = useApp()
-  const [name, setName] = useState('')
-  const [mail, setMail] = useState('')
-  const [tel, setTel] = useState('')
-  const [role, setRole] = useState(defaultRole)
+function EditPersonModal({ personId, churchId }: { personId: any; churchId: number }) {
+  const { people, groups, closeModal, updatePerson, showModal, deletePerson } = useApp()
+  const person = people.find(item => item.id === personId && item.church === churchId)
+  if (!person) return null
+
+  const visibleGroups = groups.filter(group => group.churchId === churchId || group.churchId === null)
+  const [selGroups, setSelGroups] = useState<string[]>(person.groups)
   const [saving, setSaving] = useState(false)
-  const defaultChurchId = (isPAdmin() || isSuperAdmin()) ? (churches[0]?.id ?? 0) : (churches.find(c => c.id === u().churches[0])?.id ?? churches[0]?.id ?? 0)
-  const [churchId, setChurchId] = useState(defaultChurchId)
-  const [selGroups, setSelGroups] = useState<string[]>([])
+  const [error, setError] = useState('')
+
   const toggleGroup = (id: string) => setSelGroups(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+
   const save = async () => {
-    if (!name.trim()) { alert('Namn krävs'); return }
-    setSaving(true)
-    const res = await fetch('/api/people', {
-      method: 'POST',
+    setSaving(true); setError('')
+    const res = await fetch(`/api/people/${person.id}`, {
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name.trim(), email: mail || undefined, phone: tel || undefined, role, church_id: churchId, groups: selGroups }),
+      body: JSON.stringify({ church_id: churchId, groups: selGroups }),
     })
-    const json = await res.json()
-    if (!res.ok) { alert(json.error || 'Kunde inte spara'); setSaving(false); return }
-    const adminLevel = role === 'padmin' ? 'pastorat' : role === 'fadmin' ? 'forsamling' : 'none'
-    addPerson({ id: json.id, name: name.trim(), mail: mail || '', phone: tel, ini: json.ini || ini2(name), av: '#EEEDFE', ac: '#3C3489', church: churchId, groups: selGroups, role: role as any, isEmployee: role !== 'ideell', adminLevel: adminLevel as any, available: true })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      setError(data.error ?? 'Kunde inte spara.')
+      setSaving(false)
+      return
+    }
+    updatePerson({ ...person, groups: selGroups })
+    setSaving(false)
     closeModal()
   }
-  const churchOpts = (isPAdmin() || isSuperAdmin()) ? churches : churches.filter(c => c.id !== undefined && u().churches.includes(c.id as number))
-  return (
-    <>
-      <div className="modal-title">👤 Lägg till person</div>
-      <div className="form-field"><label>Namn</label><input placeholder="För- och efternamn" value={name} onChange={e => setName(e.target.value)} /></div>
-      <div className="form-field"><label>E-post</label><input type="email" placeholder="namn@example.com" value={mail} onChange={e => setMail(e.target.value)} /></div>
-      <div className="form-field"><label>Telefon</label><input placeholder="070-..." value={tel} onChange={e => setTel(e.target.value)} /></div>
-      <div className="form-row">
-        <div className="form-field">
-          <label>Roll</label>
-          <select value={role} onChange={e => setRole(e.target.value)}>
-            <option value="ideell">Ideell</option>
-            <option value="anstalld">Anställd</option>
-            {(isPAdmin() || isSuperAdmin()) && <><option value="fadmin">Församlingsadmin</option><option value="padmin">Pastoratsadmin</option></>}
-          </select>
-        </div>
-        <div className="form-field">
-          <label>Församling</label>
-          <select value={churchId} onChange={e => setChurchId(parseInt(e.target.value))}>
-            {churchOpts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </div>
-      </div>
-      {role === 'ideell' && (
-        <div className="form-field">
-          <label>Uppdragsgrupper</label>
-          <div className="group-grid">
-            {groups.map(g => (
-              <button key={g.id} className={`group-toggle${selGroups.includes(g.id) ? ' on' : ''}`} onClick={() => toggleGroup(g.id)}>
-                {selGroups.includes(g.id) ? '✓ ' : ''}{g.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      <div className="modal-footer">
-        <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
-        <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? 'Sparar...' : '✉ Lägg till'}</button>
-      </div>
-    </>
-  )
-}
 
-function EditPersonModal({ personId }: { personId: number }) {
-  const { people, groups, closeModal, updatePerson, showModal, deletePerson } = useApp()
-  const p = people.find(x => x.id === personId)
-  if (!p) return null
-  const [selGroups, setSelGroups] = useState<string[]>(p.groups)
-  const toggleGroup = (id: string) => setSelGroups(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
-  const save = () => { updatePerson({ ...p, groups: selGroups }); closeModal() }
   return (
     <>
-      <div className="modal-title">✏️ Ändra uppdrag – {p.name}</div>
+      <div className="modal-title">✏️ Ändra uppdrag - {person.name}</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, background: '#F1EFE8', borderRadius: 10, marginBottom: 14 }}>
-        <div style={{ width: 36, height: 36, borderRadius: '50%', background: p.av, color: p.ac, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600 }}>{p.ini}</div>
-        <div><div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2A' }}>{p.name}</div><div style={{ fontSize: 12, color: '#888780' }}>{p.mail}</div></div>
+        <div style={{ width: 36, height: 36, borderRadius: '50%', background: person.av, color: person.ac, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600 }}>{person.ini}</div>
+        <div><div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2A' }}>{person.name}</div><div style={{ fontSize: 12, color: '#888780' }}>{person.mail}</div></div>
       </div>
       <div className="form-field">
-        <label>Uppdragsgrupper</label>
+        <label>Uppdragsgrupper i denna församling</label>
         <div className="group-grid">
-          {groups.map(g => (
-            <button key={g.id} className={`group-toggle${selGroups.includes(g.id) ? ' on' : ''}`} onClick={() => toggleGroup(g.id)}>
-              {selGroups.includes(g.id) ? '✓ ' : ''}{g.label}
+          {visibleGroups.map(group => (
+            <button key={group.id} type="button" className={`group-toggle${selGroups.includes(group.id) ? ' on' : ''}`} onClick={() => toggleGroup(group.id)}>
+              {selGroups.includes(group.id) ? '✓ ' : ''}{group.label}
             </button>
           ))}
         </div>
       </div>
+      {error && <div className="alert alert-red">{error}</div>}
       <div className="modal-footer-split">
-        <button className="btn btn-danger" onClick={() => showModal(<ConfirmModal title={`Ta bort ${p.name}?`} sub="Personen förlorar åtkomst." confirmLabel="Ta bort" onConfirm={() => deletePerson(p.id)} />)}>🗑 Ta bort</button>
+        <button
+          className="btn btn-danger"
+          onClick={() => showModal(
+            <ConfirmModal
+              title={`Ta bort ${person.name} från församlingen?`}
+              sub="Personens konto och andra församlingar påverkas inte. Bokningar och uppdrag i denna församling tas bort."
+              confirmLabel="Ta bort från församlingen"
+              onConfirm={() => deletePerson(person.id)}
+            />
+          )}
+        >
+          🗑 Ta bort från församlingen
+        </button>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
-          <button className="btn btn-primary" onClick={save}>✓ Spara</button>
+          <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? 'Sparar...' : '✓ Spara'}</button>
         </div>
       </div>
     </>
@@ -212,35 +197,39 @@ function EditPersonModal({ personId }: { personId: number }) {
 }
 
 export default function PersonalPage() {
-  const { people, churches, groups, isPAdmin, isSuperAdmin, u, activeChurch, setChurch, showModal, deletePerson, currentChurchId } = useApp()
+  const {
+    people, groups, isAdmin, perm, showModal, deletePerson,
+    currentChurchId, churches,
+  } = useApp()
   const [search, setSearch] = useState('')
   const cid = currentChurchId()
-  const all = people.filter(p => p.church === cid && (p as any).role !== 'guest')
-  const regular = all.filter(p =>
-    !search ||
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    (p.mail ?? '').toLowerCase().includes(search.toLowerCase())
-  )
+  const regular = people
+    .filter(person => person.church === cid && person.role !== 'guest')
+    .filter(person =>
+      !search
+      || person.name.toLowerCase().includes(search.toLowerCase())
+      || (person.mail ?? '').toLowerCase().includes(search.toLowerCase())
+    )
+
+  const canInvite = isAdmin() || perm('kan_lagg_till_personal')
+  const churchName = churches.find(church => church.id === cid)?.name ?? ''
 
   return (
     <div>
       <div className="page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h1 className="page-title">Personal</h1>
-          <p className="page-sub">{churches.find(c => c.id === cid)?.name}</p>
+          <p className="page-sub">{churchName}</p>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={() => showModal(<InvitePersonModal />)}>✉ Bjud in</button>
-          <button className="btn btn-secondary" onClick={() => showModal(<InvitePersonModal defaultRole="anstalld" />)}>👔 Ny anställd</button>
-          <button className="btn btn-primary" onClick={() => showModal(<AddPersonModal defaultRole="ideell" />)}>+ Ny ideell</button>
-        </div>
+        {canInvite && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="btn btn-primary" onClick={() => showModal(<InvitePersonModal />)}>✉ Bjud in ideell</button>
+            {isAdmin() && (
+              <button className="btn btn-secondary" onClick={() => showModal(<InvitePersonModal defaultRole="anstalld" />)}>👔 Bjud in anställd</button>
+            )}
+          </div>
+        )}
       </div>
-
-      {(isPAdmin() || isSuperAdmin()) && (
-        <div className="church-bar">
-          {churches.map((c, i) => <button key={i} className={`church-btn${activeChurch === i ? ' on' : ''}`} onClick={() => setChurch(i)}>{c.name}</button>)}
-        </div>
-      )}
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <input
@@ -251,32 +240,58 @@ export default function PersonalPage() {
         />
       </div>
 
-      <div className="section-label">Registrerade</div>
+      <div className="section-label">Registrerade i {churchName}</div>
       <div style={{ background: '#fff', border: '1px solid #D3D1C7', borderRadius: 12, padding: '12px 16px' }}>
         <div className="person-list">
-          {regular.map(p => {
-            const [rl, rc, rb] = roleLabel(p)
+          {regular.map(person => {
+            const [roleText, roleColor, roleBg] = roleLabel(person)
             return (
-              <div key={p.id} className="person-row">
-                <div className="person-av" style={{ background: p.av, color: p.ac }}>{p.ini}</div>
+              <div key={`${person.id}-${person.church}`} className="person-row">
+                <div className="person-av" style={{ background: person.av, color: person.ac }}>{person.ini}</div>
                 <div className="person-info">
                   <div className="person-name">
-                    {p.name}{' '}
-                    <span className="role-tag" style={{ background: rb, color: rc }}>{rl}</span>
-                    {!p.available && <span className="role-tag" style={{ background: '#FCEBEB', color: '#791F1F', marginLeft: 4 }}>Otillgänglig</span>}
+                    {person.name}{' '}
+                    <span className="role-tag" style={{ background: roleBg, color: roleColor }}>{roleText}</span>
+                    {!person.available && <span className="role-tag" style={{ background: '#FCEBEB', color: '#791F1F', marginLeft: 4 }}>Otillgänglig</span>}
                   </div>
-                  <div className="person-email">{p.mail}</div>
-                  <div className="person-tags">{p.groups.map(g => <span key={g} className={`tag ${gCls(g, groups)}`}>{gLabel(g, groups)}</span>)}</div>
+                  <div className="person-email">{person.mail}</div>
+                  <div className="person-tags">
+                    {person.groups.map(groupId => <span key={groupId} className={`tag ${gCls(groupId, groups)}`}>{gLabel(groupId, groups)}</span>)}
+                  </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  {p.mail && <button className="btn btn-secondary btn-sm" title="Skicka ny inbjudan" onClick={async () => {
-                    const res = await fetch('/api/invite/resend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ profileId: p.id }) })
-                    const d = await res.json()
-                    alert(res.ok ? `✓ Ny inbjudan skickad till ${p.mail}` : `Fel: ${d.error}`)
-                  }}>✉️</button>}
-                  <button className="btn btn-secondary btn-sm" title="Sätt lösenord" onClick={() => showModal(<SetPasswordModal personId={p.id} personName={p.name} />)}>🔑</button>
-                  <button className="btn btn-secondary btn-sm" onClick={() => showModal(<EditPersonModal personId={p.id} />)}>✏️</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => showModal(<ConfirmModal title={`Ta bort ${p.name}?`} sub="Personen förlorar åtkomst och tas bort från alla bokningar." confirmLabel="Ta bort" onConfirm={() => deletePerson(p.id)} />)}>🗑</button>
+                  {person.mail && canInvite && (
+                    <button className="btn btn-secondary btn-sm" title="Skicka ny inbjudan" onClick={async () => {
+                      const res = await fetch('/api/invite/resend', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ profileId: person.id, churchId: cid }),
+                      })
+                      const data = await res.json()
+                      alert(res.ok ? `✓ Ny inbjudan skickad till ${person.mail}` : `Fel: ${data.error}`)
+                    }}>✉️</button>
+                  )}
+                  {isAdmin() && person.mail && (
+                    <button className="btn btn-secondary btn-sm" title="Sätt lösenord" onClick={() => showModal(<SetPasswordModal personId={person.id} personName={person.name} churchId={cid} />)}>🔑</button>
+                  )}
+                  {canInvite && (
+                    <button className="btn btn-secondary btn-sm" onClick={() => showModal(<EditPersonModal personId={person.id} churchId={cid} />)}>✏️</button>
+                  )}
+                  {isAdmin() && (
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => showModal(
+                        <ConfirmModal
+                          title={`Ta bort ${person.name} från ${churchName}?`}
+                          sub="Personens konto och eventuella andra församlingar påverkas inte."
+                          confirmLabel="Ta bort från församlingen"
+                          onConfirm={() => deletePerson(person.id)}
+                        />
+                      )}
+                    >
+                      🗑
+                    </button>
+                  )}
                 </div>
               </div>
             )
