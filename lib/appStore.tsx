@@ -449,10 +449,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return availableChurches[0]?.id ?? profile?.church_id ?? 0
   }
 
-  const currentMembership = (): ChurchMembershipData | null => {
-    const churchId = currentChurchId()
-    if (!churchId) return null
-
+  const membershipForChurchId = (churchId: number): ChurchMembershipData | null => {
     const direct = memberships.find(membership => membership.active && membership.churchId === churchId)
     if (direct) return direct
 
@@ -486,6 +483,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     return null
+  }
+
+  const currentMembership = (): ChurchMembershipData | null => {
+    const churchId = currentChurchId()
+    return churchId ? membershipForChurchId(churchId) : null
   }
 
   const effectiveMembership = currentMembership()
@@ -578,11 +580,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const goTo     = (p: string) => { setPage(p); setModal(null); if (typeof window !== 'undefined') localStorage.setItem('lastPage', p) }
   const setChurch = (i: number) => {
     const churchId = churches[i]?.id
-    if (churchId !== undefined && !availableChurches.some(church => church.id === churchId)) return
+    if (churchId === undefined || !availableChurches.some(church => church.id === churchId)) return
+
+    const targetMembership = membershipForChurchId(churchId)
+    const targetRole = targetMembership?.role ?? 'ideell'
+    const allowedPages = new Set([
+      ...(NAV_ITEMS[targetRole] ?? NAV_ITEMS.ideell).map(item => item.id),
+      'oversikt',
+    ])
+
     setActiveChurch(i)
     setGroupFilter('alla')
     setModal(null)
-    if (typeof window !== 'undefined' && churchId !== undefined) localStorage.setItem('activeChurchId', String(churchId))
+
+    if (!allowedPages.has(page)) {
+      const nextPage = (NAV_ITEMS[targetRole] ?? NAV_ITEMS.ideell)[0]?.id ?? 'pass'
+      setPage(nextPage)
+      if (typeof window !== 'undefined') localStorage.setItem('lastPage', nextPage)
+    }
+
+    if (typeof window !== 'undefined') localStorage.setItem('activeChurchId', String(churchId))
   }
   const setFilter = (f: string) => setGroupFilter(f)
   const showModal = (content: ReactNode) => setModal(content)
