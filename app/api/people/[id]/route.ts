@@ -53,20 +53,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     if (role === 'anstalld' && staff_permissions) {
-      const { error: permError } = await admin.from('staff_permissions').upsert({
+      const { error: permError } = await admin.from('profile_church_permissions').upsert({
         profile_id: targetId,
+        church_id: churchId,
         ...staff_permissions,
-      }, { onConflict: 'profile_id' })
+      }, { onConflict: 'profile_id,church_id' })
       if (permError) return NextResponse.json({ error: permError.message }, { status: 500 })
     } else if (role !== 'anstalld') {
-      await admin.from('staff_permissions').delete().eq('profile_id', targetId)
+      await admin.from('profile_church_permissions').delete().eq('profile_id', targetId).eq('church_id', churchId)
     }
   } else if (staff_permissions !== undefined) {
     if (!isAdmin) return NextResponse.json({ error: 'Saknar behörighet att ändra rättigheter' }, { status: 403 })
-    const { error: permError } = await admin.from('staff_permissions').upsert({
+    const { error: permError } = await admin.from('profile_church_permissions').upsert({
       profile_id: targetId,
+      church_id: churchId,
       ...staff_permissions,
-    }, { onConflict: 'profile_id' })
+    }, { onConflict: 'profile_id,church_id' })
     if (permError) return NextResponse.json({ error: permError.message }, { status: 500 })
   }
 
@@ -176,6 +178,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       )
     }
   }
+
+  await admin.from('profile_church_permissions')
+    .delete()
+    .eq('profile_id', targetId)
+    .eq('church_id', churchId)
 
   const { error } = await admin.from('profile_churches')
     .update({ active: false })
