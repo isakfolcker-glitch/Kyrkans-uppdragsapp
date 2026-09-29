@@ -492,17 +492,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       av: profile?.av_color ?? '#EEEDFE',
       ac: profile?.ac_color ?? '#3C3489',
       badge: role === 'ideell' ? 'rb-ideell' : role === 'anstalld' ? 'rb-anstalld' : 'rb-admin',
-      badgeLbl: role === 'ideell' ? 'Ideell' : role === 'anstalld' ? 'Anställd' : role === 'fadmin' ? 'Församlingsadmin' : role === 'padmin' ? 'Pastoratsadmin' : 'Systemadmin',
+      badgeLbl: role === 'ideell'
+        ? 'Ideell'
+        : role === 'anstalld'
+          ? 'Anställd'
+          : role === 'fadmin'
+            ? 'Församlingsadmin'
+            : role === 'padmin'
+              ? 'Pastoratsadmin'
+              : 'Systemadmin',
       groups: currentGroups(),
       churches: availableChurches.flatMap(church => church.id !== undefined ? [church.id] : []),
       responsibleForPasses: passes.filter(pass => pass.responsibleUserIds?.includes(currentUser.id)).map(pass => pass.id),
       notifs: profile?.notif_settings?.[0] ?? {},
       available: profile?.available ?? true,
     }
-  }, [
-    currentUser, users, userIndex, effectiveRole, effectiveAdminLevel, effectiveMembership,
-    profile, availableChurches, groups, passes, activeChurch, churches,
-  ])
   }
 
   const isIdeell     = () => effectiveRole === 'ideell'
