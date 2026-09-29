@@ -269,6 +269,33 @@ export async function sendWaitlistJoinedNotice(opts: {
   `)
 }
 
+// Mail när någon @nämner dig eller svarar på din kommentar på ett pass.
+// Innehåller medvetet INTE kommentarens text, bara att det finns något att läsa.
+export async function sendCommentNotice(opts: {
+  to: string; name: string; passTitle: string; authorName: string; kind: 'mention' | 'reply'; url: string
+}) {
+  const h = escapeAll(opts)
+  const subject = opts.kind === 'mention'
+    ? `${opts.authorName} nämnde dig: ${opts.passTitle}`
+    : `Nytt svar på din kommentar: ${opts.passTitle}`
+  const lead = opts.kind === 'mention'
+    ? `<strong>${h.authorName}</strong> har nämnt dig i en kommentar på passet:`
+    : `<strong>${h.authorName}</strong> har svarat på din kommentar på passet:`
+  return send(opts.to, subject, `
+    <div style="font-family:sans-serif;max-width:500px;margin:0 auto">
+      <p style="color:#000">Hej ${h.name},</p>
+      <p style="color:#000">${lead}</p>
+      <div style="background:#F1EFE8;border-radius:10px;padding:16px;margin:16px 0">
+        <strong style="font-size:16px">${h.passTitle}</strong>
+      </div>
+      <a href="${h.url}" style="display:inline-block;background:#7D0037;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700">
+        Läs kommentaren i appen
+      </a>
+      <p style="color:#888780;font-size:12px;margin-top:16px">Du kan stänga av mail om kommentarer under Min profil. Kyrkans uppdragsapp</p>
+    </div>
+  `)
+}
+
 export async function sendInvitation(opts: {
   to: string; name: string; inviterName: string; inviterEmail?: string; inviteUrl: string; role: string
 }) {
