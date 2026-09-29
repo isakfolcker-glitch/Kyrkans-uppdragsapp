@@ -9,7 +9,7 @@ function fmt(iso: string) {
     ' ' + d.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })
 }
 
-export default function PassQASection({ passId }: { passId: number }) {
+export default function PassQASection({ passId, targetCommentId }: { passId: number; targetCommentId?: number | null }) {
   const { currentUser, passes, isResponsible, isAdmin, u } = useApp()
   const pass = passes.find(p => p.id === passId)
   const isDemo = !currentUser
@@ -40,8 +40,13 @@ export default function PassQASection({ passId }: { passId: number }) {
   }, [passId, isDemo])
 
   useEffect(() => {
+    if (targetCommentId) {
+      const target = document.getElementById(`pass-comment-${targetCommentId}`)
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, targetCommentId])
 
   const send = async () => {
     if (!body.trim() || sending) return
@@ -97,9 +102,14 @@ export default function PassQASection({ passId }: { passId: number }) {
           {messages.map(m => (
             <div
               key={m.id}
+              id={`pass-comment-${m.id}`}
               style={{
-                background: m.isStaffReply ? '#F0EDFF' : '#F7F6F1',
-                border: m.isStaffReply ? '1px solid #C8C2F5' : '1px solid #E8E5DC',
+                background: m.id === targetCommentId
+                  ? '#FFF2B8'
+                  : m.isStaffReply ? '#F0EDFF' : '#F7F6F1',
+                border: m.id === targetCommentId
+                  ? '2px solid #BC8E4C'
+                  : m.isStaffReply ? '1px solid #C8C2F5' : '1px solid #E8E5DC',
                 borderRadius: 8,
                 padding: '8px 10px',
               }}
