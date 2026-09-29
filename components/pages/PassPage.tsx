@@ -6,14 +6,15 @@ import PassCard from '@/components/ui/PassCard'
 import NewPassModal from '@/components/modals/NewPassModal'
 
 export default function PassPage() {
-  const { u, passes, isAdmin, isPAdmin, isFAdmin, activeChurch, groupFilter, churches, setChurch, setFilter, showModal, toggleAvail, currentChurchId } = useApp()
+  const { u, profile, passes, isAdmin, groupFilter, setFilter, toggleAvail, currentChurchId, currentGroups } = useApp()
   const [showOld, setShowOld] = useState(false)
   const usr = u()
 
   if (isAdmin()) return <AdminPassPage />
 
-  const myGroups = usr.groups
-  const cid = usr.churches[0] ?? 0
+  const myGroups = currentGroups()
+  const cid = currentChurchId()
+  const isAvailable = profile?.available ?? usr.available
   const today = new Date().toISOString().slice(0, 10)
 
   const base = passes.filter(p =>
@@ -32,7 +33,7 @@ export default function PassPage() {
         <p className="page-sub">Pass för dina uppdragsgrupper</p>
       </div>
 
-      {!usr.available && (
+      {!isAvailable && (
         <div className="alert alert-amber">
           🌙 Du är markerad som otillgänglig.{' '}
           <button onClick={toggleAvail} style={{ background: 'none', border: 'none', color: '#633806', fontWeight: 500, cursor: 'pointer', textDecoration: 'underline' }}>Ändra</button>
@@ -82,7 +83,7 @@ export default function PassPage() {
 }
 
 function AdminPassPage() {
-  const { passes, isPAdmin, isSuperAdmin, churches, activeChurch, setChurch, showModal, currentChurchId, groups } = useApp()
+  const { passes, isPAdmin, isSuperAdmin, churches, availableChurches, activeChurch, setChurch, showModal, currentChurchId, groups } = useApp()
   const [search, setSearch] = useState('')
   const [groupFilter, setGroupFilter] = useState('alla')
   const [showHistory, setShowHistory] = useState(false)
@@ -112,9 +113,12 @@ function AdminPassPage() {
 
       {(isPAdmin() || isSuperAdmin()) && (
         <div className="church-bar">
-          {churches.map((c, i) => (
-            <button key={i} className={`church-btn${activeChurch === i ? ' on' : ''}`} onClick={() => setChurch(i)}>{c.name}</button>
-          ))}
+          {availableChurches.map((church) => {
+            const index = churches.findIndex(item => item.id === church.id)
+            return (
+              <button key={church.id} className={`church-btn${activeChurch === index ? ' on' : ''}`} onClick={() => setChurch(index)}>{church.name}</button>
+            )
+          })}
         </div>
       )}
 
@@ -133,7 +137,7 @@ function AdminPassPage() {
       </div>
       <div className="filter-bar" style={{ marginBottom: 16 }}>
         <button className={`filter-btn${groupFilter === 'alla' ? ' on' : ''}`} onClick={() => setGroupFilter('alla')}>Alla grupper</button>
-        {groups.map(g => (
+        {groups.filter(g => g.churchId === cid || g.churchId === null).map(g => (
           <button key={g.id} className={`filter-btn${groupFilter === g.id ? ' on' : ''}`} onClick={() => setGroupFilter(g.id)}>{g.label}</button>
         ))}
       </div>
