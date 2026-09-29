@@ -106,7 +106,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [churches, setChurches] = useState<Church[]>(CHURCHES)
   const [pastorat, setPastorat] = useState<PastoratData[]>([])
   const [memberships, setMemberships] = useState<ChurchMembershipData[]>([])
-  const [staffPerms, setStaffPerms] = useState<StaffPerms>(NO_PERMS)
+  const [staffPermsByChurch, setStaffPermsByChurch] = useState<Record<number, StaffPerms>>({})
   const [users] = useState<UserDef[]>(USERS)
 
   // ─── Auth listener ────────────────────────────────
@@ -171,21 +171,48 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (data) {
       await fetchAppData(data, mappedMemberships)
 
-      const { data: permsData } = await supabase
-        .from('staff_permissions')
+      const { data: permsRows, error: permsError } = await supabase
+        .from('profile_church_permissions')
         .select('*')
         .eq('profile_id', userId)
-        .maybeSingle()
-      setStaffPerms(permsData ? {
-        kan_skapa_pass:         permsData.kan_skapa_pass,
-        kan_redigera_pass:      permsData.kan_redigera_pass,
-        kan_se_bokningar:       permsData.kan_se_bokningar,
-        kan_hantera_bokningar:  permsData.kan_hantera_bokningar,
-        kan_se_personal:        permsData.kan_se_personal,
-        kan_lagg_till_personal: permsData.kan_lagg_till_personal,
-        kan_hantera_grupper:    permsData.kan_hantera_grupper,
-        kan_skicka_utskick:     permsData.kan_skicka_utskick,
-      } : NO_PERMS)
+
+      if (!permsError) {
+        const byChurch: Record<number, StaffPerms> = {}
+        for (const row of (permsRows ?? [])) {
+          byChurch[row.church_id] = {
+            kan_skapa_pass:         row.kan_skapa_pass,
+            kan_redigera_pass:      row.kan_redigera_pass,
+            kan_se_bokningar:       row.kan_se_bokningar,
+            kan_hantera_bokningar:  row.kan_hantera_bokningar,
+            kan_se_personal:        row.kan_se_personal,
+            kan_lagg_till_personal: row.kan_lagg_till_personal,
+            kan_hantera_grupper:    row.kan_hantera_grupper,
+            kan_skicka_utskick:     row.kan_skicka_utskick,
+          }
+        }
+        setStaffPermsByChurch(byChurch)
+      } else {
+        // Legacy-fallback före migration 016.
+        const { data: legacyPerms } = await supabase
+          .from('staff_permissions')
+          .select('*')
+          .eq('profile_id', userId)
+          .maybeSingle()
+        if (legacyPerms && mappedMemberships[0]) {
+          setStaffPermsByChurch({
+            [mappedMemberships[0].churchId]: {
+              kan_skapa_pass:         legacyPerms.kan_skapa_pass,
+              kan_redigera_pass:      legacyPerms.kan_redigera_pass,
+              kan_se_bokningar:       legacyPerms.kan_se_bokningar,
+              kan_hantera_bokningar:  legacyPerms.kan_hantera_bokningar,
+              kan_se_personal:        legacyPerms.kan_se_personal,
+              kan_lagg_till_personal: legacyPerms.kan_lagg_till_personal,
+              kan_hantera_grupper:    legacyPerms.kan_hantera_grupper,
+              kan_skicka_utskick:     legacyPerms.kan_skicka_utskick,
+            },
+          })
+        }
+      }
 
       // Hämta kö-anmälningar och position
       const { data: myWaitlist } = await supabase.from('waitlist').select('pass_id, created_at').eq('profile_id', userId)
@@ -509,6 +536,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const staffPerms = staffPermsByChurch[currentChurchId()] ?? NO_PERMS
+
   const isIdeell     = () => effectiveRole === 'ideell'
   const isAnstalld   = () => effectiveRole === 'anstalld'
   const isFAdmin     = () => effectiveAdminLevel === 'forsamling'
@@ -751,10 +780,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const deleteGroup  = (id: string)    => setGroups(prev => prev.filter(g => g.id !== id))
 
   const updateStaffPerms = async (profileId: string, perms: StaffPerms) => {
-    const { error } = await supabase.from('staff_permissions').upsert({
-      profile_id: profileId, ...perms,
-    }, { onConflict: 'profile_id' })
-    if (error) { alert('Kunde inte spara behörigheter: ' + error.message); return }
+    const churchId = currentChurchId()
+    const res = await fetch(`/api/people/${profileId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ church_id: churchId, staff_permissions: perms }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      alert('Kunde inte spara behörigheter: ' + (data.error ?? res.status))
+      return
+    }
+    setStaffPermsByChurch(prev => ({ ...prev, [churchId]: perms }))
   }
 
   const nextPersonId   = () => _nextPersonId++
