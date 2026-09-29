@@ -10,7 +10,7 @@ App för att samordna ideella och anställda i Svenska kyrkan Växjö. Next.js 1
 |---|---|---|---|
 | Produktion | https://www.kyrkouppdrag.se | `xfjizomwxcavkuvweqfx` | `main` |
 | Test | https://test.kyrkouppdrag.se | `waexfsgudzzbmaoqnnte` (kyrkans-uppdragsapp-test) | `staging` |
-| Preview | automatisk URL per gren på Vercel | testdatabasen | alla andra grenar |
+| Preview | automatisk URL per gren på Vercel | testdatabasen (Vercel Preview-variabler) | alla andra grenar |
 
 Testmiljön har `TEST_MODE=true` och `EMAIL_ALLOWLIST` satta, så mail bara kan gå till godkända testadresser. Se docs/TESTMILJO.md.
 

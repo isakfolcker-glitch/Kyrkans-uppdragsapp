@@ -7,9 +7,9 @@
 
 Testdatabasen innehåller bara påhittade uppgifter: Test pastorat, Test Församling A och B, Testkyrkan, Testkapellet och Provkyrkan.
 
-## Miljövariabler för grenen `staging` i Vercel
+## Miljövariabler för Preview i Vercel
 
-Sätts i Vercel under Settings > Environment Variables, miljö **Preview**, gren **staging**:
+Sätts i Vercel under Settings > Environment Variables, miljö **Preview** (alla grenar). Då kör varje preview och test.kyrkouppdrag.se mot testdatabasen, och bara `main` mot produktionen. Idag saknar Preview Supabase-variabler helt, därför misslyckas preview-byggen.
 
 | Variabel | Värde |
 |---|---|
@@ -17,10 +17,17 @@ Sätts i Vercel under Settings > Environment Variables, miljö **Preview**, gren
 | NEXT_PUBLIC_SUPABASE_ANON_KEY | anon-nyckeln från testprojektet |
 | SUPABASE_SERVICE_ROLE_KEY | service role-nyckeln från testprojektet (Supabase > Project Settings > API Keys) |
 | NEXT_PUBLIC_APP_URL | https://test.kyrkouppdrag.se |
+| BREVO_API_KEY | samma som produktion (EMAIL_ALLOWLIST stoppar mail till andra än dig) |
+| BREVO_FROM | samma som produktion |
+| CRON_SECRET | valfri ny lång slumpsträng |
 | TEST_MODE | true |
 | TEST_SUPERADMIN_EMAIL | isakfolcker+superadmin@gmail.com |
 | EMAIL_ALLOWLIST | isakfolcker@gmail.com |
 | BREVO_FROM_NAME | Kyrkans uppdragsapp (TEST) |
+
+## Testadressen
+
+Vercel > Settings > Domains > Add: `test.kyrkouppdrag.se`, koppla till Git-grenen `staging`.
 
 ## Första gången: skapa testkonton
 
