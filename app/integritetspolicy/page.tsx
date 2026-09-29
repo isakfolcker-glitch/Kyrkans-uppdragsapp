@@ -8,7 +8,7 @@ export default function IntegritetspolicyPage() {
           <div style={{ width: 48, height: 48, background: '#7D0037', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 22, flexShrink: 0 }}>✝</div>
           <div>
             <h1 style={{ fontSize: 22, fontWeight: 700, color: '#000', margin: 0 }}>Integritetspolicy</h1>
-            <p style={{ fontSize: 13, color: '#5F5E5A', margin: '4px 0 0' }}>Kyrkans uppdragsapp · Senast uppdaterad: {new Date().toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            <p style={{ fontSize: 13, color: '#5F5E5A', margin: '4px 0 0' }}>Kyrkans uppdragsapp · Senast uppdaterad: 29 september 2026</p>
           </div>
         </div>
 
@@ -45,9 +45,9 @@ export default function IntegritetspolicyPage() {
         <Section title="5. Vem delar vi dina uppgifter med?">
           <p>Vi delar dina uppgifter med följande underleverantörer (personuppgiftsbiträden):</p>
           <ul>
-            <li><strong>Supabase Inc.</strong> – databaslagring och autentisering. Data lagras i EU (Frankfurt, eu-central-1). <a href="https://supabase.com/privacy" target="_blank" rel="noreferrer" style={{ color: '#7D0037' }}>Supabase integritetspolicy</a></li>
+            <li><strong>Supabase Inc.</strong> – databaslagring och autentisering. Data lagras i EU (Irland, eu-west-1). <a href="https://supabase.com/privacy" target="_blank" rel="noreferrer" style={{ color: '#7D0037' }}>Supabase integritetspolicy</a></li>
             <li><strong>Vercel Inc.</strong> – webbhosting. <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noreferrer" style={{ color: '#7D0037' }}>Vercel integritetspolicy</a></li>
-            <li><strong>Resend Inc.</strong> – e-postutskick. <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noreferrer" style={{ color: '#7D0037' }}>Resend integritetspolicy</a></li>
+            <li><strong>Brevo (Sendinblue SAS, Frankrike)</strong> – e-postutskick. <a href="https://www.brevo.com/legal/privacypolicy/" target="_blank" rel="noreferrer" style={{ color: '#7D0037' }}>Brevo integritetspolicy</a></li>
           </ul>
           <p>Vi säljer aldrig dina uppgifter till tredje part.</p>
         </Section>
