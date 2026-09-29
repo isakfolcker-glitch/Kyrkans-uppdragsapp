@@ -124,9 +124,10 @@ export async function hasStaffPermission(
   if (!membership || membership.role !== 'anstalld') return false
 
   const { data } = await supabase
-    .from('staff_permissions')
+    .from('profile_church_permissions')
     .select(permission)
     .eq('profile_id', profileId)
+    .eq('church_id', churchId)
     .maybeSingle()
 
   return Boolean(data?.[permission])
