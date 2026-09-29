@@ -22,6 +22,40 @@ CREATE INDEX IF NOT EXISTS profile_churches_church_idx
 CREATE INDEX IF NOT EXISTS profile_churches_profile_idx
   ON public.profile_churches(profile_id, active);
 
+CREATE TABLE IF NOT EXISTS public.profile_church_permissions (
+  profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  church_id INT NOT NULL REFERENCES public.churches(id) ON DELETE CASCADE,
+  kan_skapa_pass BOOLEAN NOT NULL DEFAULT false,
+  kan_redigera_pass BOOLEAN NOT NULL DEFAULT false,
+  kan_se_bokningar BOOLEAN NOT NULL DEFAULT false,
+  kan_hantera_bokningar BOOLEAN NOT NULL DEFAULT false,
+  kan_se_personal BOOLEAN NOT NULL DEFAULT false,
+  kan_lagg_till_personal BOOLEAN NOT NULL DEFAULT false,
+  kan_hantera_grupper BOOLEAN NOT NULL DEFAULT false,
+  kan_skicka_utskick BOOLEAN NOT NULL DEFAULT false,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (profile_id, church_id)
+);
+
+ALTER TABLE public.profile_church_permissions ENABLE ROW LEVEL SECURITY;
+
+-- Flytta äldre personbehörigheter till personens tidigare huvudförsamling.
+INSERT INTO public.profile_church_permissions (
+  profile_id, church_id,
+  kan_skapa_pass, kan_redigera_pass, kan_se_bokningar, kan_hantera_bokningar,
+  kan_se_personal, kan_lagg_till_personal, kan_hantera_grupper, kan_skicka_utskick,
+  updated_at
+)
+SELECT
+  sp.profile_id, p.church_id,
+  sp.kan_skapa_pass, sp.kan_redigera_pass, sp.kan_se_bokningar, sp.kan_hantera_bokningar,
+  sp.kan_se_personal, sp.kan_lagg_till_personal, sp.kan_hantera_grupper, sp.kan_skicka_utskick,
+  COALESCE(sp.updated_at, now())
+FROM public.staff_permissions sp
+JOIN public.profiles p ON p.id = sp.profile_id
+WHERE p.church_id IS NOT NULL
+ON CONFLICT (profile_id, church_id) DO NOTHING;
+
 -- Flytta befintlig enkelförsamlingskoppling till medlemskapstabellen.
 INSERT INTO public.profile_churches (
   profile_id, church_id, role, admin_level, is_employee, active, invited_at, accepted_at
@@ -145,8 +179,9 @@ RETURNS BOOLEAN AS $
     AND public.membership_role(target_church_id) = 'anstalld'
     AND EXISTS (
       SELECT 1
-      FROM public.staff_permissions sp
+      FROM public.profile_church_permissions sp
       WHERE sp.profile_id = auth.uid()
+        AND sp.church_id = target_church_id
         AND CASE permission_name
           WHEN 'kan_skapa_pass' THEN sp.kan_skapa_pass
           WHEN 'kan_redigera_pass' THEN sp.kan_redigera_pass
@@ -466,6 +501,21 @@ CREATE POLICY "pass_history_insert" ON public.pass_history FOR INSERT
         AND (public.can_admin_church(p.church_id) OR public.is_responsible_for(p.id))
     )
   );
+
+-- Församlingsspecifika rättigheter för anställda.
+DROP POLICY IF EXISTS "profile_church_permissions_select" ON public.profile_church_permissions;
+DROP POLICY IF EXISTS "profile_church_permissions_write" ON public.profile_church_permissions;
+CREATE POLICY "profile_church_permissions_select" ON public.profile_church_permissions FOR SELECT
+  USING (
+    profile_id = auth.uid()
+    OR public.can_admin_church(church_id)
+  );
+CREATE POLICY "profile_church_permissions_write" ON public.profile_church_permissions FOR ALL
+  USING (public.can_admin_church(church_id))
+  WITH CHECK (public.can_admin_church(church_id));
+
+REVOKE INSERT, UPDATE, DELETE ON public.profile_church_permissions FROM authenticated;
+GRANT SELECT ON public.profile_church_permissions TO authenticated;
 
 -- STAFF_PERMISSIONS (fortfarande per person, men kan bara hanteras av admin
 -- som delar minst en församling med personen).
