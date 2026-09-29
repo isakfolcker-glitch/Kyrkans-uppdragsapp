@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendInvitation } from '@/lib/email'
-import { canAssignRole, roleIsEmployee, roleToAdminLevel } from '@/lib/membershipAuth'
+import { canAssignRole, hasStaffPermission, roleIsEmployee, roleToAdminLevel } from '@/lib/membershipAuth'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -19,7 +19,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Ogiltigt kyrk-ID: ${church_id}. Ladda om sidan och försök igen.` }, { status: 400 })
   }
 
-  if (!(await canAssignRole(supabase, user.id, churchId, role))) {
+  const canAssign = await canAssignRole(supabase, user.id, churchId, role)
+  const canInviteIdeell = role === 'ideell'
+    && await hasStaffPermission(supabase, user.id, churchId, 'kan_lagg_till_personal')
+  if (!canAssign && !canInviteIdeell) {
     return NextResponse.json({ error: 'Saknar behörighet att bjuda in med den rollen i församlingen' }, { status: 403 })
   }
 
