@@ -7,6 +7,7 @@ import PassDetailModal from '@/components/modals/PassDetailModal'
 import EditPassModal from '@/components/modals/EditPassModal'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 import PassQAModal from '@/components/modals/PassQAModal'
+import UnbookConfirmModal from '@/components/modals/UnbookConfirmModal'
 import { isLockedForSelfCancel } from '@/lib/passTiming'
 
 function Dots({ spots, filled }: { spots: number; filled: number }) {
@@ -34,7 +35,7 @@ function SpotsText({ pass, adminMode }: { pass: PassData; adminMode?: boolean })
 }
 
 function BookBtn({ pass }: { pass: PassData }) {
-  const { selfBookings, selfWaitlist, doBook, doUnbook, joinWaitlist, leaveWaitlist, u, showModal } = useApp()
+  const { selfBookings, selfWaitlist, doBook, joinWaitlist, leaveWaitlist, u, showModal } = useApp()
   if (pass.cancelled) return <span className="btn btn-disabled">Inställt</span>
   if (selfBookings[pass.id]) {
     const locked = isLockedForSelfCancel(pass.date, pass.time)
@@ -45,7 +46,14 @@ function BookBtn({ pass }: { pass: PassData }) {
         {locked ? (
           <span className="btn btn-disabled" title="Mindre än 24 timmar kvar, kontakta ansvarig för att avboka">🔒 Låst</span>
         ) : (
-          <button className="btn btn-warn btn-sm" onClick={() => doUnbook(pass.id)}>Avboka</button>
+          <button
+            className="btn btn-warn btn-sm"
+            onClick={() => showModal(
+              <UnbookConfirmModal passId={pass.id} title={pass.title} date={pass.date} time={pass.time} />
+            )}
+          >
+            Avboka
+          </button>
         )}
       </div>
     )
