@@ -2,7 +2,7 @@
 import { useApp } from '@/lib/appStore'
 import PassQASection from './PassQASection'
 
-export default function PassQAModal({ passId }: { passId: number }) {
+export default function PassQAModal({ passId, targetCommentId }: { passId: number; targetCommentId?: number | null }) {
   const { passes, closeModal } = useApp()
   const p = passes.find(x => x.id === passId)
   if (!p) return null
@@ -13,7 +13,7 @@ export default function PassQAModal({ passId }: { passId: number }) {
       <div style={{ fontSize: 12, color: '#5F5E5A', marginBottom: 4, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <span>📅 {p.date}</span><span>🕐 {p.time}</span><span>📍 {p.plats}</span>
       </div>
-      <PassQASection passId={passId} />
+      <PassQASection passId={passId} targetCommentId={targetCommentId} />
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Stäng</button>
       </div>
