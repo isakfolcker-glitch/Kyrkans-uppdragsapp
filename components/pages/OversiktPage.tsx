@@ -2,20 +2,23 @@
 import { useApp } from '@/lib/appStore'
 
 export default function OversiktPage() {
-  const { profile, passes, people, churches, notifications, goTo, setChurch, isAdmin, isPAdmin, isSuperAdmin } = useApp()
+  const { profile, passes, people, churches, availableChurches, notifications, goTo, setChurch, isAdmin, isPAdmin, isSuperAdmin, currentChurchId } = useApp()
 
   const now = new Date()
   const today = now.toISOString().slice(0, 10)
+  const churchId = currentChurchId()
+  const churchPasses = passes.filter(pass => pass.church === churchId)
+  const churchPeople = people.filter(person => person.church === churchId)
 
   // Kommande pass för inloggad användare
-  const allMyUpcoming = passes
+  const allMyUpcoming = churchPasses
     .filter(p => !p.cancelled && p.pubStatus === 'live' && p.date >= today)
     .filter(p => p.responsibleUserIds?.includes(profile?.id))
     .sort((a, b) => a.date.localeCompare(b.date))
   const myUpcoming = allMyUpcoming.slice(0, 3)
 
   // Lediga pass (har platser kvar)
-  const allOpenPasses = passes
+  const allOpenPasses = churchPasses
     .filter(p => !p.cancelled && p.pubStatus === 'live' && p.date >= today && p.filled < p.spots)
     .sort((a, b) => a.date.localeCompare(b.date))
   const openPasses = allOpenPasses.slice(0, 4)
@@ -63,7 +66,7 @@ export default function OversiktPage() {
           <div className="stat-lbl">Lediga pass</div>
         </div>
         <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => goTo('mina-bokningar')}>
-          <div className="stat-num">{passes.filter(p => p.bookings?.some((b: any) => b.personId === profile?.id)).length}</div>
+          <div className="stat-num">{churchPasses.filter(p => p.bookings?.some((b: any) => b.personId === profile?.id)).length}</div>
           <div className="stat-lbl">Mina bokningar</div>
         </div>
         {unreadNotifs > 0 && (
@@ -74,7 +77,7 @@ export default function OversiktPage() {
         )}
         {isAdmin() && (
           <div className="stat-card">
-            <div className="stat-num">{people.filter(p => p.isEmployee === false).length}</div>
+            <div className="stat-num">{churchPeople.filter(p => p.isEmployee === false).length}</div>
             <div className="stat-lbl">Ideella</div>
           </div>
         )}
@@ -161,7 +164,8 @@ export default function OversiktPage() {
         <>
           <div className="section-label">Alla församlingar</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {churches.map((c, i) => {
+            {availableChurches.map((c) => {
+              const i = churches.findIndex(item => item.id === c.id)
               const aktiva = passes.filter(x => x.church === c.id && !x.cancelled && x.pubStatus === 'live').length
               return (
                 <div key={c.id ?? i} style={{
