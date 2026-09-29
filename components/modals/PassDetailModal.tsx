@@ -3,6 +3,7 @@ import { useApp } from '@/lib/appStore'
 import ManualAssignModal from './ManualAssignModal'
 import SendToBookedModal from './SendToBookedModal'
 import PassQASection from './PassQASection'
+import ConfirmModal from './ConfirmModal'
 
 export default function PassDetailModal({ passId }: { passId: number }) {
   const { passes, closeModal, removeBooking, canAddBkg, canRemoveBkg, canMsgBooked, showModal } = useApp()
@@ -39,7 +40,22 @@ export default function PassDetailModal({ passId }: { passId: number }) {
               {b.source === 'manual' && <span className="badge badge-manual">Manuellt</span>}
               {b.noAccount && <span className="badge badge-noaccount">Ej konto</span>}
               {canRemoveBkg(p) && (
-                <button className="btn btn-warn btn-sm" onClick={() => { removeBooking(passId, i); closeModal() }}>✕</button>
+                <button
+                  className="btn btn-warn btn-sm"
+                  aria-label={`Ta bort ${b.name} från passet`}
+                  onClick={() => showModal(
+                    <ConfirmModal
+                      icon="⚠️"
+                      title={`Ta bort ${b.name} från passet?`}
+                      sub="Personens bokning tas bort. Du kan lägga till personen igen manuellt om det behövs."
+                      confirmLabel="Ta bort bokning"
+                      confirmCls="btn-warn"
+                      onConfirm={() => removeBooking(passId, i)}
+                    />
+                  )}
+                >
+                  ✕
+                </button>
               )}
             </div>
           </div>
