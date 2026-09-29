@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendCancellationNotice, sendPassChangeNotice } from '@/lib/email'
+import { getCaller, canAdminPass } from '@/lib/authz'
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -15,11 +16,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { data: existing } = await supabase.from('passes').select('*, bookings(profile_id, name, mail)').eq('id', passId).single()
   if (!existing) return NextResponse.json({ error: 'Hittar inte passet' }, { status: 404 })
 
-  const { cancelled, groups, responsible_ids, ...rest } = body
+  // Bara admin för församlingen eller ansvarig för passet får ändra (och därmed skicka mail till de bokade)
+  const { caller } = await getCaller()
+  const { data: resp } = await supabase.from('pass_responsible').select('profile_id').eq('pass_id', passId).eq('profile_id', user.id).maybeSingle()
+  if (!caller || (!(await canAdminPass(caller, passId)) && !resp)) {
+    return NextResponse.json({ error: 'Saknar behörighet' }, { status: 403 })
+  }
+
+  const { cancelled, groups, responsible_ids } = body
+  // Bara dessa fält får ändras. church_id, created_by och filled ändras aldrig härifrån.
+  const EDITABLE = ['title', 'date_str', 'time_str', 'plats', 'spots', 'vk', 'tel', 'vk_profile_id', 'description', 'pub_status', 'pub_date', 'kiosk_visible'] as const
+  const rest: Record<string, any> = {}
+  for (const key of EDITABLE) if (key in body) rest[key] = body[key]
 
   // Uppdatera passet
-  const { error } = await supabase.from('passes').update(rest).eq('id', passId)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (Object.keys(rest).length) {
+    const { data: updated, error } = await supabase.from('passes').update(rest).eq('id', passId).select('id')
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!updated?.length) return NextResponse.json({ error: 'Saknar behörighet' }, { status: 403 })
+  }
 
   // Uppdatera grupper om de skickats med
   if (groups !== undefined) {

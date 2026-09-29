@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sendBookingConfirmation } from '@/lib/email'
 import { promoteFromWaitlist } from '@/app/api/waitlist/route'
 import { isLockedForSelfCancel } from '@/lib/passTiming'
+import { getCaller, canAdminPass } from '@/lib/authz'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -17,14 +18,20 @@ export async function POST(req: NextRequest) {
   if (!pass) return NextResponse.json({ error: 'Passet finns inte' }, { status: 404 })
   if (pass.filled >= pass.spots) return NextResponse.json({ error: 'Fullbokat' }, { status: 409 })
 
-  // Admin kan ange valfri profile_id (t.ex. vid manuell tilldelning)
-  const { data: profile } = await supabase.from('profiles').select('admin_level').eq('id', user.id).single()
-  const isAdmin = ['forsamling','pastorat','super'].includes(profile?.admin_level ?? '')
-  const profileId = (isAdmin && override_profile_id) ? override_profile_id : (no_account ? null : user.id)
+  // Admin för passets församling eller ansvarig kan boka in andra (t.ex. manuellt eller utan konto).
+  // Övriga kan bara boka sig själva, och bekräftelsen går då bara till den egna adressen.
+  const { caller } = await getCaller()
+  const { data: resp } = await supabase.from('pass_responsible').select('profile_id').eq('pass_id', pass_id).eq('profile_id', user.id).maybeSingle()
+  const isStaff = !!caller && ((await canAdminPass(caller, pass_id)) || !!resp)
+  const profileId = isStaff
+    ? (override_profile_id || (no_account ? null : user.id))
+    : user.id
+  const confirmMail = isStaff ? (mail || '') : (user.email ?? '')
+  const bookingName = isStaff ? name : (caller?.name ?? name)
 
   const { data: booking, error } = await supabase.from('bookings').insert({
     pass_id, profile_id: profileId,
-    name, mail: mail || '', tel: tel || '',
+    name: bookingName, mail: confirmMail, tel: tel || '',
     source: source || 'app', no_account: no_account || false,
     ini: ini || '', av_color: av_color || '#EEEDFE', ac_color: ac_color || '#3C3489',
   }).select().single()
@@ -32,9 +39,9 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Skicka bekräftelse om e-post finns
-  if (mail) {
+  if (confirmMail && !confirmMail.endsWith('@intern.local')) {
     await sendBookingConfirmation({
-      to: mail, name, passTitle: pass.title,
+      to: confirmMail, name: bookingName, passTitle: pass.title,
       date: pass.date_str, time: pass.time_str,
       plats: pass.plats, vk: pass.vk, tel: pass.tel,
     }).catch(() => {}) // Tyst fel om mail misslyckas

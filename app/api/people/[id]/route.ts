@@ -1,20 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getCaller, canAdminProfile, filterGroupsForChurch, unauthorized, forbidden } from '@/lib/authz'
+import { deletePersonData } from '@/lib/gdpr'
+
+// Fält som får ändras via denna route. Roll, behörighetsnivå och församling
+// ändras bara via sidan Behörigheter, där databasen kontrollerar reglerna.
+const EDITABLE_FIELDS = ['name', 'phone', 'email', 'available', 'ini', 'av_color', 'ac_color'] as const
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
+  const { caller } = await getCaller()
+  if (!caller) return unauthorized()
 
-  const { data: caller } = await supabase.from('profiles').select('admin_level').eq('id', user.id).single()
-  if (!caller || !['forsamling', 'pastorat', 'super'].includes(caller.admin_level)) {
-    return NextResponse.json({ error: 'Saknar behörighet' }, { status: 403 })
-  }
+  const { id: targetId } = await params
+  if (!(await canAdminProfile(caller, targetId))) return forbidden()
 
   const admin = createAdminClient()
-  const { groups, ...profileData } = await req.json()
-  const { id: targetId } = await params
+  const body = await req.json()
+  const { groups } = body
+
+  const profileData: Record<string, unknown> = {}
+  for (const key of EDITABLE_FIELDS) if (key in body) profileData[key] = body[key]
 
   if (Object.keys(profileData).length) {
     const { error } = await admin.from('profiles').update(profileData).eq('id', targetId)
@@ -22,10 +27,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   if (Array.isArray(groups)) {
+    const { data: target } = await admin.from('profiles').select('church_id').eq('id', targetId).single()
+    const allowed = target?.church_id != null ? await filterGroupsForChurch(groups, target.church_id) : []
     await admin.from('profile_groups').delete().eq('profile_id', targetId)
-    if (groups.length) {
-      const rows = groups.map((g: string) => ({ profile_id: targetId, group_id: g }))
-      const { error } = await admin.from('profile_groups').insert(rows)
+    if (allowed.length) {
+      const { error } = await admin.from('profile_groups').insert(allowed.map(g => ({ profile_id: targetId, group_id: g })))
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     }
   }
@@ -33,29 +39,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   return NextResponse.json({ ok: true })
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { caller } = await getCaller()
+  if (!caller) return unauthorized()
 
-  const { data: caller } = await supabase.from('profiles').select('admin_level').eq('id', user.id).single()
-  if (!caller || !['forsamling', 'pastorat', 'super'].includes(caller.admin_level)) {
-    return NextResponse.json({ error: 'Saknar behörighet' }, { status: 403 })
-  }
+  const { id: targetId } = await params
+  if (targetId === caller.id) return forbidden('Radera ditt eget konto via Min profil.')
+  if (!(await canAdminProfile(caller, targetId))) return forbidden()
 
   const admin = createAdminClient()
-  const { id: targetId } = await params
+  await deletePersonData(admin, targetId)
 
-  await admin.from('pass_responsible').delete().eq('profile_id', targetId)
-  await admin.from('profile_groups').delete().eq('profile_id', targetId)
-  await admin.from('notif_settings').delete().eq('profile_id', targetId)
-  await admin.from('notifications').delete().eq('user_id', targetId)
-  await admin.from('bookings').delete().eq('profile_id', targetId)
-  await admin.from('profiles').delete().eq('id', targetId)
-
-  // Hard delete — ta bort permanent, ingen soft delete
-  await admin.auth.admin.deleteUser(targetId, true).catch(() => {})
+  // Hard delete, ingen soft delete
+  await admin.auth.admin.deleteUser(targetId, false).catch(() => {})
 
   return NextResponse.json({ ok: true })
 }
-

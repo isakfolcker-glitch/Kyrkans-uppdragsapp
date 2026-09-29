@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { demoToken } from '@/lib/demoToken'
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
@@ -28,7 +29,7 @@ export async function proxy(request: NextRequest) {
   if (pathname.startsWith('/demo') && !pathname.startsWith('/demo-login') && !pathname.startsWith('/api/demo')) {
     const demoPassword = process.env.DEMO_PASSWORD
     const demoCookie = request.cookies.get('demo_auth')?.value
-    if (demoPassword && demoCookie !== demoPassword) {
+    if (demoPassword && demoCookie !== await demoToken(demoPassword)) {
       return NextResponse.redirect(new URL('/demo-login', request.url))
     }
     return response

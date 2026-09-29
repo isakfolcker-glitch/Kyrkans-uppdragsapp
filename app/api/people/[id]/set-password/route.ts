@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getCaller, canAdminProfile, levelRank, unauthorized, forbidden } from '@/lib/authz'
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
+// Admin sätter lösenord åt en person. Tillåts bara för personer med LÄGRE
+// behörighet än admin själv i en församling admin ansvarar för, så att ingen
+// kan ta över ett konto med samma eller högre behörighet.
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { caller } = await getCaller()
+  if (!caller) return unauthorized()
 
-  const { data: caller } = await supabase.from('profiles').select('admin_level').eq('id', user.id).single()
-  if (!caller || !['forsamling', 'pastorat', 'super'].includes(caller.admin_level)) {
-    return NextResponse.json({ error: 'Saknar behörighet' }, { status: 403 })
+  const { id: targetId } = await params
+  if (targetId === caller.id) return forbidden('Byt ditt eget lösenord via Min profil.')
+  if (!(await canAdminProfile(caller, targetId))) return forbidden()
+
+  const admin = createAdminClient()
+  const { data: target } = await admin.from('profiles').select('admin_level').eq('id', targetId).single()
+  if (!target || levelRank(target.admin_level) >= levelRank(caller.adminLevel)) {
+    return forbidden('Du kan bara sätta lösenord åt personer med lägre behörighet än du själv.')
   }
 
   const { password } = await req.json()
@@ -17,8 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: 'Lösenordet måste vara minst 8 tecken.' }, { status: 400 })
   }
 
-  const admin = createAdminClient()
-  const { error } = await admin.auth.admin.updateUserById(params.id, { password })
+  const { error } = await admin.auth.admin.updateUserById(targetId, { password })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ ok: true })

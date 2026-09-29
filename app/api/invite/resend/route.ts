@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendInvitation } from '@/lib/email'
+import { getCaller, canAdminProfile, unauthorized, forbidden } from '@/lib/authz'
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
-
-  const { data: caller } = await supabase.from('profiles').select('admin_level, name').eq('id', user.id).single()
-  if (!caller || !['forsamling', 'pastorat', 'super'].includes(caller.admin_level)) {
-    return NextResponse.json({ error: 'Saknar behörighet' }, { status: 403 })
-  }
+  const { caller } = await getCaller()
+  if (!caller) return unauthorized()
 
   const { profileId } = await req.json()
   if (!profileId) return NextResponse.json({ error: 'Saknar profileId' }, { status: 400 })
+  if (!(await canAdminProfile(caller, profileId))) return forbidden()
 
   const admin = createAdminClient()
 
@@ -44,8 +39,8 @@ export async function POST(req: NextRequest) {
     await sendInvitation({
       to: profile.email,
       name: profile.name,
-      inviterName: caller.name ?? 'Administratören',
-      inviterEmail: user.email,
+      inviterName: caller.name,
+      inviterEmail: caller.email ?? undefined,
       inviteUrl: linkData.properties.action_link,
       role: profile.role ?? 'ideell',
     })
