@@ -1,5 +1,5 @@
 'use client'
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   GROUPS, CHURCHES, NAV_ITEMS, INITIAL_PEOPLE, INITIAL_PASSES, INITIAL_MESSAGES, INITIAL_NOTIFICATIONS,
@@ -476,7 +476,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })
   }
 
-  const u = useCallback((): UserDef => {
+  const u = (): UserDef => {
     if (!currentUser) return users[userIndex]
     const role = effectiveRole
     const adminLevel = effectiveAdminLevel
@@ -503,6 +503,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     currentUser, users, userIndex, effectiveRole, effectiveAdminLevel, effectiveMembership,
     profile, availableChurches, groups, passes, activeChurch, churches,
   ])
+  }
 
   const isIdeell     = () => effectiveRole === 'ideell'
   const isAnstalld   = () => effectiveRole === 'anstalld'
@@ -703,19 +704,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
   const addPerson    = (p: PersonData) => setPeople(prev => [...prev, p])
   const updatePerson = (p: PersonData) => {
-    setPeople(prev => prev.map(x => x.id === p.id ? p : x))
+    setPeople(prev => prev.map(x => x.id === p.id && x.church === p.church ? p : x))
     fetch(`/api/people/${p.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ groups: p.groups }),
+      body: JSON.stringify({ groups: p.groups, church_id: p.church }),
     }).catch(() => {})
   }
   const deletePerson = (id: any) => {
-    fetch(`/api/people/${id}`, { method: 'DELETE' })
-      .then(res => res.json())
-      .then(d => { if (!d.ok) alert(`Kunde inte ta bort: ${d.error}`) })
+    const churchId = currentChurchId()
+    fetch(`/api/people/${id}?church_id=${churchId}`, { method: 'DELETE' })
+      .then(async res => ({ ok: res.ok, data: await res.json() }))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          alert(`Kunde inte ta bort: ${data.error ?? 'Okänt fel'}`)
+          return
+        }
+        setPeople(prev => prev.filter(x => !(x.id === id && x.church === churchId)))
+      })
       .catch(() => alert('Nätverksfel vid borttagning'))
-    setPeople(prev => prev.filter(x => x.id !== id))
   }
   const addMessage   = (m: MessageData) => setMessages(prev => [m, ...prev])
   const addChurch    = (c: Church)     => setChurches(prev => [...prev, c])
@@ -764,6 +771,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={{
       userIndex, page, passes, people, messages, notifications, selfBookings, selfWaitlist,
       activeChurch, groupFilter, modal, groups, churches, pastorat, users,
+      memberships, availableChurches,
       currentUser, profile, loadingAuth, staffPerms,
       u, isIdeell, isAnstalld, isFAdmin, isPAdmin, isSuperAdmin, isAdmin, isKiosk,
       isResponsible, canBook, canViewBkgs, canAddBkg, canRemoveBkg, canMsgBooked,
@@ -776,7 +784,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addChurch, updateChurch, deleteChurch,
       addPastorat, updatePastorat, deletePastorat, addGroup, deleteGroup,
       nextPersonId, nextPassId, nextPastoratId, updateStaffPerms,
-      getResponsibleNames, currentChurchId, logout, inviteUser,
+      getResponsibleNames, currentChurchId, currentMembership, currentGroups, logout, inviteUser,
     }}>
       {children}
     </Ctx.Provider>
