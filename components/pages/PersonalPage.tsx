@@ -204,7 +204,7 @@ export default function PersonalPage() {
   const [search, setSearch] = useState('')
   const cid = currentChurchId()
   const regular = people
-    .filter(person => person.church === cid && person.role !== 'guest')
+    .filter(person => person.church === cid)
     .filter(person =>
       !search
       || person.name.toLowerCase().includes(search.toLowerCase())
