@@ -249,23 +249,39 @@ export async function sendWaitlistJoinedNotice(opts: {
 }
 
 export async function sendInvitation(opts: {
-  to: string; name: string; inviterName: string; inviterEmail?: string; inviteUrl: string; role: string
+  to: string
+  name: string
+  inviterName: string
+  inviterEmail?: string
+  inviteUrl: string
+  role: string
+  churchName?: string
+  existingAccount?: boolean
 }) {
   const roleLabel: Record<string, string> = {
     ideell: 'Ideell volontär', anstalld: 'Anställd',
     fadmin: 'Församlingsadmin', padmin: 'Pastoratsadmin',
   }
+  const churchText = opts.churchName
+    ? ` i <strong>${escapeHtml(opts.churchName)}</strong>`
+    : ''
+  const buttonText = opts.existingAccount ? 'Öppna församlingen' : 'Skapa konto och logga in'
+  const accountText = opts.existingAccount
+    ? '<p>Du använder samma konto och lösenord som tidigare. Församlingen läggs till i din församlingsväljare.</p>'
+    : '<p>Första gången fyller du i dina kontaktuppgifter och väljer lösenord.</p>'
+
   return send(opts.to, `Inbjudan till Kyrkans uppdragsapp`, `
     <div style="font-family:sans-serif;max-width:500px;margin:0 auto">
       <h2 style="color:#534AB7">Du är inbjuden!</h2>
-      <p>Hej ${opts.name},</p>
-      <p>${opts.inviterName} har bjudit in dig som <strong>${roleLabel[opts.role] ?? opts.role}</strong> i Kyrkans uppdragsapp.</p>
+      <p>Hej ${escapeHtml(opts.name)},</p>
+      <p>${escapeHtml(opts.inviterName)} har bjudit in dig som <strong>${roleLabel[opts.role] ?? escapeHtml(opts.role)}</strong>${churchText} i Kyrkans uppdragsapp.</p>
+      ${accountText}
       <div style="margin:24px 0;text-align:center">
         <a href="${opts.inviteUrl}" style="background:#534AB7;color:#EEEDFE;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">
-          Skapa konto och logga in
+          ${buttonText}
         </a>
       </div>
-      <p style="color:#888780;font-size:12px">Länken är giltig i 24 timmar. Svarar du på detta mail når du ${opts.inviterName}.</p>
+      <p style="color:#888780;font-size:12px">Länken är tidsbegränsad. Svarar du på detta mail når du ${escapeHtml(opts.inviterName)}.</p>
     </div>
   `, opts.inviterEmail)
 }
