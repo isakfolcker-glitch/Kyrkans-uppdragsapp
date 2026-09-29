@@ -229,16 +229,60 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const fetchAppData = async (prof: any) => {
-    // Hämta kyrkor
+  const fetchAppData = async (prof: any, membershipRows: ChurchMembershipData[]) => {
     const { data: churchData } = await supabase.from('churches').select('*').order('id')
-    if (churchData?.length) setChurches(churchData.map((c: any) => ({ id: c.id, name: c.name, admin: c.admin_name || '', tel: c.tel || '', address: c.address })))
+    const mappedChurches: Church[] = (churchData ?? []).map((church: any) => ({
+      id: church.id,
+      name: church.name,
+      admin: church.admin_name || '',
+      tel: church.tel || '',
+      address: church.address,
+      pastoratId: church.pastorat_id ?? null,
+    }))
+    setChurches(mappedChurches)
 
-    // Hämta grupper
+    const directChurchIds = new Set(membershipRows.filter(m => m.active).map(m => m.churchId))
+    const isSystemSuper = prof.admin_level === 'super' || membershipRows.some(m => m.active && m.adminLevel === 'super')
+    const pastoratAdminIds = new Set(
+      membershipRows
+        .filter(m => m.active && m.adminLevel === 'pastorat')
+        .map(m => mappedChurches.find(church => church.id === m.churchId)?.pastoratId)
+        .filter((id): id is number => typeof id === 'number')
+    )
+    const selectable = isSystemSuper
+      ? mappedChurches
+      : mappedChurches.filter(church =>
+          (church.id !== undefined && directChurchIds.has(church.id))
+          || (church.pastoratId !== undefined && church.pastoratId !== null && pastoratAdminIds.has(church.pastoratId))
+        )
+
+    if (selectable.length) {
+      const queryChurch = typeof window !== 'undefined'
+        ? Number(new URLSearchParams(window.location.search).get('church'))
+        : NaN
+      const storedChurch = typeof window !== 'undefined'
+        ? Number(localStorage.getItem('activeChurchId'))
+        : NaN
+      const preferredId = [queryChurch, storedChurch].find(id => selectable.some(church => church.id === id))
+        ?? selectable[0].id
+      const preferredIndex = mappedChurches.findIndex(church => church.id === preferredId)
+      if (preferredIndex >= 0) {
+        setActiveChurch(preferredIndex)
+        if (typeof window !== 'undefined' && preferredId !== undefined) {
+          localStorage.setItem('activeChurchId', String(preferredId))
+        }
+      }
+    }
+
     const { data: groupData } = await supabase.from('groups').select('*')
-    if (groupData?.length) setGroups(groupData.map((g: any) => ({ id: g.id, label: g.label, cls: g.cls, churchId: g.church_id ?? null })))
+    const mappedGroups: Group[] = (groupData ?? []).map((group: any) => ({
+      id: group.id,
+      label: group.label,
+      cls: group.cls,
+      churchId: group.church_id ?? null,
+    }))
+    setGroups(mappedGroups)
 
-    // Hämta pastorat med admin-profil och kopplade kyrkor
     const { data: pastData } = await supabase
       .from('pastorat')
       .select('id, name, churches(id)')
@@ -249,62 +293,96 @@ export function AppProvider({ children }: { children: ReactNode }) {
         name: p.name,
         admin: '',
         adminEmail: '',
-        churches: (p.churches ?? []).map((c: any) => c.id),
+        churches: (p.churches ?? []).map((church: any) => church.id),
       })))
     }
 
-    // Hämta pass — superadmin/padmin hämtar alla, fadmin/övriga bara sin kyrka
-    const churchId = prof.church_id
-    const isGlobalAdmin = ['pastorat', 'super'].includes(prof.admin_level)
-    if (churchId || isGlobalAdmin) {
-      let passQuery = supabase
-        .from('passes')
-        .select('*, pass_groups(group_id), pass_responsible(profile_id), bookings(id, name, ini, av_color, ac_color, mail, tel, source, no_account, profile_id), pass_history(entry), waitlist(id)')
-        .order('created_at', { ascending: false })
-      if (!isGlobalAdmin && churchId) passQuery = passQuery.eq('church_id', churchId)
-      const { data: passData } = await passQuery
-      if (passData) {
-        setPasses(passData.map((p: any) => ({
-          id: p.id, church: p.church_id, title: p.title,
-          groups: p.pass_groups?.map((g: any) => g.group_id) || [],
-          date: p.date_str, time: p.time_str, plats: p.plats,
-          spots: p.spots, filled: p.filled, vk: p.vk || '', tel: p.tel || '',
-          vkProfileId: p.vk_profile_id ?? null,
-          desc: p.description || '', cancelled: p.cancelled,
-          pubStatus: p.pub_status, pubDate: p.pub_date || '',
-          kioskVisible: p.kiosk_visible,
-          responsibleUserIds: p.pass_responsible?.map((r: any) => r.profile_id) || [],
-          bookings: p.bookings?.map((b: any) => ({
-            id: b.id, personId: b.profile_id, name: b.name, ini: b.ini || '',
-            av: b.av_color || '#F1EFE8', ac: b.ac_color || '#5F5E5A',
-            source: b.source, noAccount: b.no_account, mail: b.mail, tel: b.tel,
-          })) || [],
-          history: p.pass_history?.map((h: any) => h.entry) || [],
-          waitlistCount: p.waitlist?.length ?? 0,
-        })))
+    // RLS returnerar bara pass från församlingar användaren har tillgång till.
+    const { data: passData } = await supabase
+      .from('passes')
+      .select('*, pass_groups(group_id), pass_responsible(profile_id), bookings(id, name, ini, av_color, ac_color, mail, tel, source, no_account, profile_id), pass_history(entry), waitlist(id)')
+      .order('created_at', { ascending: false })
+
+    if (passData) {
+      const mappedPasses: PassData[] = passData.map((p: any) => ({
+        id: p.id, church: p.church_id, title: p.title,
+        groups: p.pass_groups?.map((g: any) => g.group_id) || [],
+        date: p.date_str, time: p.time_str, plats: p.plats,
+        spots: p.spots, filled: p.filled, vk: p.vk || '', tel: p.tel || '',
+        vkProfileId: p.vk_profile_id ?? null,
+        desc: p.description || '', cancelled: p.cancelled,
+        pubStatus: p.pub_status, pubDate: p.pub_date || '',
+        kioskVisible: p.kiosk_visible,
+        responsibleUserIds: p.pass_responsible?.map((r: any) => r.profile_id) || [],
+        bookings: p.bookings?.map((b: any) => ({
+          id: b.id, personId: b.profile_id, name: b.name, ini: b.ini || '',
+          av: b.av_color || '#F1EFE8', ac: b.ac_color || '#5F5E5A',
+          source: b.source, noAccount: b.no_account, mail: b.mail, tel: b.tel,
+        })) || [],
+        history: p.pass_history?.map((h: any) => h.entry) || [],
+        waitlistCount: p.waitlist?.length ?? 0,
+      }))
+      setPasses(mappedPasses)
+
+      if (currentUser?.id) {
+        const mine: Record<number, boolean> = {}
+        mappedPasses.forEach(pass => {
+          if (pass.bookings.some(booking => booking.personId === currentUser.id)) mine[pass.id] = true
+        })
+        setSelfBookings(mine)
       }
     }
 
-    // Hämta personal (bara admin ser alla)
-    if (['forsamling','pastorat','super'].includes(prof.admin_level)) {
-      let query = supabase.from('profiles').select('*, profile_groups(group_id)')
-      // Församlingsadmin ser bara sin kyrka; pastorat/super ser alla
-      if (prof.admin_level === 'forsamling') query = query.eq('church_id', prof.church_id)
-      const { data: peopleData } = await query
-      if (peopleData) {
-        setPeople(peopleData.map((p: any) => ({
-          id: p.id, name: p.name, mail: p.email || '', phone: p.phone,
-          ini: p.ini || p.name?.slice(0,2).toUpperCase() || '??',
-          av: p.av_color || '#EEEDFE', ac: p.ac_color || '#3C3489',
-          church: p.church_id, groups: p.profile_groups?.map((g: any) => g.group_id) || [],
-          role: p.role, isEmployee: p.is_employee, adminLevel: p.admin_level, available: p.available,
-        })))
-      }
+    // En profil kan förekomma en gång per aktivt församlingsmedlemskap.
+    const { data: peopleMemberships } = await supabase
+      .from('profile_churches')
+      .select('church_id, role, admin_level, is_employee, active, profiles!inner(id, name, email, phone, ini, av_color, ac_color, available, profile_groups(group_id))')
+      .eq('active', true)
+
+    if (peopleMemberships) {
+      const peopleRows: PersonData[] = peopleMemberships.map((membership: any) => {
+        const rawProfile = Array.isArray(membership.profiles) ? membership.profiles[0] : membership.profiles
+        const profileGroups = rawProfile?.profile_groups?.map((g: any) => g.group_id) || []
+        const visibleGroupIds = profileGroups.filter((groupId: string) => {
+          const group = mappedGroups.find(item => item.id === groupId)
+          return !group || group.churchId === null || group.churchId === membership.church_id
+        })
+        return {
+          id: rawProfile?.id,
+          name: rawProfile?.name || '',
+          mail: rawProfile?.email || '',
+          phone: rawProfile?.phone,
+          ini: rawProfile?.ini || rawProfile?.name?.slice(0, 2).toUpperCase() || '??',
+          av: rawProfile?.av_color || '#EEEDFE',
+          ac: rawProfile?.ac_color || '#3C3489',
+          church: membership.church_id,
+          groups: visibleGroupIds,
+          role: membership.role,
+          isEmployee: membership.is_employee,
+          adminLevel: membership.admin_level,
+          available: rawProfile?.available ?? true,
+        }
+      }).filter((person: PersonData) => Boolean(person.id))
+      setPeople(peopleRows)
     }
 
-    // Hämta utskick
-    const { data: msgData } = await supabase.from('message_logs').select('*').order('sent_at', { ascending: false }).limit(20)
-    if (msgData) setMessages(msgData.map((m: any) => ({ id: m.id, from: m.from_name, to: m.to_label, toCount: m.to_count, subject: m.subject, body: m.body, sentAt: m.sent_at })))
+    const { data: msgData } = await supabase
+      .from('message_logs')
+      .select('*')
+      .order('sent_at', { ascending: false })
+      .limit(100)
+    if (msgData) {
+      setMessages(msgData.map((m: any) => ({
+        id: m.id,
+        from: m.from_name,
+        to: m.to_label,
+        toCount: m.to_count,
+        subject: m.subject,
+        body: m.body,
+        sentAt: m.sent_at,
+        church: m.church_id ?? null,
+      })))
+    }
   }
 
   // ─── Behörighetssystem ────────────────────────────
