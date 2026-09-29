@@ -17,7 +17,9 @@ export async function deletePersonData(admin: SupabaseClient, profileId: string)
   await admin.from('message_logs').update({ from_name: 'Borttagen användare' }).eq('from_user_id', profileId)
   await admin.from('passes').update({ vk_profile_id: null }).eq('vk_profile_id', profileId)
   if (profile?.email) {
-    await admin.from('applications').delete().ilike('email', profile.email)
+    // ilike utan jokertecken: skiftlägesokänslig men exakt matchning
+    const exact = profile.email.replace(/[\\%_]/g, (c: string) => '\\' + c)
+    await admin.from('applications').delete().ilike('email', exact)
   }
   await admin.from('profiles').delete().eq('id', profileId)
 }

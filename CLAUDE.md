@@ -44,6 +44,8 @@ Testmiljön har `TEST_MODE=true` och `EMAIL_ALLOWLIST` satta, så mail bara kan 
 - All mail via `lib/email.ts`.
 - Nya funktioner i `lib/appStore.tsx` läggs även in i `lib/demoStore.tsx`.
 - Kör `npm run check` före varje commit.
+- Migration 014 och 015 får ALDRIG köras mot produktion (014 kraschar, 015 öppnar säkerhetshål igen). 015 får aldrig köras efter 016 någonstans.
+- Kör `supabase/tests/behorighet.sql` och `behorighet_017.sql` mot testdatabasen efter varje ändring av RLS-regler eller behörighetsfunktioner.
 
 ## Behörighetsnivåer
 

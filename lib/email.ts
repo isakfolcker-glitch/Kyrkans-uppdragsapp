@@ -84,7 +84,7 @@ export async function sendBookingConfirmation(opts: {
         📅 ${h.date} &nbsp;🕐 ${h.time}<br>
         📍 ${h.plats}
       </div>
-      <p>Vakmästare: <strong>${h.vk}</strong> – ${h.tel}</p>
+      <p>Vaktmästare: <strong>${h.vk}</strong> – ${h.tel}</p>
       <p style="color:#888780;font-size:12px">Kyrkans uppdragsapp</p>
     </div>
   `)
@@ -180,7 +180,7 @@ export async function sendPassReminder(opts: {
           <span style="color:#5F5E5A">📅 ${h.date} &nbsp;🕐 ${h.time}</span><br>
           <span style="color:#5F5E5A">📍 ${h.plats}</span>
         </div>
-        <p style="color:#5F5E5A">Vaktmästare: <strong>${h.vk || '–'}</strong>${h.tel ? ' – ' + opts.tel : ''}</p>
+        <p style="color:#5F5E5A">Vaktmästare: <strong>${h.vk || '–'}</strong>${h.tel ? ' – ' + h.tel : ''}</p>
         ${showAnsvarig ? `<p style="color:#5F5E5A">Ansvarig: <strong>${h.ansvarig!.name}</strong>${h.ansvarig!.tel ? ' – ' + h.ansvarig!.tel : ''}${h.ansvarig!.mail ? ' – ' + h.ansvarig!.mail : ''}</p>` : ''}
         <p style="color:#888;font-size:12px">Kyrkans uppdragsapp</p>
       </div>
@@ -243,7 +243,7 @@ export async function sendWaitlistPromotion(opts: {
           <span style="color:#5F5E5A">📅 ${h.date} &nbsp;🕐 ${h.time}</span><br>
           <span style="color:#5F5E5A">📍 ${h.plats}</span>
         </div>
-        <p style="color:#5F5E5A">Vakmästare: <strong>${h.vk}</strong>${h.tel ? ' – ' + opts.tel : ''}</p>
+        <p style="color:#5F5E5A">Vaktmästare: <strong>${h.vk}</strong>${h.tel ? ' – ' + h.tel : ''}</p>
         <p style="color:#888;font-size:12px">Kyrkans uppdragsapp</p>
       </div>
     </div>
