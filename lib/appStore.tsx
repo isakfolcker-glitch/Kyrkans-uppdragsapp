@@ -386,12 +386,124 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   // ─── Behörighetssystem ────────────────────────────
-  // Använd riktig profil om inloggad, annars demo-användare
-  const effectiveAdminLevel = profile?.admin_level ?? users[userIndex]?.adminLevel ?? 'none'
-  const effectiveRole = profile?.role ?? users[userIndex]?.role ?? 'ideell'
-  const effectiveChurchId = profile?.church_id ?? users[userIndex]?.churches?.[0] ?? churches[0]?.id ?? 0
+  const systemSuper = profile?.admin_level === 'super'
+    || memberships.some(membership => membership.active && membership.adminLevel === 'super')
 
-  const u = useCallback(() => users[userIndex], [users, userIndex])
+  const directChurchIds = new Set(
+    memberships.filter(membership => membership.active).map(membership => membership.churchId)
+  )
+  const pastoratAdminIds = new Set(
+    memberships
+      .filter(membership => membership.active && membership.adminLevel === 'pastorat')
+      .map(membership => churches.find(church => church.id === membership.churchId)?.pastoratId)
+      .filter((id): id is number => typeof id === 'number')
+  )
+
+  const availableChurches = currentUser
+    ? (systemSuper
+        ? churches
+        : churches.filter(church =>
+            (church.id !== undefined && directChurchIds.has(church.id))
+            || (church.pastoratId !== undefined && church.pastoratId !== null && pastoratAdminIds.has(church.pastoratId))
+          ))
+    : churches
+
+  const currentChurchId = () => {
+    if (!currentUser) {
+      return users[userIndex]?.churches?.[0] ?? churches[activeChurch]?.id ?? churches[0]?.id ?? 0
+    }
+    const selected = churches[activeChurch]
+    if (selected?.id !== undefined && availableChurches.some(church => church.id === selected.id)) {
+      return selected.id
+    }
+    return availableChurches[0]?.id ?? profile?.church_id ?? 0
+  }
+
+  const currentMembership = (): ChurchMembershipData | null => {
+    const churchId = currentChurchId()
+    if (!churchId) return null
+
+    const direct = memberships.find(membership => membership.active && membership.churchId === churchId)
+    if (direct) return direct
+
+    if (systemSuper && currentUser) {
+      return {
+        profileId: currentUser.id,
+        churchId,
+        role: 'superadmin',
+        adminLevel: 'super',
+        isEmployee: true,
+        active: true,
+      }
+    }
+
+    const targetPastoratId = churches.find(church => church.id === churchId)?.pastoratId
+    if (targetPastoratId !== undefined && targetPastoratId !== null && currentUser) {
+      const inherited = memberships.find(membership => {
+        if (!membership.active || membership.adminLevel !== 'pastorat') return false
+        return churches.find(church => church.id === membership.churchId)?.pastoratId === targetPastoratId
+      })
+      if (inherited) {
+        return {
+          profileId: currentUser.id,
+          churchId,
+          role: 'padmin',
+          adminLevel: 'pastorat',
+          isEmployee: true,
+          active: true,
+        }
+      }
+    }
+
+    return null
+  }
+
+  const effectiveMembership = currentMembership()
+  const effectiveAdminLevel = currentUser
+    ? (effectiveMembership?.adminLevel ?? 'none')
+    : (users[userIndex]?.adminLevel ?? 'none')
+  const effectiveRole = currentUser
+    ? (effectiveMembership?.role ?? 'ideell')
+    : (users[userIndex]?.role ?? 'ideell')
+
+  const currentGroups = () => {
+    if (!currentUser) return users[userIndex]?.groups ?? []
+    const churchId = currentChurchId()
+    const profileGroupIds = profile?.profile_groups?.map((group: any) => group.group_id) ?? []
+    return profileGroupIds.filter((groupId: string) => {
+      const group = groups.find(item => item.id === groupId)
+      return !group || group.churchId === null || group.churchId === churchId
+    })
+  }
+
+  const u = useCallback((): UserDef => {
+    if (!currentUser) return users[userIndex]
+    const role = effectiveRole
+    const adminLevel = effectiveAdminLevel
+    const displayName = profile?.name ?? ''
+    return {
+      id: 0,
+      name: displayName,
+      email: currentUser.email ?? '',
+      role,
+      isEmployee: effectiveMembership?.isEmployee ?? role !== 'ideell',
+      adminLevel,
+      ini: displayName.split(' ').map((part: string) => part[0]).join('').slice(0, 2).toUpperCase(),
+      av: profile?.av_color ?? '#EEEDFE',
+      ac: profile?.ac_color ?? '#3C3489',
+      badge: role === 'ideell' ? 'rb-ideell' : role === 'anstalld' ? 'rb-anstalld' : 'rb-admin',
+      badgeLbl: role === 'ideell' ? 'Ideell' : role === 'anstalld' ? 'Anställd' : role === 'fadmin' ? 'Församlingsadmin' : role === 'padmin' ? 'Pastoratsadmin' : 'Systemadmin',
+      groups: currentGroups(),
+      churches: availableChurches.flatMap(church => church.id !== undefined ? [church.id] : []),
+      responsibleForPasses: passes.filter(pass => pass.responsibleUserIds?.includes(currentUser.id)).map(pass => pass.id),
+      notifs: profile?.notif_settings?.[0] ?? {},
+      available: profile?.available ?? true,
+    }
+  }, [
+    currentUser, users, userIndex, effectiveRole, effectiveAdminLevel, effectiveMembership,
+    profile, availableChurches, groups, passes, activeChurch, churches,
+  ])
+
   const isIdeell     = () => effectiveRole === 'ideell'
   const isAnstalld   = () => effectiveRole === 'anstalld'
   const isFAdmin     = () => effectiveAdminLevel === 'forsamling'
@@ -399,26 +511,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const isSuperAdmin = () => effectiveAdminLevel === 'super'
   const isAdmin      = () => ['forsamling','pastorat','super'].includes(effectiveAdminLevel)
   const isKiosk      = () => effectiveRole === 'kiosk'
-  // Kollar granulerad behörighet – admin har alltid allt, anställda bara det som är tillåtet
-  const perm = (key: keyof StaffPerms) => isAdmin() ? true : staffPerms[key]
+  const perm = (key: keyof StaffPerms) => isAdmin() ? true : (isAnstalld() ? staffPerms[key] : false)
+
   const isResponsible = (pass: PassData) => {
     if (currentUser) return pass.responsibleUserIds?.includes(currentUser.id) ?? false
     return users[userIndex]?.responsibleForPasses?.includes(pass.id) ?? false
   }
   const canBook       = () => !isAdmin() && !isKiosk()
-  const canViewBkgs   = (p: PassData) => isAdmin() || isResponsible(p)
-  const canAddBkg     = (p: PassData) => isAdmin() || isResponsible(p)
-  const canRemoveBkg  = (p: PassData) => isAdmin() || isResponsible(p)
-  const canMsgBooked  = (p: PassData) => isAdmin() || isResponsible(p)
-  const canEditPass   = (p: PassData) => isAdmin() || isResponsible(p)
-  const canCancelPass = (p: PassData) => isAdmin() || isResponsible(p)
+  const canViewBkgs   = (p: PassData) => isAdmin() || isResponsible(p) || perm('kan_se_bokningar')
+  const canAddBkg     = (p: PassData) => isAdmin() || isResponsible(p) || perm('kan_hantera_bokningar')
+  const canRemoveBkg  = (p: PassData) => isAdmin() || isResponsible(p) || perm('kan_hantera_bokningar')
+  const canMsgBooked  = (p: PassData) => isAdmin() || isResponsible(p) || perm('kan_skicka_utskick')
+  const canEditPass   = (p: PassData) => isAdmin() || isResponsible(p) || perm('kan_redigera_pass')
+  const canCancelPass = (p: PassData) => isAdmin() || isResponsible(p) || perm('kan_redigera_pass')
   const canDeletePass = () => isAdmin() || perm('kan_redigera_pass')
   const canCreatePass = () => isAdmin() || perm('kan_skapa_pass')
   const canManage     = () => isAdmin() || isAnstalld()
   const canMakePAdmin = () => isPAdmin() || isSuperAdmin()
-  const canMakeFAdmin = (c: number) => isPAdmin() || isSuperAdmin() || (isFAdmin() && (users[userIndex]?.churches ?? []).includes(c))
-
-  const currentChurchId = () => (isPAdmin() || isSuperAdmin()) ? (churches[activeChurch]?.id ?? churches[0]?.id ?? activeChurch) : effectiveChurchId
+  const canMakeFAdmin = (churchId: number) =>
+    isPAdmin() || isSuperAdmin() || (isFAdmin() && currentChurchId() === churchId)
 
   // ─── Actions ──────────────────────────────────────
   const cycleUser = () => {
@@ -428,7 +539,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setActiveChurch(0); setGroupFilter('alla'); setModal(null)
   }
   const goTo     = (p: string) => { setPage(p); setModal(null); if (typeof window !== 'undefined') localStorage.setItem('lastPage', p) }
-  const setChurch = (i: number) => setActiveChurch(i)
+  const setChurch = (i: number) => {
+    const churchId = churches[i]?.id
+    if (churchId !== undefined && !availableChurches.some(church => church.id === churchId)) return
+    setActiveChurch(i)
+    setGroupFilter('alla')
+    setModal(null)
+    if (typeof window !== 'undefined' && churchId !== undefined) localStorage.setItem('activeChurchId', String(churchId))
+  }
   const setFilter = (f: string) => setGroupFilter(f)
   const showModal = (content: ReactNode) => setModal(content)
   const closeModal = () => setModal(null)
