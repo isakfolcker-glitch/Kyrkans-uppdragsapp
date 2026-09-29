@@ -76,6 +76,7 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
   const addNotif = (type: string, title: string, body: string) => {
     setNotifs(prev => [{ id: Date.now(), userId: usr.id, type, title, body, time: new Date().toISOString(), read: false }, ...prev])
   }
+  const markNotifRead = (id: number) => setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
   const markAllNotifsRead = () => setNotifs(prev => prev.map(n => n.userId === usr.id ? { ...n, read: true } : n))
 
   // Simulerar väntelista-uppflyttning: om aktuell demo-användare står först i kön
@@ -186,7 +187,7 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
       canEditPass, canCancelPass, canDeletePass, canCreatePass, canManage,
       canMakePAdmin, canMakeFAdmin, perm,
       cycleUser, goTo, setChurch, setFilter, showModal, closeModal,
-      doBook, doUnbook, joinWaitlist, leaveWaitlist, publishNow, toggleAvail, updateUserNotif, markAllNotifsRead,
+      doBook, doUnbook, joinWaitlist, leaveWaitlist, publishNow, toggleAvail, updateUserNotif, markNotifRead, markAllNotifsRead,
       addPass, updatePass, deletePass, cancelPass, reloadPasses, addBooking, removeBooking,
       addPerson, updatePerson, deletePerson, addMessage,
       addChurch, updateChurch, deleteChurch,
