@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { createClient } from '@/lib/supabase/client'
 import {
   GROUPS, CHURCHES, NAV_ITEMS, INITIAL_PEOPLE, INITIAL_PASSES, INITIAL_MESSAGES, INITIAL_NOTIFICATIONS,
-  Group, Church, PersonData, PassData, MessageData, NotifData, PastoratData, UserDef, USERS,
+  Group, Church, PersonData, PassData, MessageData, NotifData, PastoratData, UserDef, ChurchMembershipData, USERS,
   ini2, gLabel, gCls, roleLabel,
 } from './appData'
 
@@ -38,6 +38,7 @@ interface AppCtx {
   messages: MessageData[]; notifications: NotifData[]; selfBookings: Record<number, boolean>; selfWaitlist: Record<number, number>
   activeChurch: number; groupFilter: string; modal: ReactNode | null
   groups: Group[]; churches: Church[]; pastorat: PastoratData[]; users: UserDef[]
+  memberships: ChurchMembershipData[]; availableChurches: Church[]
   currentUser: any; profile: any; loadingAuth: boolean; staffPerms: StaffPerms
 
   u: () => UserDef
@@ -72,6 +73,7 @@ interface AppCtx {
   deletePastorat: (id: number) => Promise<void>; addGroup: (g: Group) => void; deleteGroup: (id: string) => void
   nextPersonId: () => number; nextPassId: () => number; nextPastoratId: () => number
   getResponsibleNames: (pass: PassData) => string; currentChurchId: () => number
+  currentMembership: () => ChurchMembershipData | null; currentGroups: () => string[]
   logout: () => void; inviteUser: (email: string, name: string, role: string, churchId: number) => Promise<void>
   updateStaffPerms: (profileId: string, perms: StaffPerms) => Promise<void>
 }
@@ -103,6 +105,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [groups, setGroups] = useState<Group[]>(GROUPS)
   const [churches, setChurches] = useState<Church[]>(CHURCHES)
   const [pastorat, setPastorat] = useState<PastoratData[]>([])
+  const [memberships, setMemberships] = useState<ChurchMembershipData[]>([])
   const [staffPerms, setStaffPerms] = useState<StaffPerms>(NO_PERMS)
   const [users] = useState<UserDef[]>(USERS)
 
@@ -131,32 +134,59 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .select('*, profile_groups(group_id), notif_settings(*)')
       .eq('id', userId)
       .single()
+
+    const { data: membershipRows, error: membershipError } = await supabase
+      .from('profile_churches')
+      .select('profile_id, church_id, role, admin_level, is_employee, active, accepted_at')
+      .eq('profile_id', userId)
+      .eq('active', true)
+
+    let mappedMemberships: ChurchMembershipData[] = (membershipRows ?? []).map((m: any) => ({
+      profileId: m.profile_id,
+      churchId: m.church_id,
+      role: m.role,
+      adminLevel: m.admin_level,
+      isEmployee: m.is_employee,
+      active: m.active,
+      acceptedAt: m.accepted_at,
+    }))
+
+    // Bakåtkompatibilitet tills migration 016 är körd i alla miljöer.
+    if ((!mappedMemberships.length || membershipError) && data?.church_id) {
+      mappedMemberships = [{
+        profileId: userId,
+        churchId: data.church_id,
+        role: data.role,
+        adminLevel: data.admin_level,
+        isEmployee: data.is_employee,
+        active: true,
+        acceptedAt: data.onboarding_done ? data.updated_at : null,
+      }]
+    }
+
     setProfile(data)
+    setMemberships(mappedMemberships)
     setLoadingAuth(false)
+
     if (data) {
-      fetchAppData(data)
-      // Hämta behörigheter för anställda (admin/superadmin får ALL_PERMS direkt)
-      if (['forsamling','pastorat','super'].includes(data.admin_level)) {
-        setStaffPerms(ALL_PERMS)
-      } else if (data.role === 'anstalld') {
-        const { data: permsData } = await supabase
-          .from('staff_permissions')
-          .select('*')
-          .eq('profile_id', userId)
-          .single()
-        setStaffPerms(permsData ? {
-          kan_skapa_pass:         permsData.kan_skapa_pass,
-          kan_redigera_pass:      permsData.kan_redigera_pass,
-          kan_se_bokningar:       permsData.kan_se_bokningar,
-          kan_hantera_bokningar:  permsData.kan_hantera_bokningar,
-          kan_se_personal:        permsData.kan_se_personal,
-          kan_lagg_till_personal: permsData.kan_lagg_till_personal,
-          kan_hantera_grupper:    permsData.kan_hantera_grupper,
-          kan_skicka_utskick:     permsData.kan_skicka_utskick,
-        } : NO_PERMS)
-      } else {
-        setStaffPerms(NO_PERMS)
-      }
+      await fetchAppData(data, mappedMemberships)
+
+      const { data: permsData } = await supabase
+        .from('staff_permissions')
+        .select('*')
+        .eq('profile_id', userId)
+        .maybeSingle()
+      setStaffPerms(permsData ? {
+        kan_skapa_pass:         permsData.kan_skapa_pass,
+        kan_redigera_pass:      permsData.kan_redigera_pass,
+        kan_se_bokningar:       permsData.kan_se_bokningar,
+        kan_hantera_bokningar:  permsData.kan_hantera_bokningar,
+        kan_se_personal:        permsData.kan_se_personal,
+        kan_lagg_till_personal: permsData.kan_lagg_till_personal,
+        kan_hantera_grupper:    permsData.kan_hantera_grupper,
+        kan_skicka_utskick:     permsData.kan_skicka_utskick,
+      } : NO_PERMS)
+
       // Hämta kö-anmälningar och position
       const { data: myWaitlist } = await supabase.from('waitlist').select('pass_id, created_at').eq('profile_id', userId)
       if (myWaitlist?.length) {
@@ -172,7 +202,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         setSelfWaitlist(positions)
       }
-      // Hämta notiser
+
       const { data: notifData } = await supabase
         .from('notifications')
         .select('*')
@@ -183,7 +213,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         id: n.id, userId: n.user_id, type: n.type,
         title: n.title, body: n.body, time: n.created_at, read: n.read,
       })))
-      // Realtid – nya notiser
+
       supabase.channel('notif-' + userId)
         .on('postgres_changes', {
           event: 'INSERT', schema: 'public', table: 'notifications',
