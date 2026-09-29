@@ -17,6 +17,8 @@ export default function AuthConfirmPage() {
   const [password, setPassword]   = useState('')
   const [password2, setPassword2] = useState('')
   const [error, setError]   = useState('')
+  const [membershipNames, setMembershipNames] = useState<string[]>([])
+  const [accessError, setAccessError] = useState('')
 
   useEffect(() => {
     const supabase = createClient()
@@ -28,12 +30,36 @@ export default function AuthConfirmPage() {
       // Kolla om onboarding redan är klar
       const { data: profile } = await supabase
         .from('profiles')
-        .select('onboarding_done, name, phone, email')
+        .select('onboarding_done, name, phone, email, church_id, admin_level')
         .eq('id', session.user.id)
         .single()
 
+      const { data: memberships, error: membershipError } = await supabase
+        .from('profile_churches')
+        .select('church_id, churches(name)')
+        .eq('profile_id', session.user.id)
+        .eq('active', true)
+
+      const names = (memberships ?? [])
+        .map((m: any) => m.churches?.name)
+        .filter(Boolean) as string[]
+
+      // Bakåtkompatibilitet under utrullningen av migration 016.
+      const hasLegacyChurch = Boolean(profile?.church_id)
+      const isLegacySuper = profile?.admin_level === 'super'
+      const hasAccess = names.length > 0 || hasLegacyChurch || isLegacySuper
+
+      if (!hasAccess && !membershipError) {
+        setAccessError('Ditt konto saknar en aktiv församlingsinbjudan. Kontakta en administratör i din församling.')
+        setStep('error')
+        return
+      }
+
+      setMembershipNames(names)
+
       if (profile?.onboarding_done) {
-        router.replace('/dashboard')
+        const church = new URLSearchParams(window.location.search).get('church')
+        router.replace(church ? `/dashboard?church=${church}` : '/dashboard')
         return
       }
 
@@ -89,8 +115,21 @@ export default function AuthConfirmPage() {
 
     if (profErr) { setError(profErr.message); setStep('form'); return }
 
+    const church = new URLSearchParams(window.location.search).get('church')
+    const acceptRes = await fetch('/api/memberships/accept', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ church_id: church ? Number(church) : undefined }),
+    })
+    if (!acceptRes.ok) {
+      const data = await acceptRes.json().catch(() => ({}))
+      setError(data.error ?? 'Kunde inte aktivera din församlingsinbjudan.')
+      setStep('form')
+      return
+    }
+
     setStep('done')
-    setTimeout(() => router.replace('/dashboard'), 1200)
+    setTimeout(() => router.replace(church ? `/dashboard?church=${church}` : '/dashboard'), 1200)
   }
 
   /* ── UI ── */
@@ -117,7 +156,7 @@ export default function AuthConfirmPage() {
   if (step === 'error') return (
     <div style={wrap}>
       <div style={card}>
-        <p style={{ color: '#7D0037', fontSize: 14 }}>Något gick fel. Försök öppna inbjudningslänken igen.</p>
+        <p style={{ color: '#7D0037', fontSize: 14 }}>{accessError || 'Något gick fel. Försök öppna inbjudningslänken igen.'}</p>
       </div>
     </div>
   )
@@ -134,6 +173,17 @@ export default function AuthConfirmPage() {
             <p style={{ fontSize: 13, color: '#5F5E5A', marginTop: 2 }}>Fyll i dina uppgifter för att komma igång.</p>
           </div>
         </div>
+
+        {membershipNames.length > 0 && (
+          <div style={{ background: '#F0FAF6', border: '1px solid #28A88E', borderRadius: 12, padding: '12px 14px', marginBottom: 18 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#00554B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+              Din tillgång
+            </div>
+            <div style={{ fontSize: 13, color: '#2C2C2A', lineHeight: 1.5 }}>
+              Du är inbjuden till {membershipNames.join(', ')}.
+            </div>
+          </div>
+        )}
 
         {/* Namn (förifyllt, ej redigerbart här) */}
         <div style={field}>
