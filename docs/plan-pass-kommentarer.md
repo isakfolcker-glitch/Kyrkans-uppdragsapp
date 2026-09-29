@@ -30,3 +30,12 @@ ChatGPT ändrar `PassDetailModal.tsx`, notissidan, passkorten, datumformat och t
 ## Rättas på vägen
 
 Dagens kod skickar notis med förhandsvisning av frågan till alla pastoratsadmins och superadmins i hela systemet. Mottagarna begränsas till de som har åtkomst till passet.
+
+## Kvar efter första versionen (backlog)
+
+- Äldre frågenotiser (typen `message`, före 018) har inget `comment_id` och rensas inte vid kontoradering. Behöver en engångsrensning.
+- Två personer med exakt samma namn går inte att skilja åt i @-listan.
+- Den som avbokat sig kan inte längre se eller ta bort sina egna kommentarer.
+- "@Namn" står kvar som text i andras kommentarer när ett konto raderas.
+- Länken `/dashboard?pass=ID` i mailen tappar passet om mottagaren först måste logga in.
+- Superadmin får notis om alla kommentarer i hela systemet. Kan behöva begränsas.

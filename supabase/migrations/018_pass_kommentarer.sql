@@ -195,6 +195,21 @@ CREATE TRIGGER pass_messages_protect_update
   BEFORE UPDATE ON public.pass_messages
   FOR EACH ROW EXECUTE FUNCTION public.protect_pass_message_update();
 
+-- ---------- Trigger: notiser försvinner när en kommentar tas bort ----------
+-- Gäller även borttagning som inte går via appens API.
+
+CREATE OR REPLACE FUNCTION public.remove_notifications_for_deleted_message()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.deleted_at IS NOT NULL AND OLD.deleted_at IS NULL THEN
+    DELETE FROM public.notifications WHERE comment_id = NEW.id;
+  END IF;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS pass_messages_remove_notifications ON public.pass_messages;
+
 -- ---------- RLS: pass_messages ----------
 
 DROP POLICY IF EXISTS "pass_messages_select" ON public.pass_messages;
@@ -273,6 +288,10 @@ ALTER TABLE public.notifications ADD CONSTRAINT notifications_type_check
 CREATE INDEX IF NOT EXISTS idx_notifications_comment        ON public.notifications (comment_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_pass_mail ON public.notifications (user_id, pass_id, emailed_at DESC);
 
+CREATE TRIGGER pass_messages_remove_notifications
+  AFTER UPDATE OF deleted_at ON public.pass_messages
+  FOR EACH ROW EXECUTE FUNCTION public.remove_notifications_for_deleted_message();
+
 -- ---------- Notisinställningar ----------
 
 ALTER TABLE public.notif_settings ADD COLUMN IF NOT EXISTS kommentar_mail BOOLEAN NOT NULL DEFAULT true;
@@ -281,6 +300,7 @@ ALTER TABLE public.notif_settings ADD COLUMN IF NOT EXISTS kommentar_mail BOOLEA
 
 REVOKE EXECUTE ON FUNCTION public.pass_messages_before_insert()      FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.protect_pass_message_update()      FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.remove_notifications_for_deleted_message() FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.can_admin_church_for(INT, UUID)    FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.can_admin_pass_for(INT, UUID)      FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.pass_thread_access_for(INT, UUID)  FROM PUBLIC, anon, authenticated;

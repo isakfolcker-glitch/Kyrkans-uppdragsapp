@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCaller, canAccessPassThread, canAdminPass, loadPassThreadAudience, unauthorized, forbidden } from '@/lib/authz'
-import { validCommentBody } from '@/lib/comments/notify'
+import { validCommentBody, commentPreview } from '@/lib/comments/notify'
 import { loadOne, parseId, dbErrorStatus } from '@/lib/comments/server'
 
 type Ctx = { params: Promise<{ id: string; messageId: string }> }
@@ -43,6 +43,11 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   // edited_at sätts av databasen när texten ändras
   const { error } = await supabase.from('pass_messages').update({ body: text }).eq('id', msgId)
   if (error) return NextResponse.json({ error: 'Kunde inte spara ändringen.' }, { status: dbErrorStatus(error.code) })
+
+  // Notiser som redan gått ut ska inte visa den gamla texten
+  await createAdminClient().from('notifications')
+    .update({ body: `${caller.name}: ${commentPreview(text)}` })
+    .eq('comment_id', msgId)
 
   const audience = await loadPassThreadAudience(passId)
   const message = audience && await loadOne(supabase, audience, msgId)
