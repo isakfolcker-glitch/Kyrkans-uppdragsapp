@@ -88,6 +88,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           type: 'message',
           title: notifTitle,
           body: `${profile?.name ?? 'Okänd'}: ${preview}`,
+          pass_id: pass.id ?? parseInt(id),
+          comment_id: data.id,
         }))
       )
     }
