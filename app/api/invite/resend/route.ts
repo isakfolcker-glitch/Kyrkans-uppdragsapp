@@ -2,52 +2,82 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendInvitation } from '@/lib/email'
+import { canAdminChurch, hasStaffPermission } from '@/lib/membershipAuth'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
 
-  const { data: caller } = await supabase.from('profiles').select('admin_level, name').eq('id', user.id).single()
-  if (!caller || !['forsamling', 'pastorat', 'super'].includes(caller.admin_level)) {
-    return NextResponse.json({ error: 'Saknar behörighet' }, { status: 403 })
+  const { profileId, churchId: rawChurchId } = await req.json()
+  const churchId = Number(rawChurchId)
+  if (!profileId || !churchId || Number.isNaN(churchId)) {
+    return NextResponse.json({ error: 'Person och församling krävs' }, { status: 400 })
   }
 
-  const { profileId } = await req.json()
-  if (!profileId) return NextResponse.json({ error: 'Saknar profileId' }, { status: 400 })
+  const canAdmin = await canAdminChurch(supabase, churchId)
+  const canInvite = await hasStaffPermission(supabase, user.id, churchId, 'kan_lagg_till_personal')
+  if (!canAdmin && !canInvite) {
+    return NextResponse.json({ error: 'Saknar behörighet i församlingen' }, { status: 403 })
+  }
 
   const admin = createAdminClient()
+  const { data: membership } = await admin
+    .from('profile_churches')
+    .select('role, active, profiles!inner(email, name), churches!inner(name)')
+    .eq('profile_id', profileId)
+    .eq('church_id', churchId)
+    .eq('active', true)
+    .maybeSingle()
 
-  const { data: profile } = await admin.from('profiles').select('email, name, role').eq('id', profileId).single()
-  if (!profile?.email) return NextResponse.json({ error: 'Ingen e-post registrerad på personen' }, { status: 400 })
+  if (!membership) return NextResponse.json({ error: 'Aktivt medlemskap saknas' }, { status: 404 })
+  if (!canAdmin && membership.role !== 'ideell') {
+    return NextResponse.json({ error: 'Du får bara återinbjuda ideella' }, { status: 403 })
+  }
 
-  // Kolla om användaren har satt lösenord eller bekräftat sin e-post
-  const { data: authUsers } = await admin.auth.admin.listUsers({ perPage: 1000 })
-  const authUser = authUsers?.users?.find((u: any) => u.email === profile.email)
-  const hasPassword = !!(authUser as any)?.encrypted_password
-  const isConfirmed = !!(authUser as any)?.email_confirmed_at
-  // Bekräftade användare och de med lösenord får recovery-länk; övriga får invite-länk
-  const useRecovery = hasPassword || isConfirmed
-  const linkType = useRecovery ? 'recovery' : 'invite'
-  const redirectTo = useRecovery
-    ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset`
-    : `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm`
+  const rawProfile = Array.isArray((membership as any).profiles)
+    ? (membership as any).profiles[0]
+    : (membership as any).profiles
+  const rawChurch = Array.isArray((membership as any).churches)
+    ? (membership as any).churches[0]
+    : (membership as any).churches
+
+  if (!rawProfile?.email) {
+    return NextResponse.json({ error: 'Ingen e-post registrerad på personen' }, { status: 400 })
+  }
+
+  const { data: caller } = await admin.from('profiles').select('name').eq('id', user.id).single()
+  const { data: authUsers, error: authErr } = await admin.auth.admin.listUsers({ perPage: 1000 })
+  if (authErr) return NextResponse.json({ error: authErr.message }, { status: 500 })
+
+  const authUser = authUsers?.users?.find(
+    existing => existing.email?.toLowerCase() === rawProfile.email.toLowerCase()
+  )
+  if (!authUser) return NextResponse.json({ error: 'Auth-konto saknas' }, { status: 404 })
+
+  const isConfirmed = Boolean(authUser.email_confirmed_at)
+  const linkType = isConfirmed ? 'magiclink' : 'invite'
+  const redirectTo = isConfirmed
+    ? `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?church=${churchId}`
+    : `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm?church=${churchId}`
 
   const { data: linkData, error } = await admin.auth.admin.generateLink({
     type: linkType,
-    email: profile.email,
+    email: rawProfile.email,
     options: { redirectTo },
   })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   try {
     await sendInvitation({
-      to: profile.email,
-      name: profile.name,
-      inviterName: caller.name ?? 'Administratören',
+      to: rawProfile.email,
+      name: rawProfile.name,
+      inviterName: caller?.name ?? 'Administratören',
       inviterEmail: user.email,
       inviteUrl: linkData.properties.action_link,
-      role: profile.role ?? 'ideell',
+      role: membership.role,
+      churchName: rawChurch?.name,
+      existingAccount: isConfirmed,
     })
   } catch (e: any) {
     return NextResponse.json({ error: `Mailet kunde inte skickas: ${e.message}` }, { status: 500 })
