@@ -57,9 +57,10 @@ export async function POST(req: NextRequest) {
       return forbidden('Personen finns redan i en annan församling eller har högre behörighet. Kontakta en pastoratsadmin.')
     }
 
-    await admin.from('profiles').upsert({
+    const { error: profileErr } = await admin.from('profiles').upsert({
       id: existingUser.id, email, name, church_id: churchId, role, admin_level: adminLevel, is_employee: isEmployee,
     }, { onConflict: 'id' })
+    if (profileErr) return NextResponse.json({ error: `Kunde inte spara roll och församling: ${profileErr.message}` }, { status: 500 })
 
     // Har de satt lösenord eller bekräftat e-post? → recovery, annars invite
     const hasPassword = !!(existingUser as any).encrypted_password
@@ -88,9 +89,10 @@ export async function POST(req: NextRequest) {
 
   // Ny användare skapad — spara profil och skicka inbjudningslänk
   if (createData.user) {
-    await admin.from('profiles').upsert({
+    const { error: profileErr } = await admin.from('profiles').upsert({
       id: createData.user.id, email, name, church_id: churchId, role, admin_level: adminLevel, is_employee: isEmployee,
     }, { onConflict: 'id' })
+    if (profileErr) return NextResponse.json({ error: `Kunde inte spara roll och församling: ${profileErr.message}` }, { status: 500 })
 
     const { data: linkData } = await admin.auth.admin.generateLink({
       type: 'invite',

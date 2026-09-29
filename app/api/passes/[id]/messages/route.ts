@@ -33,6 +33,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .eq('id', user.id)
     .single()
 
+  // Bara admin för passets församling eller ansvarig får markera svaret som personalens
+  let staffReplyAllowed = false
+  if (is_staff_reply === true) {
+    const passId = parseInt(id)
+    const [{ data: isPassAdmin }, { data: isResponsible }] = await Promise.all([
+      supabase.rpc('can_admin_pass', { pass_id_arg: passId }),
+      supabase.rpc('is_responsible_for', { pass_id_arg: passId }),
+    ])
+    staffReplyAllowed = isPassAdmin === true || isResponsible === true
+  }
+
   const { data, error } = await supabase
     .from('pass_messages')
     .insert({
@@ -40,7 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       author_id: user.id,
       author_name: profile?.name ?? 'Okänd',
       body: body.trim(),
-      is_staff_reply: is_staff_reply ?? false,
+      is_staff_reply: is_staff_reply === true && staffReplyAllowed,
     })
     .select()
     .single()

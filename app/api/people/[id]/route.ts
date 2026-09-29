@@ -28,7 +28,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   if (Array.isArray(groups)) {
     const { data: target } = await admin.from('profiles').select('church_id').eq('id', targetId).single()
-    const allowed = target?.church_id != null ? await filterGroupsForChurch(groups, target.church_id) : []
+    // Personer utan församling (t.ex. superadmin) har inga grupper att välja bland, rör dem inte
+    if (target?.church_id == null) return NextResponse.json({ ok: true })
+    const allowed = await filterGroupsForChurch(groups, target.church_id)
     await admin.from('profile_groups').delete().eq('profile_id', targetId)
     if (allowed.length) {
       const { error } = await admin.from('profile_groups').insert(allowed.map(g => ({ profile_id: targetId, group_id: g })))
