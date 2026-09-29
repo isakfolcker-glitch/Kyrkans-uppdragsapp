@@ -310,7 +310,7 @@ CREATE POLICY "profiles_select" ON public.profiles FOR SELECT
       SELECT 1 FROM public.profile_churches target_membership
       WHERE target_membership.profile_id = profiles.id
         AND target_membership.active
-        AND public.can_admin_church(target_membership.church_id)
+        AND public.can_view_people_in_church(target_membership.church_id)
     )
   );
 
@@ -644,11 +644,20 @@ DROP POLICY IF EXISTS "message_logs_select" ON public.message_logs;
 DROP POLICY IF EXISTS "message_logs_insert" ON public.message_logs;
 CREATE POLICY "message_logs_select" ON public.message_logs FOR SELECT
   USING (
-    (church_id IS NOT NULL AND public.can_admin_church(church_id))
+    (church_id IS NOT NULL AND (
+      public.can_admin_church(church_id)
+      OR public.has_staff_permission_for_church(church_id, 'kan_skicka_utskick')
+    ))
     OR (church_id IS NULL AND public.is_system_super_admin())
   );
 CREATE POLICY "message_logs_insert" ON public.message_logs FOR INSERT
-  WITH CHECK (church_id IS NOT NULL AND public.can_admin_church(church_id));
+  WITH CHECK (
+    church_id IS NOT NULL
+    AND (
+      public.can_admin_church(church_id)
+      OR public.has_staff_permission_for_church(church_id, 'kan_skicka_utskick')
+    )
+  );
 
 REVOKE EXECUTE ON FUNCTION public.is_system_super_admin() FROM anon;
 REVOKE EXECUTE ON FUNCTION public.has_active_membership(INT) FROM anon;
