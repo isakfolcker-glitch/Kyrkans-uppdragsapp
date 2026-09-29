@@ -59,6 +59,7 @@ interface AppCtx {
   joinWaitlist: (id: number) => void; leaveWaitlist: (id: number) => void
   publishNow: (id: number) => void; toggleAvail: () => void
   updateUserNotif: (key: string, val: boolean) => void
+  markNotifRead: (id: number) => void
   markAllNotifsRead: () => void
   addPass: (p: PassData) => Promise<void>; updatePass: (p: PassData) => void
   deletePass: (id: number) => void; cancelPass: (id: number) => void
@@ -239,6 +240,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (notifData) setNotifications(notifData.map((n: any) => ({
         id: n.id, userId: n.user_id, type: n.type,
         title: n.title, body: n.body, time: n.created_at, read: n.read,
+        passId: n.pass_id ?? null, commentId: n.comment_id ?? null,
       })))
 
       supabase.channel('notif-' + userId)
@@ -250,6 +252,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setNotifications(prev => [{
             id: n.id, userId: n.user_id, type: n.type,
             title: n.title, body: n.body, time: n.created_at, read: false,
+            passId: n.pass_id ?? null, commentId: n.comment_id ?? null,
           }, ...prev])
         })
         .subscribe()
@@ -642,6 +645,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setProfile((p: any) => ({ ...p, notif_settings: [{ ...p.notif_settings?.[0], [key]: val }] }))
     fetch('/api/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notif_settings: { [key]: val } }) })
   }
+  const markNotifRead = (id: number) => {
+    if (!currentUser) return
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+    fetch(`/api/notifications/${id}/read`, { method: 'POST' }).catch(() => {})
+  }
+
   const markAllNotifsRead = () => {
     if (!currentUser) return
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
@@ -819,7 +828,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       canEditPass, canCancelPass, canDeletePass, canCreatePass, canManage,
       canMakePAdmin, canMakeFAdmin, perm,
       cycleUser, goTo, setChurch, setFilter, showModal, closeModal,
-      doBook, doUnbook, joinWaitlist, leaveWaitlist, publishNow, toggleAvail, updateUserNotif, markAllNotifsRead,
+      doBook, doUnbook, joinWaitlist, leaveWaitlist, publishNow, toggleAvail, updateUserNotif, markNotifRead, markAllNotifsRead,
       addPass, updatePass, deletePass, cancelPass, reloadPasses, addBooking, removeBooking,
       addPerson, updatePerson, deletePerson, addMessage,
       addChurch, updateChurch, deleteChurch,
