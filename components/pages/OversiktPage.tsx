@@ -8,17 +8,17 @@ export default function OversiktPage() {
   const today = now.toISOString().slice(0, 10)
 
   // Kommande pass för inloggad användare
-  const myUpcoming = passes
+  const allMyUpcoming = passes
     .filter(p => !p.cancelled && p.pubStatus === 'live' && p.date >= today)
     .filter(p => p.responsibleUserIds?.includes(profile?.id))
     .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 3)
+  const myUpcoming = allMyUpcoming.slice(0, 3)
 
   // Lediga pass (har platser kvar)
-  const openPasses = passes
+  const allOpenPasses = passes
     .filter(p => !p.cancelled && p.pubStatus === 'live' && p.date >= today && p.filled < p.spots)
     .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 4)
+  const openPasses = allOpenPasses.slice(0, 4)
 
   const unreadNotifs = notifications.filter(n => !n.read).length
 
@@ -50,8 +50,8 @@ export default function OversiktPage() {
           {displayName}
         </h1>
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5 }}>
-          {myUpcoming.length > 0
-            ? `Du har ${myUpcoming.length} kommande uppdrag.`
+          {allMyUpcoming.length > 0
+            ? `Du har ${allMyUpcoming.length} kommande uppdrag.`
             : 'Du har inga kommande uppdrag just nu.'}
         </p>
       </div>
@@ -59,7 +59,7 @@ export default function OversiktPage() {
       {/* Snabbstatistik */}
       <div className="stats-grid" style={{ marginBottom: 24 }}>
         <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => goTo('pass')}>
-          <div className="stat-num">{openPasses.length}</div>
+          <div className="stat-num">{allOpenPasses.length}</div>
           <div className="stat-lbl">Lediga pass</div>
         </div>
         <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => goTo('mina-bokningar')}>
