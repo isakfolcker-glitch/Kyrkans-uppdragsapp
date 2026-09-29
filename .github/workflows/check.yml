@@ -1,0 +1,24 @@
+name: Kontroll
+
+on:
+  pull_request:
+  push:
+    branches: [main, staging]
+
+jobs:
+  check:
+    name: Lint, typer och enhetstester
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # 133 gamla lintfel finns sedan tidigare. Visas men stoppar inte, tills de är åtgärdade.
+      - run: npm run lint
+        continue-on-error: true
+      - run: npm run typecheck
+      - run: npm test
+

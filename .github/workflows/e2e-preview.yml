@@ -1,0 +1,27 @@
+name: Webbläsartester
+
+# Körs automatiskt när Vercel har byggt klart en preview (aldrig produktion).
+on: deployment_status
+
+jobs:
+  e2e:
+    if: github.event.deployment_status.state == 'success' && github.event.deployment.environment != 'Production'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+        env:
+          CI: true
+          PLAYWRIGHT_BASE_URL: ${{ github.event.deployment_status.environment_url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-trace
+          path: test-results/

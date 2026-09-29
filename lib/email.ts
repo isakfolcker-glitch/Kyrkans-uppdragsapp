@@ -10,7 +10,7 @@ function escapeHtml(str: string): string {
 // godkända testadresser, aldrig till riktiga volontärer/anställda av misstag.
 // Produktionen har ingen EMAIL_ALLOWLIST satt, så filtret är då inaktivt.
 // "namn@exempel.se" tillåter även alias som "namn+test@exempel.se".
-function isAllowedTestEmail(email: string, allowlist: string[]): boolean {
+export function isAllowedTestEmail(email: string, allowlist: string[]): boolean {
   const lower = email.toLowerCase()
   return allowlist.some(pattern => {
     const p = pattern.trim().toLowerCase()
