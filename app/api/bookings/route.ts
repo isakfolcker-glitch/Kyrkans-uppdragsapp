@@ -4,49 +4,108 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sendBookingConfirmation } from '@/lib/email'
 import { promoteFromWaitlist } from '@/app/api/waitlist/route'
 import { isLockedForSelfCancel } from '@/lib/passTiming'
+import { canAccessChurch, canAdminChurch, hasStaffPermission } from '@/lib/membershipAuth'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
 
-  const { pass_id, name, mail, tel, source, no_account, ini, av_color, ac_color, override_profile_id } = await req.json()
+  const {
+    pass_id, name, mail, tel, source, no_account, ini, av_color, ac_color, override_profile_id,
+  } = await req.json()
 
-  // Kolla att passet har plats
-  const { data: pass } = await supabase.from('passes').select('spots, filled, title, date_str, time_str, plats, vk, tel').eq('id', pass_id).single()
+  const admin = createAdminClient()
+  const { data: pass } = await admin
+    .from('passes')
+    .select('id, church_id, spots, filled, title, date_str, time_str, plats, vk, tel')
+    .eq('id', pass_id)
+    .single()
+
   if (!pass) return NextResponse.json({ error: 'Passet finns inte' }, { status: 404 })
+  if (!(await canAccessChurch(supabase, pass.church_id))) {
+    return NextResponse.json({ error: 'Du har inte tillgång till passets församling' }, { status: 403 })
+  }
   if (pass.filled >= pass.spots) return NextResponse.json({ error: 'Fullbokat' }, { status: 409 })
 
-  // Admin kan ange valfri profile_id (t.ex. vid manuell tilldelning)
-  const { data: profile } = await supabase.from('profiles').select('admin_level').eq('id', user.id).single()
-  const isAdmin = ['forsamling','pastorat','super'].includes(profile?.admin_level ?? '')
-  const profileId = (isAdmin && override_profile_id) ? override_profile_id : (no_account ? null : user.id)
+  const { data: responsible } = await supabase
+    .from('pass_responsible')
+    .select('profile_id')
+    .eq('pass_id', pass_id)
+    .eq('profile_id', user.id)
+    .maybeSingle()
 
-  const { data: booking, error } = await supabase.from('bookings').insert({
-    pass_id, profile_id: profileId,
-    name, mail: mail || '', tel: tel || '',
-    source: source || 'app', no_account: no_account || false,
-    ini: ini || '', av_color: av_color || '#EEEDFE', ac_color: ac_color || '#3C3489',
+  const canManageBookings = await canAdminChurch(supabase, pass.church_id)
+    || await hasStaffPermission(supabase, user.id, pass.church_id, 'kan_hantera_bokningar')
+    || Boolean(responsible)
+
+  let profileId: string | null = user.id
+  if (override_profile_id) {
+    if (!canManageBookings) {
+      return NextResponse.json({ error: 'Saknar behörighet att tilldela andra personer' }, { status: 403 })
+    }
+    const { data: targetMembership } = await admin
+      .from('profile_churches')
+      .select('profile_id')
+      .eq('profile_id', override_profile_id)
+      .eq('church_id', pass.church_id)
+      .eq('active', true)
+      .maybeSingle()
+    if (!targetMembership) {
+      return NextResponse.json({ error: 'Personen tillhör inte passets församling' }, { status: 400 })
+    }
+    profileId = override_profile_id
+  } else if (no_account) {
+    if (!canManageBookings) {
+      return NextResponse.json({ error: 'Saknar behörighet för bokning utan konto' }, { status: 403 })
+    }
+    profileId = null
+  }
+
+  if (profileId) {
+    const { data: existing } = await admin
+      .from('bookings')
+      .select('id')
+      .eq('pass_id', pass_id)
+      .eq('profile_id', profileId)
+      .maybeSingle()
+    if (existing) return NextResponse.json({ error: 'Personen är redan bokad' }, { status: 409 })
+  }
+
+  const { data: booking, error } = await admin.from('bookings').insert({
+    pass_id,
+    profile_id: profileId,
+    name,
+    mail: mail || '',
+    tel: tel || '',
+    source: source || 'app',
+    no_account: Boolean(no_account),
+    ini: ini || '',
+    av_color: av_color || '#EEEDFE',
+    ac_color: ac_color || '#3C3489',
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Skicka bekräftelse om e-post finns
   if (mail) {
     await sendBookingConfirmation({
-      to: mail, name, passTitle: pass.title,
-      date: pass.date_str, time: pass.time_str,
-      plats: pass.plats, vk: pass.vk, tel: pass.tel,
-    }).catch(() => {}) // Tyst fel om mail misslyckas
+      to: mail,
+      name,
+      passTitle: pass.title,
+      date: pass.date_str,
+      time: pass.time_str,
+      plats: pass.plats,
+      vk: pass.vk,
+      tel: pass.tel,
+    }).catch(() => {})
   }
 
-  // Notis i appen till den som är uppsatt
   if (profileId) {
-    const admin = createAdminClient()
     await admin.from('notifications').insert({
-      user_id: profileId, type: 'signup',
+      user_id: profileId,
+      type: 'signup',
       title: `Du är uppsatt: ${pass.title}`,
-      body: `${pass.date_str} kl ${pass.time_str} – ${pass.plats}`,
+      body: `${pass.date_str} kl ${pass.time_str} - ${pass.plats}`,
     })
   }
 
@@ -59,33 +118,47 @@ export async function DELETE(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
 
   const { booking_id } = await req.json()
+  const admin = createAdminClient()
 
-  // Verifiera att bokningen tillhör användaren (eller att de är admin/ansvarig — RLS hanterar det)
-  const { data: booking } = await supabase.from('bookings').select('id, profile_id, pass_id').eq('id', booking_id).single()
+  const { data: booking } = await admin
+    .from('bookings')
+    .select('id, profile_id, pass_id, passes!inner(church_id, date_str, time_str)')
+    .eq('id', booking_id)
+    .single()
+
   if (!booking) return NextResponse.json({ error: 'Bokningen finns inte' }, { status: 404 })
 
-  const { data: profile } = await supabase.from('profiles').select('admin_level').eq('id', user.id).single()
-  const isAdmin = ['forsamling','pastorat','super'].includes(profile?.admin_level ?? '')
-  const isOwner = booking.profile_id === user.id
-  const { data: responsible } = await supabase.from('pass_responsible').select('profile_id').eq('pass_id', booking.pass_id).eq('profile_id', user.id).maybeSingle()
+  const rawPass = Array.isArray((booking as any).passes)
+    ? (booking as any).passes[0]
+    : (booking as any).passes
+  const churchId = rawPass?.church_id
+  if (!churchId) return NextResponse.json({ error: 'Passets församling saknas' }, { status: 500 })
 
-  if (!isOwner && !isAdmin && !responsible) {
+  const isOwner = booking.profile_id === user.id
+  const { data: responsible } = await admin
+    .from('pass_responsible')
+    .select('profile_id')
+    .eq('pass_id', booking.pass_id)
+    .eq('profile_id', user.id)
+    .maybeSingle()
+
+  const canManage = await canAdminChurch(supabase, churchId)
+    || await hasStaffPermission(supabase, user.id, churchId, 'kan_hantera_bokningar')
+    || Boolean(responsible)
+
+  if (!isOwner && !canManage) {
     return NextResponse.json({ error: 'Saknar behörighet' }, { status: 403 })
   }
 
-  // Ideella kan inte avboka sig själva mindre än 24 timmar innan passet.
-  // Admin och ansvarig får fortfarande hantera bokningar hela vägen fram.
-  if (isOwner && !isAdmin && !responsible) {
-    const { data: pass } = await supabase.from('passes').select('date_str, time_str').eq('id', booking.pass_id).single()
-    if (pass && isLockedForSelfCancel(pass.date_str, pass.time_str)) {
-      return NextResponse.json({ error: 'Passet börjar inom 24 timmar och går inte längre att avboka själv. Kontakta ansvarig.' }, { status: 403 })
-    }
+  if (isOwner && !canManage && isLockedForSelfCancel(rawPass.date_str, rawPass.time_str)) {
+    return NextResponse.json({
+      error: 'Passet börjar inom 24 timmar och går inte längre att avboka själv. Kontakta ansvarig.',
+    }, { status: 403 })
   }
 
-  const { error } = await supabase.from('bookings').delete().eq('id', booking_id)
+  const { error } = await admin.from('bookings').delete().eq('id', booking_id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Promote first person in waitlist if spot opened
   await promoteFromWaitlist(booking.pass_id).catch(() => {})
 
   return NextResponse.json({ ok: true })
