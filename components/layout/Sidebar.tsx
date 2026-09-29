@@ -3,10 +3,10 @@ import { useApp } from '@/lib/appStore'
 import { NAV_ITEMS } from '@/lib/appData'
 
 export default function Sidebar() {
-  const { u, page, goTo, cycleUser, churches, isKiosk, isPAdmin, isSuperAdmin, currentUser, profile, logout, notifications, perm } = useApp()
+  const { u, page, goTo, cycleUser, churches, isKiosk, isPAdmin, isSuperAdmin, currentUser, profile, logout, notifications, perm, currentChurchId } = useApp()
   const usr = u()
 
-  const effectiveRole = profile?.role ?? usr.role
+  const effectiveRole = usr.role
   const navRole = effectiveRole === 'fadmin' ? 'fadmin'
     : effectiveRole === 'padmin' ? 'padmin'
     : effectiveRole === 'superadmin' ? 'superadmin'
@@ -26,10 +26,10 @@ export default function Sidebar() {
     }
   }
 
-  const subText = isSuperAdmin() ? 'Systemadministratör'
-    : isPAdmin() ? 'Pastorat – alla församlingar'
-    : isKiosk() ? 'Anmälningsstation'
-    : churches.find(c => c.id === (profile?.church_id ?? usr.churches[0]))?.name ?? ''
+  const subText = isKiosk()
+    ? 'Anmälningsstation'
+    : churches.find(c => c.id === currentChurchId())?.name
+      ?? (isSuperAdmin() ? 'Systemadministratör' : isPAdmin() ? 'Pastorat' : '')
 
   const displayName = profile?.name || usr.name
   const displayIni = displayName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
