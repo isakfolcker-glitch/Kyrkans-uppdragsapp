@@ -134,10 +134,39 @@ RETURNS BOOLEAN AS $$
 $$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
 
 CREATE OR REPLACE FUNCTION public.can_manage_church_settings(target_church_id INT)
-RETURNS BOOLEAN AS $$
+RETURNS BOOLEAN AS $
   SELECT public.is_system_super_admin()
     OR public.has_pastorat_admin_access(target_church_id);
-$$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
+$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
+
+CREATE OR REPLACE FUNCTION public.has_staff_permission_for_church(target_church_id INT, permission_name TEXT)
+RETURNS BOOLEAN AS $
+  SELECT public.has_active_membership(target_church_id)
+    AND public.membership_role(target_church_id) = 'anstalld'
+    AND EXISTS (
+      SELECT 1
+      FROM public.staff_permissions sp
+      WHERE sp.profile_id = auth.uid()
+        AND CASE permission_name
+          WHEN 'kan_skapa_pass' THEN sp.kan_skapa_pass
+          WHEN 'kan_redigera_pass' THEN sp.kan_redigera_pass
+          WHEN 'kan_se_bokningar' THEN sp.kan_se_bokningar
+          WHEN 'kan_hantera_bokningar' THEN sp.kan_hantera_bokningar
+          WHEN 'kan_se_personal' THEN sp.kan_se_personal
+          WHEN 'kan_lagg_till_personal' THEN sp.kan_lagg_till_personal
+          WHEN 'kan_hantera_grupper' THEN sp.kan_hantera_grupper
+          WHEN 'kan_skicka_utskick' THEN sp.kan_skicka_utskick
+          ELSE false
+        END
+    );
+$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
+
+CREATE OR REPLACE FUNCTION public.can_view_people_in_church(target_church_id INT)
+RETURNS BOOLEAN AS $
+  SELECT public.can_admin_church(target_church_id)
+    OR public.has_staff_permission_for_church(target_church_id, 'kan_se_personal')
+    OR public.has_staff_permission_for_church(target_church_id, 'kan_lagg_till_personal');
+$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
 
 -- Bakåtkompatibla helpers använder högsta aktiva medlemskapsnivå.
 CREATE OR REPLACE FUNCTION public.current_admin_level()
@@ -178,7 +207,7 @@ RETURNS BOOLEAN AS $$
       FROM public.profile_churches target_membership
       WHERE target_membership.profile_id = target_profile_id
         AND target_membership.active
-        AND public.can_admin_church(target_membership.church_id)
+        AND public.can_view_people_in_church(target_membership.church_id)
     );
 $$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
 
@@ -217,7 +246,7 @@ DROP POLICY IF EXISTS "profile_churches_write" ON public.profile_churches;
 CREATE POLICY "profile_churches_select" ON public.profile_churches FOR SELECT
   USING (
     profile_id = auth.uid()
-    OR public.can_admin_church(church_id)
+    OR public.can_view_people_in_church(church_id)
   );
 
 -- Medlemskap skapas/ändras via server-API med service role.
@@ -281,7 +310,7 @@ CREATE POLICY "profile_groups_select" ON public.profile_groups FOR SELECT
       SELECT 1 FROM public.groups g
       WHERE g.id = profile_groups.group_id
         AND g.church_id IS NOT NULL
-        AND public.can_admin_church(g.church_id)
+        AND public.can_view_people_in_church(g.church_id)
     )
   );
 CREATE POLICY "profile_groups_modify_admin" ON public.profile_groups FOR ALL
@@ -579,6 +608,8 @@ REVOKE EXECUTE ON FUNCTION public.has_pastorat_admin_access(INT) FROM anon;
 REVOKE EXECUTE ON FUNCTION public.can_access_church(INT) FROM anon;
 REVOKE EXECUTE ON FUNCTION public.can_admin_church(INT) FROM anon;
 REVOKE EXECUTE ON FUNCTION public.can_manage_church_settings(INT) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.has_staff_permission_for_church(INT, TEXT) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.can_view_people_in_church(INT) FROM anon;
 
 GRANT EXECUTE ON FUNCTION public.is_system_super_admin() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.has_active_membership(INT) TO authenticated;
@@ -588,3 +619,5 @@ GRANT EXECUTE ON FUNCTION public.has_pastorat_admin_access(INT) TO authenticated
 GRANT EXECUTE ON FUNCTION public.can_access_church(INT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.can_admin_church(INT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.can_manage_church_settings(INT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.has_staff_permission_for_church(INT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.can_view_people_in_church(INT) TO authenticated;
