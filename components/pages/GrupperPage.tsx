@@ -2,15 +2,18 @@
 import { useState } from 'react'
 import { useApp } from '@/lib/appStore'
 import ConfirmModal from '@/components/modals/ConfirmModal'
+import Icon from '@/components/ui/Icon'
 
+// Värdena (tag-kv m.fl.) är de som sparas i databasen och ändras inte.
+// Bara namnen som visas är nya, så att de stämmer med de varma färgerna.
 const colorOptions = [
-  { value: 'tag-kv', label: 'Blå' },
-  { value: 'tag-bv', label: 'Grön' },
-  { value: 'tag-brand', label: 'Röd' },
-  { value: 'tag-konsert', label: 'Orange' },
-  { value: 'tag-extra', label: 'Lila' },
-  { value: 'tag-vakt', label: 'Grå' },
-  { value: 'tag-kor', label: 'Rosa' },
+  { value: 'tag-kv', label: 'Vinröd' },
+  { value: 'tag-bv', label: 'Sand' },
+  { value: 'tag-brand', label: 'Rosa' },
+  { value: 'tag-konsert', label: 'Guld' },
+  { value: 'tag-extra', label: 'Vinröd kant' },
+  { value: 'tag-vakt', label: 'Beige' },
+  { value: 'tag-kor', label: 'Orange' },
 ]
 
 function NewGroupModal({ churchId }: { churchId: number }) {
@@ -41,21 +44,24 @@ function NewGroupModal({ churchId }: { churchId: number }) {
 
   return (
     <>
-      <div className="modal-title">👥 Ny grupp</div>
+      <h2 className="modal-title">Ny grupp</h2>
       <div className="alert alert-blue">Gruppen skapas i {churchName}.</div>
       <div className="form-field">
-        <label>Gruppnamn</label>
-        <input placeholder="ex. Körvärd, Barnvakt..." value={label} onChange={event => setLabel(event.target.value)} autoFocus />
+        <label htmlFor="ny-grupp-namn">Gruppnamn</label>
+        <input id="ny-grupp-namn" placeholder="ex. Körvärd, Barnvakt..." value={label} onChange={event => setLabel(event.target.value)} autoFocus />
       </div>
       <div className="form-field">
-        <label>Färg</label>
-        <select value={color} onChange={event => setColor(event.target.value)}>
+        <label htmlFor="ny-grupp-farg">Färg</label>
+        <select id="ny-grupp-farg" value={color} onChange={event => setColor(event.target.value)}>
           {colorOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
+        <div style={{ marginTop: 10, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+          Så här ser den ut: <span className={`tag ${color}`}>{label.trim() || 'Gruppnamn'}</span>
+        </div>
       </div>
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
-        <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? 'Sparar...' : '✓ Skapa'}</button>
+        <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? 'Sparar...' : 'Skapa'}</button>
       </div>
     </>
   )
@@ -86,14 +92,14 @@ export default function GrupperPage() {
           <h1 className="page-title">Grupper</h1>
           <p className="page-sub">{churchName}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => showModal(<NewGroupModal churchId={churchId} />)}>+ Ny grupp</button>
+        <button className="btn btn-primary" onClick={() => showModal(<NewGroupModal churchId={churchId} />)}><Icon name="Plus" size={18} />Ny grupp</button>
       </div>
 
       {visibleGroups.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '3rem', color: '#888780' }}>
+        <div className="empty-state">
           Inga grupper för {churchName} ännu.<br />
           <button className="btn btn-primary" style={{ marginTop: 14 }} onClick={() => showModal(<NewGroupModal churchId={churchId} />)}>
-            + Skapa första gruppen
+            <Icon name="Plus" size={18} />Skapa första gruppen
           </button>
         </div>
       ) : (
@@ -103,11 +109,11 @@ export default function GrupperPage() {
           const isShared = group.churchId === null || group.churchId === undefined
 
           return (
-            <div key={group.id} style={{ background: '#fff', border: '1px solid #D3D1C7', borderRadius: 12, padding: '14px 16px', marginBottom: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div key={group.id} className="panel" style={{ padding: '14px 16px', marginBottom: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span className={`tag ${group.cls}`} style={{ fontSize: 12, padding: '4px 10px' }}>{group.label}</span>
-                  {isShared && <span style={{ fontSize: 10, color: '#888780', background: '#F1EFE8', borderRadius: 20, padding: '2px 7px' }}>Gemensam</span>}
+                  <span className={`tag ${group.cls}`}>{group.label}</span>
+                  {isShared && <span style={{ fontSize: 13, color: 'rgba(0,0,0,0.72)', background: 'rgba(125,0,55,0.06)', borderRadius: 20, padding: '2px 7px' }}>Gemensam</span>}
                 </div>
                 {!isShared && (
                   <button className="btn btn-danger btn-sm" onClick={() => showModal(
@@ -117,17 +123,17 @@ export default function GrupperPage() {
                       confirmLabel="Ta bort"
                       onConfirm={() => handleDelete(group.id)}
                     />
-                  )}>🗑 Ta bort</button>
+                  )}><Icon name="Trash" size={18} />Ta bort<span className="sr-only"> {group.label}</span></button>
                 )}
               </div>
-              <div style={{ fontSize: 12, color: '#888780', display: 'flex', gap: 12, marginBottom: members.length ? 8 : 0 }}>
-                <span>👥 {members.length} person{members.length !== 1 ? 'er' : ''}</span>
-                <span>📅 {groupPasses.length} pass</span>
+              <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.72)', display: 'flex', gap: 12, marginBottom: members.length ? 8 : 0 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="Users" size={16} />{members.length} person{members.length !== 1 ? 'er' : ''}</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="Calendar" size={16} />{groupPasses.length} pass</span>
               </div>
               {members.length > 0 && (
                 <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                   {members.map(member => (
-                    <span key={`${member.id}-${member.church}`} style={{ fontSize: 12, background: '#F1EFE8', borderRadius: 20, padding: '2px 9px', color: '#5F5E5A' }}>
+                    <span key={`${member.id}-${member.church}`} style={{ fontSize: 13, background: 'rgba(125,0,55,0.06)', borderRadius: 20, padding: '2px 9px', color: 'rgba(0,0,0,0.72)' }}>
                       {member.name.split(' ')[0]}
                     </span>
                   ))}

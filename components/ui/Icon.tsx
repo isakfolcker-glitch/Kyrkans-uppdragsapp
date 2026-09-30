@@ -19,6 +19,8 @@ import {
   IconDots,
   IconDownload,
   IconExternalLink,
+  IconEye,
+  IconTag,
   IconFileSpreadsheet,
   IconHome,
   IconHourglass,
@@ -107,6 +109,8 @@ const ICONS = {
   Spreadsheet: IconFileSpreadsheet,
   ExternalLink: IconExternalLink,
   ArrowLeft: IconArrowLeft,
+  Eye: IconEye,
+  Tag: IconTag,
 } satisfies Record<string, TablerIcon>
 
 export type IconName = keyof typeof ICONS

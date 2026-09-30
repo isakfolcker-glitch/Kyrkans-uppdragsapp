@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/appStore'
+import Icon from '@/components/ui/Icon'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 
 interface Kyrka { id: number; name: string; address?: string; forsamling_id: number }
@@ -31,15 +32,15 @@ function ForsamlingModal({ idx, forsamlingId }: { idx?: number; forsamlingId?: n
 
   return (
     <>
-      <div className="modal-title">{existing ? '✏️ Redigera församling' : '⛪ Ny församling'}</div>
-      <div className="form-field"><label>Församlingens namn</label><input placeholder="ex. Växjö domkyrkoförsamling" value={name} onChange={e => setName(e.target.value)} autoFocus /></div>
+      <h2 className="modal-title">{existing ? 'Redigera församling' : 'Ny församling'}</h2>
+      <div className="form-field"><label htmlFor="forsamlingar-f1">Församlingens namn</label><input id="forsamlingar-f1" placeholder="ex. Växjö domkyrkoförsamling" value={name} onChange={e => setName(e.target.value)} autoFocus /></div>
       <div className="form-row">
-        <div className="form-field"><label>Ansvarig admin</label><input placeholder="Namn" value={admin} onChange={e => setAdmin(e.target.value)} /></div>
-        <div className="form-field"><label>Telefon</label><input placeholder="073-..." value={tel} onChange={e => setTel(e.target.value)} /></div>
+        <div className="form-field"><label htmlFor="forsamlingar-f2">Ansvarig admin</label><input id="forsamlingar-f2" placeholder="Namn" value={admin} onChange={e => setAdmin(e.target.value)} /></div>
+        <div className="form-field"><label htmlFor="forsamlingar-f3">Telefon</label><input id="forsamlingar-f3" placeholder="073-..." value={tel} onChange={e => setTel(e.target.value)} /></div>
       </div>
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
-        <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? 'Sparar...' : '✓ Spara'}</button>
+        <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? 'Sparar...' : 'Spara'}</button>
       </div>
     </>
   )
@@ -68,13 +69,13 @@ function KyrkaModal({ forsamlingId, onSaved }: { forsamlingId: number; onSaved: 
 
   return (
     <>
-      <div className="modal-title">🏛 Lägg till kyrka</div>
+      <h2 className="modal-title">Lägg till kyrka</h2>
       <div className="alert alert-blue">En kyrka är en fysisk byggnad inom en församling.</div>
-      <div className="form-field"><label>Kyrkans namn</label><input placeholder="ex. Växjö domkyrka" value={name} onChange={e => setName(e.target.value)} autoFocus /></div>
-      <div className="form-field"><label>Adress</label><input placeholder="ex. Stortorget 1, Växjö" value={address} onChange={e => setAddress(e.target.value)} /></div>
+      <div className="form-field"><label htmlFor="forsamlingar-f4">Kyrkans namn</label><input id="forsamlingar-f4" placeholder="ex. Växjö domkyrka" value={name} onChange={e => setName(e.target.value)} autoFocus /></div>
+      <div className="form-field"><label htmlFor="forsamlingar-f5">Adress</label><input id="forsamlingar-f5" placeholder="ex. Stortorget 1, Växjö" value={address} onChange={e => setAddress(e.target.value)} /></div>
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
-        <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? 'Sparar...' : '✓ Lägg till'}</button>
+        <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? 'Sparar...' : 'Lägg till'}</button>
       </div>
     </>
   )
@@ -119,12 +120,12 @@ export default function ForsamlingarPage() {
     <div>
       <div className="page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <div><h1 className="page-title">Församlingar</h1><p className="page-sub">Församlingar och deras kyrkor</p></div>
-        <button className="btn btn-primary" onClick={() => showModal(<ForsamlingModal />)}>+ Ny församling</button>
+        <button className="btn btn-primary" onClick={() => showModal(<ForsamlingModal />)}><Icon name="Plus" size={18} />Ny församling</button>
       </div>
 
       {churches.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '3rem', color: '#888780' }}>
-          Inga församlingar ännu. Klicka "+ Ny församling" för att börja.
+        <div className="empty-state">
+          Inga församlingar ännu. Klicka på Ny församling för att börja.
         </div>
       )}
 
@@ -135,18 +136,18 @@ export default function ForsamlingarPage() {
         const byggn = kyrkorMap[forsamlingId] || []
 
         return (
-          <div key={forsamlingId} style={{ background: '#fff', border: '1px solid #D3D1C7', borderRadius: 12, padding: '16px', marginBottom: 12 }}>
+          <div key={forsamlingId} className="panel">
             {/* Församlingshuvud */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 10, gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 38, height: 38, background: '#EEEDFE', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#534AB7', fontSize: 20, flexShrink: 0 }}>⛪</div>
+                <Icon name="BuildingChurch" size={24} style={{ color: '#7D0037' }} />
                 <div>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: '#2C2C2A' }}>{c.name}</div>
-                  <div style={{ fontSize: 12, color: '#888780' }}>Admin: {c.admin} · {c.tel}</div>
+                  <div style={{ fontSize: 15, fontWeight: 500, color: '#000' }}>{c.name}</div>
+                  <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.72)' }}>Admin: {c.admin} · {c.tel}</div>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                <button className="btn btn-secondary btn-sm" onClick={() => showModal(<ForsamlingModal idx={i} forsamlingId={forsamlingId} />)}>✏️</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => showModal(<ForsamlingModal idx={i} forsamlingId={forsamlingId} />)}><Icon name="Pencil" size={18} />Redigera<span className="sr-only"> {c.name}</span></button>
                 <button className="btn btn-danger btn-sm" onClick={() => showModal(
                   <ConfirmModal
                     title={`Ta bort ${c.name}?`}
@@ -157,35 +158,35 @@ export default function ForsamlingarPage() {
                       deleteChurch(i)
                     }}
                   />
-                )}>🗑</button>
+                )}><Icon name="Trash" size={18} />Ta bort<span className="sr-only"> {c.name}</span></button>
               </div>
             </div>
 
-            {/* Statistik */}
-            <div style={{ display: 'flex', gap: 14, fontSize: 12, color: '#888780', marginBottom: 12 }}>
-              <span>👥 {peopleCount} ideella</span>
-              <span>📅 {passCount} aktiva pass</span>
-              <span>🏛 {byggn.length} kyrka{byggn.length !== 1 ? 'r' : ''}</span>
+            {/* Antal */}
+            <div className="meta-row" style={{ marginBottom: 12 }}>
+              <span><Icon name="Users" size={16} />{peopleCount} ideella</span>
+              <span><Icon name="Calendar" size={16} />{passCount} aktiva pass</span>
+              <span><Icon name="BuildingChurch" size={16} />{byggn.length} kyrk{byggn.length !== 1 ? 'or' : 'a'}</span>
             </div>
 
             {/* Kyrkor (byggnader) */}
-            <div style={{ background: '#F1EFE8', borderRadius: 8, padding: '10px 12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: byggn.length ? 8 : 0 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: '#888780', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Kyrkor</div>
-                <button className="btn btn-secondary btn-sm" onClick={() => showModal(<KyrkaModal forsamlingId={forsamlingId} onSaved={addKyrka} />)}>+ Lägg till kyrka</button>
+            <div className="row-line" style={{ paddingTop: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: byggn.length ? 8 : 0 }}>
+                <h3 className="week-label" style={{ margin: 0 }}>Kyrkor</h3>
+                <button className="btn btn-secondary btn-sm" onClick={() => showModal(<KyrkaModal forsamlingId={forsamlingId} onSaved={addKyrka} />)}><Icon name="Plus" size={18} />Lägg till kyrka</button>
               </div>
               {byggn.length === 0 ? (
-                <div style={{ fontSize: 12, color: '#888780', fontStyle: 'italic' }}>Inga kyrkor tillagda ännu.</div>
+                <div style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)' }}>Inga kyrkor tillagda ännu.</div>
               ) : (
                 byggn.map(k => (
-                  <div key={k.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #E5E3DC' }}>
+                  <div key={k.id} className="row-line" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 0' }}>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2A' }}>🏛 {k.name}</div>
-                      {k.address && <div style={{ fontSize: 11, color: '#888780' }}>{k.address}</div>}
+                      <div style={{ fontSize: 15, fontWeight: 500, color: '#000' }}>{k.name}</div>
+                      {k.address && <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.72)' }}>{k.address}</div>}
                     </div>
-                    <button className="btn btn-danger btn-sm" onClick={() => showModal(
+                    <button className="btn btn-danger btn-sm btn-icon" onClick={() => showModal(
                       <ConfirmModal title={`Ta bort ${k.name}?`} sub="Kyrkan tas bort permanent." confirmLabel="Ta bort" onConfirm={() => removeKyrka(k.id, forsamlingId)} />
-                    )}>🗑</button>
+                    )} aria-label={`Ta bort ${k.name}`}><Icon name="Trash" size={18} /></button>
                   </div>
                 ))
               )}

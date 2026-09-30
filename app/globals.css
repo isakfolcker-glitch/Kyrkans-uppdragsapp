@@ -911,6 +911,7 @@ a:hover { color: var(--text); }
 .btn-on-dark:focus-visible { outline-color: var(--beige); }
 
 .btn-sm  { padding: 0 16px; font-size: 14px; }
+.btn-icon { padding: 0; width: 44px; }
 .btn-lg  { min-height: 56px; padding: 0 28px; font-size: 18px; }
 
 /* ── Meddelanderutor ─────────────────────────────────────── */

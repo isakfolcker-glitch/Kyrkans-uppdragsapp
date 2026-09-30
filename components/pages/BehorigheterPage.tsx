@@ -4,16 +4,17 @@ import { useApp } from '@/lib/appStore'
 import { roleLabel } from '@/lib/appData'
 import { createClient } from '@/lib/supabase/client'
 import type { StaffPerms } from '@/lib/appStore'
+import Icon from '@/components/ui/Icon'
 
 const PERM_DEFS: { key: keyof StaffPerms; lbl: string; sub: string; icon: string }[] = [
-  { key: 'kan_skapa_pass',         lbl: 'Skapa pass',                icon: '📅', sub: 'Lägga till nya pass i schemat' },
-  { key: 'kan_redigera_pass',      lbl: 'Redigera och ställa in pass', icon: '✏️', sub: 'Ändra och avboka befintliga pass' },
-  { key: 'kan_se_bokningar',       lbl: 'Se bokningar',              icon: '👁', sub: 'Visa vilka som är bokade på pass' },
-  { key: 'kan_hantera_bokningar',  lbl: 'Hantera bokningar',         icon: '📋', sub: 'Lägga till och ta bort bokade personer' },
-  { key: 'kan_se_personal',        lbl: 'Se personal',               icon: '👥', sub: 'Visa personallistan' },
-  { key: 'kan_lagg_till_personal', lbl: 'Bjuda in ideella',          icon: '➕', sub: 'Bjuda in ideella och hantera deras grupper' },
-  { key: 'kan_hantera_grupper',    lbl: 'Hantera grupper',           icon: '🏷', sub: 'Skapa och ta bort grupper' },
-  { key: 'kan_skicka_utskick',     lbl: 'Skicka utskick',            icon: '✉️', sub: 'Skicka meddelanden till församlingen' },
+  { key: 'kan_skapa_pass',         lbl: 'Skapa pass',                icon: 'Calendar', sub: 'Lägga till nya pass i schemat' },
+  { key: 'kan_redigera_pass',      lbl: 'Redigera och ställa in pass', icon: 'Pencil', sub: 'Ändra och avboka befintliga pass' },
+  { key: 'kan_se_bokningar',       lbl: 'Se bokningar',              icon: 'Eye', sub: 'Visa vilka som är bokade på pass' },
+  { key: 'kan_hantera_bokningar',  lbl: 'Hantera bokningar',         icon: 'Bookmark', sub: 'Lägga till och ta bort bokade personer' },
+  { key: 'kan_se_personal',        lbl: 'Se personal',               icon: 'Users', sub: 'Visa personallistan' },
+  { key: 'kan_lagg_till_personal', lbl: 'Bjuda in ideella',          icon: 'UserPlus', sub: 'Bjuda in ideella och hantera deras grupper' },
+  { key: 'kan_hantera_grupper',    lbl: 'Hantera grupper',           icon: 'Tag', sub: 'Skapa och ta bort grupper' },
+  { key: 'kan_skicka_utskick',     lbl: 'Skicka utskick',            icon: 'Send', sub: 'Skicka meddelanden till församlingen' },
 ]
 
 const EMPTY_PERMS: StaffPerms = {
@@ -100,71 +101,71 @@ function PermModal({ personId, churchId }: { personId: any; churchId: number }) 
 
   return (
     <>
-      <div className="modal-title">🛡 Behörighet - {person.name}</div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 14, background: '#FFEBE1', borderRadius: 12, marginBottom: 18 }}>
-        <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#7D0037', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, flexShrink: 0 }}>{ini}</div>
+      <h2 className="modal-title">Behörighet <span className="serif">för {person.name}</span></h2>
+      <div className="panel" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 14, marginBottom: 18 }}>
+        <div aria-hidden="true" style={{ width: 40, height: 40, borderRadius: '50%', background: '#7D0037', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 500, flexShrink: 0 }}>{ini}</div>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#000' }}>{person.name}</div>
-          <div style={{ fontSize: 12, color: '#5F5E5A' }}>Ändringen gäller bara den valda församlingen.</div>
+          <div style={{ fontSize: 14, fontWeight: 500, color: '#000' }}>{person.name}</div>
+          <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.72)' }}>Ändringen gäller bara den valda församlingen.</div>
         </div>
       </div>
 
-      <div className="form-field">
-        <label>Roll i församlingen</label>
+      <div className="form-field" role="group" aria-labelledby="roll-rubrik">
+        <div id="roll-rubrik" style={{ fontSize: 14, fontWeight: 500, marginBottom: 6 }}>Roll i församlingen</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <RoleButton active={role === 'ideell'} onClick={() => setRole('ideell')}>👤 Ideell</RoleButton>
-          <RoleButton active={role === 'anstalld'} onClick={() => setRole('anstalld')}>👔 Anställd</RoleButton>
+          <RoleButton active={role === 'ideell'} onClick={() => setRole('ideell')}><Icon name="User" size={18} />Ideell</RoleButton>
+          <RoleButton active={role === 'anstalld'} onClick={() => setRole('anstalld')}><Icon name="UserCheck" size={18} />Anställd</RoleButton>
           {(isFAdmin() || isPAdmin() || isSuperAdmin()) && (
-            <RoleButton active={role === 'fadmin'} onClick={() => setRole('fadmin')}>🏛 Församlingsadmin</RoleButton>
+            <RoleButton active={role === 'fadmin'} onClick={() => setRole('fadmin')}><Icon name="BuildingChurch" size={18} />Församlingsadmin</RoleButton>
           )}
           {(isPAdmin() || isSuperAdmin()) && (
-            <RoleButton active={role === 'padmin'} onClick={() => setRole('padmin')}>🌐 Pastoratsadmin</RoleButton>
+            <RoleButton active={role === 'padmin'} onClick={() => setRole('padmin')}><Icon name="World" size={18} />Pastoratsadmin</RoleButton>
           )}
           {isSuperAdmin() && (
-            <RoleButton active={role === 'superadmin'} onClick={() => setRole('superadmin')}>⚙ Systemadmin</RoleButton>
+            <RoleButton active={role === 'superadmin'} onClick={() => setRole('superadmin')}><Icon name="Settings" size={18} />Systemadmin</RoleButton>
           )}
         </div>
       </div>
 
       {role === 'anstalld' && (
-        <div className="form-field">
-          <label>Detaljerade behörigheter i denna församling</label>
-          <div style={{ background: '#FFEBE1', borderRadius: 12, border: '1px solid rgba(125,0,55,0.1)', overflow: 'hidden' }}>
+        <fieldset className="form-field" style={{ border: 'none' }}>
+          <legend style={{ fontSize: 14, fontWeight: 500, marginBottom: 6 }}>Detaljerade behörigheter i denna församling</legend>
+          <div className="panel" style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
             {PERM_DEFS.map((def, index) => (
-              <label key={def.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', cursor: 'pointer', borderBottom: index < PERM_DEFS.length - 1 ? '1px solid rgba(0,0,0,0.05)' : 'none', background: perms[def.key] ? 'rgba(125,0,55,0.04)' : 'transparent' }}>
-                <input type="checkbox" checked={perms[def.key]} onChange={event => setPerms(prev => ({ ...prev, [def.key]: event.target.checked }))} style={{ accentColor: '#7D0037', width: 16, height: 16, flexShrink: 0 }} />
+              <label key={def.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', margin: 0, fontWeight: 400, cursor: 'pointer', borderBottom: index < PERM_DEFS.length - 1 ? '1px solid rgba(125,0,55,0.18)' : 'none', background: perms[def.key] ? 'rgba(255,195,170,0.35)' : 'transparent' }}>
+                <input type="checkbox" checked={perms[def.key]} onChange={event => setPerms(prev => ({ ...prev, [def.key]: event.target.checked }))} style={{ accentColor: '#7D0037', width: 20, height: 20, minHeight: 0, flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#000' }}>{def.icon} {def.lbl}</div>
-                  <div style={{ fontSize: 11, color: '#5F5E5A', marginTop: 1 }}>{def.sub}</div>
+                  <div style={{ fontSize: 15, fontWeight: 500, color: '#000', display: 'flex', alignItems: 'center', gap: 6 }}><Icon name={def.icon} size={18} style={{ color: '#7D0037' }} />{def.lbl}</div>
+                  <div style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)', marginTop: 1 }}>{def.sub}</div>
                 </div>
               </label>
             ))}
           </div>
-        </div>
+        </fieldset>
       )}
 
       {isEmployee && isAdminRole && (
-        <div className="alert alert-green">✓ Adminrollen ger automatiskt alla behörigheter inom sitt område.</div>
+        <div className="alert alert-green"><Icon name="Check" size={18} />Adminrollen ger automatiskt alla behörigheter inom sitt område.</div>
       )}
 
       {myPasses.length > 0 && (
-        <div className="form-field">
-          <label>Ansvarig för pass i denna församling</label>
-          <div style={{ background: '#FFEBE1', borderRadius: 10, padding: 12, maxHeight: 180, overflowY: 'auto' }}>
+        <fieldset className="form-field" style={{ border: 'none' }}>
+          <legend style={{ fontSize: 14, fontWeight: 500, marginBottom: 6 }}>Ansvarig för pass i denna församling</legend>
+          <div className="panel" style={{ padding: '4px 14px', maxHeight: 220, overflowY: 'auto', marginBottom: 0 }}>
             {myPasses.map(pass => (
-              <label key={pass.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', cursor: 'pointer' }}>
-                <input type="checkbox" checked={responsiblePasses.includes(pass.id)} onChange={() => togglePass(pass.id)} style={{ accentColor: '#7D0037', width: 15, height: 15 }} />
-                <span style={{ fontSize: 13 }}>{pass.title} <span style={{ color: '#BC8E4C' }}>({pass.date})</span></span>
+              <label key={pass.id} style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, margin: 0, fontWeight: 400, cursor: 'pointer' }}>
+                <input type="checkbox" checked={responsiblePasses.includes(pass.id)} onChange={() => togglePass(pass.id)} style={{ accentColor: '#7D0037', width: 20, height: 20, minHeight: 0 }} />
+                <span style={{ fontSize: 15 }}>{pass.title} <span style={{ color: 'rgba(0,0,0,0.72)' }}>({pass.date})</span></span>
               </label>
             ))}
           </div>
-        </div>
+        </fieldset>
       )}
 
-      {error && <div className="alert alert-red">{error}</div>}
+      {error && <div role="alert" className="alert alert-red">{error}</div>}
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
-        <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? 'Sparar...' : '✓ Spara'}</button>
+        <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? 'Sparar...' : 'Spara'}</button>
       </div>
     </>
   )
@@ -175,11 +176,13 @@ function RoleButton({ active, onClick, children }: { active: boolean; onClick: (
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       style={{
-        flex: 1, minWidth: 120, padding: '9px 12px', borderRadius: 10,
-        border: `1.5px solid ${active ? '#7D0037' : 'rgba(0,0,0,0.12)'}`,
-        background: active ? '#FFEBE1' : '#fff',
-        fontWeight: active ? 700 : 400, cursor: 'pointer', fontSize: 12, color: '#000',
+        flex: 1, minWidth: 140, minHeight: 44, padding: '0 14px', borderRadius: 999,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        border: `1.5px solid ${active ? '#FFC3AA' : 'rgba(125,0,55,0.35)'}`,
+        background: active ? '#FFC3AA' : 'transparent',
+        fontWeight: active ? 500 : 400, cursor: 'pointer', fontSize: 14, color: '#000', fontFamily: 'inherit',
       }}
     >
       {children}
@@ -201,20 +204,19 @@ export default function BehorigheterPage() {
       </div>
 
       <div className="alert alert-blue" style={{ marginBottom: 20, flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-        <strong>Behörighet per församling</strong>
-        <div style={{ fontSize: 12, lineHeight: 1.8 }}>
+        <strong style={{ fontWeight: 500 }}>Behörighet per församling</strong>
+        <div style={{ fontSize: 14, lineHeight: 1.6, fontWeight: 400 }}>
           Samma konto kan vara ideell i en församling och anställd eller admin i en annan.
           Detaljerade rättigheter för anställda sparas också separat per församling.
         </div>
       </div>
 
       {members.length === 0 ? (
-        <div style={{ background: '#fff', borderRadius: 16, padding: '32px 24px', textAlign: 'center', border: '1px solid rgba(125,0,55,0.08)' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>👥</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#000' }}>Ingen personal att visa</div>
+        <div className="empty-state panel">
+          <div className="empty-state-title">Ingen personal att visa</div>
         </div>
       ) : (
-        <div style={{ background: '#fff', border: '1px solid rgba(125,0,55,0.08)', borderRadius: 16, padding: '4px 16px' }}>
+        <div className="panel" style={{ padding: '4px 16px' }}>
           <div className="person-list">
             {members.map(person => {
               const [label, color, background] = roleLabel(person)
@@ -222,16 +224,16 @@ export default function BehorigheterPage() {
               const isAdminRole = ['forsamling', 'pastorat', 'super'].includes(person.adminLevel)
               return (
                 <div key={`${person.id}-${person.church}`} className="person-row">
-                  <div className="person-av" style={{ background: '#7D0037', color: '#fff' }}>{ini}</div>
+                  <div className="person-av" aria-hidden="true" style={{ background: '#7D0037', color: '#fff' }}>{ini}</div>
                   <div className="person-info">
                     <div className="person-name">{person.name}</div>
                     <div className="person-email">{person.mail}</div>
                     <div className="person-tags">
                       <span className="role-tag" style={{ background, color }}>{label}</span>
-                      {isAdminRole && <span className="role-tag" style={{ background: '#BEE1C8', color: '#00554B', marginLeft: 4 }}>Alla behörigheter</span>}
+                      {isAdminRole && <span className="role-tag" style={{ background: '#FFC3AA', color: '#000', marginLeft: 4 }}>Alla behörigheter</span>}
                     </div>
                   </div>
-                  <button className="btn btn-secondary btn-sm" onClick={() => showModal(<PermModal personId={person.id} churchId={churchId} />)}>🛡 Ändra</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => showModal(<PermModal personId={person.id} churchId={churchId} />)}><Icon name="Shield" size={18} />Ändra<span className="sr-only"> behörighet för {person.name}</span></button>
                 </div>
               )
             })}
