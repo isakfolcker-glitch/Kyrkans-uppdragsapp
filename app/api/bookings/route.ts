@@ -4,8 +4,17 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sendBookingConfirmation } from '@/lib/email'
 import { promoteFromWaitlist } from '@/app/api/waitlist/route'
 import { isLockedForSelfCancel } from '@/lib/passTiming'
-import { canAccessChurch, canAdminChurch as rpcCanAdminChurch, hasStaffPermission } from '@/lib/membershipAuth'
-import { getCaller, canAdminChurch } from '@/lib/authz'
+import { canAccessChurch } from '@/lib/membershipAuth'
+import { getCaller, canAdminOrStaff, isKioskIn } from '@/lib/authz'
+
+const KIOSK_AV = '#FFEBE1'
+const KIOSK_AC = '#7D0037'
+const EMAIL_RE = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/
+const TEL_RE = /^[0-9+\-\s()]*$/
+
+function initials(name: string) {
+  return name.split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase()
+}
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -19,7 +28,7 @@ export async function POST(req: NextRequest) {
   const admin = createAdminClient()
   const { data: pass } = await admin
     .from('passes')
-    .select('id, church_id, spots, filled, title, date_str, time_str, plats, vk, tel')
+    .select('id, church_id, spots, filled, title, date_str, time_str, plats, vk, tel, pub_status, cancelled, kiosk_visible')
     .eq('id', pass_id)
     .single()
 
@@ -29,9 +38,10 @@ export async function POST(req: NextRequest) {
   }
   if (pass.filled >= pass.spots) return NextResponse.json({ error: 'Fullbokat' }, { status: 409 })
 
-  // Admin för passets församling eller ansvarig för passet kan boka in andra
-  // (manuellt eller utan konto). Övriga kan bara boka sig själva, och
-  // bekräftelsen går då bara till den egna adressen från inloggningen.
+  // Admin för passets församling, anställd med kan_hantera_bokningar i den
+  // församlingen eller ansvarig för passet kan boka in andra (manuellt eller
+  // utan konto). Kioskkonton får bara boka utan konto (se nedan). Övriga kan
+  // bara boka sig själva, och bekräftelsen går då bara till den egna adressen.
   const { caller } = await getCaller()
   if (!caller) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
 
@@ -42,7 +52,62 @@ export async function POST(req: NextRequest) {
     .eq('profile_id', user.id)
     .maybeSingle()
 
-  const canManageBookings = (await canAdminChurch(caller, pass.church_id)) || Boolean(responsible)
+  const canManageBookings = (await canAdminOrStaff(caller, 'kan_hantera_bokningar', pass.church_id))
+    || Boolean(responsible)
+
+  // Kioskkonto i passets församling: bara bokning utan konto på publicerade,
+  // ej inställda pass som visas i kiosken. Inget annat.
+  if (!canManageBookings && isKioskIn(caller, pass.church_id)) {
+    if (no_account !== true || override_profile_id) {
+      return NextResponse.json({ error: 'Kioskkontot kan bara boka utan konto' }, { status: 403 })
+    }
+    if (pass.pub_status !== 'live' || pass.cancelled || pass.kiosk_visible !== true) {
+      return NextResponse.json({ error: 'Passet går inte att boka i kiosken' }, { status: 403 })
+    }
+
+    const kioskName = typeof name === 'string' ? name.trim() : ''
+    const kioskMail = typeof mail === 'string' ? mail.trim().toLowerCase() : ''
+    const kioskTel = typeof tel === 'string' ? tel.trim() : ''
+    if (!kioskName || kioskName.length > 100) {
+      return NextResponse.json({ error: 'Ange ett namn (högst 100 tecken).' }, { status: 400 })
+    }
+    if (mail != null && typeof mail !== 'string') return NextResponse.json({ error: 'Ogiltig e-post' }, { status: 400 })
+    if (kioskMail && (kioskMail.length > 254 || !EMAIL_RE.test(kioskMail))) {
+      return NextResponse.json({ error: 'Ogiltig e-postadress.' }, { status: 400 })
+    }
+    if (tel != null && typeof tel !== 'string') return NextResponse.json({ error: 'Ogiltigt telefonnummer' }, { status: 400 })
+    if (kioskTel.length > 30 || !TEL_RE.test(kioskTel)) {
+      return NextResponse.json({ error: 'Ogiltigt telefonnummer.' }, { status: 400 })
+    }
+
+    const { data: kioskBooking, error: kioskErr } = await admin.from('bookings').insert({
+      pass_id: pass.id,
+      profile_id: null,
+      name: kioskName,
+      mail: kioskMail,
+      tel: kioskTel,
+      source: 'kiosk',
+      no_account: true,
+      ini: initials(kioskName),
+      av_color: KIOSK_AV,
+      ac_color: KIOSK_AC,
+    }).select().single()
+    if (kioskErr) return NextResponse.json({ error: `Kunde inte spara bokningen: ${kioskErr.message}` }, { status: 500 })
+
+    if (kioskMail) {
+      await sendBookingConfirmation({
+        to: kioskMail,
+        name: kioskName,
+        passTitle: pass.title,
+        date: pass.date_str,
+        time: pass.time_str,
+        plats: pass.plats,
+        vk: pass.vk,
+        tel: pass.tel,
+      }).catch(() => {})
+    }
+    return NextResponse.json(kioskBooking)
+  }
 
   let profileId: string | null = user.id
   if (override_profile_id) {
@@ -153,8 +218,9 @@ export async function DELETE(req: NextRequest) {
     .eq('profile_id', user.id)
     .maybeSingle()
 
-  const canManage = await rpcCanAdminChurch(supabase, churchId)
-    || await hasStaffPermission(supabase, user.id, churchId, 'kan_hantera_bokningar')
+  const { caller } = await getCaller()
+  if (!caller) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
+  const canManage = (await canAdminOrStaff(caller, 'kan_hantera_bokningar', churchId))
     || Boolean(responsible)
 
   if (!isOwner && !canManage) {

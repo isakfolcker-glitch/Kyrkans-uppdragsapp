@@ -209,14 +209,32 @@ export const STAFF_PERMISSIONS: readonly StaffPermission[] = [
   'kan_se_personal', 'kan_lagg_till_personal', 'kan_hantera_grupper', 'kan_skicka_utskick',
 ]
 
-/** Anställd (direkt medlemskap med rollen anstalld) med viss personalbehörighet i just den församlingen. */
-export async function hasStaffPermission(caller: Caller, churchId: number, perm: StaffPermission): Promise<boolean> {
+/**
+ * Anställd (direkt aktivt medlemskap med rollen anstalld i just den församlingen)
+ * som en admin uttryckligen gett behörigheten i profile_church_permissions för
+ * just den församlingen. Gäller aldrig andra församlingar.
+ */
+export async function hasStaffPermission(caller: Caller, perm: StaffPermission, churchId: number | null | undefined): Promise<boolean> {
+  if (churchId == null || Number.isNaN(Number(churchId))) return false
+  if (!(STAFF_PERMISSIONS as readonly string[]).includes(perm)) return false
   const m = caller.memberships.find(x => x.churchId === Number(churchId))
   if (!m || m.role !== 'anstalld') return false
   const admin = createAdminClient()
   const { data } = await admin.from('profile_church_permissions')
     .select(perm).eq('profile_id', caller.id).eq('church_id', Number(churchId)).maybeSingle()
   return (data as Record<string, unknown> | null)?.[perm] === true
+}
+
+/** Admin för församlingen, eller anställd med den givna behörigheten i just den församlingen. */
+export async function canAdminOrStaff(caller: Caller, perm: StaffPermission, churchId: number | null | undefined): Promise<boolean> {
+  if (await canAdminChurch(caller, churchId)) return true
+  return hasStaffPermission(caller, perm, churchId)
+}
+
+/** Kioskkonto: aktivt medlemskap med rollen kiosk i just den församlingen. */
+export function isKioskIn(caller: Caller, churchId: number | null | undefined): boolean {
+  if (churchId == null) return false
+  return caller.memberships.some(m => m.churchId === Number(churchId) && m.role === 'kiosk')
 }
 
 /** Grupper som hör till en viss församling (inte gemensamma grupper utan församling). */

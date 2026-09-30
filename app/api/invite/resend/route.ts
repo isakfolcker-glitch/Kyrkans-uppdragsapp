@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendInvitation } from '@/lib/email'
-import { getCaller, canAdminProfile, unauthorized, forbidden } from '@/lib/authz'
+import { getCaller, canAdminProfile, hasStaffPermission, profileMaxLevel, unauthorized, forbidden } from '@/lib/authz'
 
 export async function POST(req: NextRequest) {
   const { caller } = await getCaller()
@@ -13,9 +13,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Person och församling krävs' }, { status: 400 })
   }
 
-  // Bara admin för personens församling, och personen får inte ha högre nivå än anroparen.
-  if (!(await canAdminProfile(caller, profileId, churchId))) {
+  // Admin för personens församling (personen får inte ha högre nivå än anroparen),
+  // eller anställd med kan_lagg_till_personal där, som bara får bjuda in ideella
+  // utan adminnivå någonstans.
+  const isProfileAdmin = await canAdminProfile(caller, profileId, churchId)
+  const staffResend = !isProfileAdmin && profileId !== caller.id
+    && await hasStaffPermission(caller, 'kan_lagg_till_personal', churchId)
+  if (!isProfileAdmin && !staffResend) {
     return forbidden('Saknar behörighet för personen i församlingen')
+  }
+  if (staffResend) {
+    const target = await profileMaxLevel(profileId)
+    if (!target || target.level !== 'none') return forbidden('Du får bara bjuda in ideella igen')
   }
 
   const admin = createAdminClient()
@@ -28,6 +37,9 @@ export async function POST(req: NextRequest) {
     .maybeSingle()
 
   if (!membership) return NextResponse.json({ error: 'Aktivt medlemskap saknas' }, { status: 404 })
+  if (staffResend && membership.role !== 'ideell') {
+    return forbidden('Du får bara bjuda in ideella igen')
+  }
 
   const rawProfile = Array.isArray((membership as any).profiles)
     ? (membership as any).profiles[0]

@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   const { caller } = await getCaller()
   if (!caller) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
   const allowed = (await canAdminChurch(caller, churchId))
-    || (await hasStaffPermission(caller, churchId, 'kan_skapa_pass'))
+    || (await hasStaffPermission(caller, 'kan_skapa_pass', churchId))
   if (!allowed) {
     return NextResponse.json({ error: 'Saknar behörighet att skapa pass i församlingen' }, { status: 403 })
   }

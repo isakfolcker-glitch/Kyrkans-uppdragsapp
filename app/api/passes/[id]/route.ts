@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendCancellationNotice, sendPassChangeNotice } from '@/lib/email'
-import { getCaller, canAdminChurch, filterMembersOfChurch, type Caller } from '@/lib/authz'
+import { getCaller, canAdminChurch, canAdminOrStaff, filterMembersOfChurch, type Caller } from '@/lib/authz'
 
 // Bara dessa fält får ändras. church_id, created_by, filled och cancelled
 // (cancelled hanteras separat nedan) ändras aldrig direkt härifrån.
@@ -11,9 +11,9 @@ const EDITABLE = [
   'description', 'pub_status', 'pub_date', 'kiosk_visible',
 ] as const
 
-/** Admin för passets församling eller ansvarig för passet. */
+/** Admin för passets församling, anställd med kan_redigera_pass där, eller ansvarig för passet. */
 async function canEditPass(caller: Caller, churchId: number, passId: number) {
-  if (await canAdminChurch(caller, churchId)) return true
+  if (await canAdminOrStaff(caller, 'kan_redigera_pass', churchId)) return true
 
   const admin = createAdminClient()
   const { data: responsible } = await admin

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendBulkMessage } from '@/lib/email'
-import { getCaller, canAdminChurch } from '@/lib/authz'
+import { getCaller, canAdminOrStaff } from '@/lib/authz'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -16,10 +16,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Församling krävs' }, { status: 400 })
   }
 
-  // Bara admin för den församling utskicket gäller.
+  // Admin för den församling utskicket gäller, eller anställd med
+  // kan_skicka_utskick i just den församlingen.
   const { caller } = await getCaller()
   if (!caller) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
-  if (!(await canAdminChurch(caller, churchId))) {
+  if (!(await canAdminOrStaff(caller, 'kan_skicka_utskick', churchId))) {
     return NextResponse.json({ error: 'Saknar behörighet att skicka utskick i församlingen' }, { status: 403 })
   }
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { canAssignRole, roleIsEmployee, roleToAdminLevel } from '@/lib/membershipAuth'
 import {
-  getCaller, canAdminChurch, canAssignLevel, churchLevel, isValidRole, levelRank, profileMaxLevel,
+  getCaller, canAdminChurch, canAssignLevel, churchLevel, hasStaffPermission, isValidRole, levelRank, profileMaxLevel,
   unauthorized, forbidden,
 } from '@/lib/authz'
 
@@ -21,12 +21,17 @@ export async function POST(req: NextRequest) {
   if (email != null && typeof email !== 'string') return NextResponse.json({ error: 'Ogiltig e-post' }, { status: 400 })
   if (phone != null && typeof phone !== 'string') return NextResponse.json({ error: 'Ogiltigt telefonnummer' }, { status: 400 })
 
-  // Bara admin för församlingen, och aldrig högre nivå än man själv har där.
-  if (!(await canAdminChurch(caller, churchId))) {
-    return forbidden('Du kan bara lägga till personer i en församling du är admin för.')
+  // Admin för församlingen (aldrig högre nivå än man själv har där), eller
+  // anställd med kan_lagg_till_personal i just den församlingen, som bara får
+  // lägga till personer med rollen ideell.
+  const isChurchAdmin = await canAdminChurch(caller, churchId)
+  const staffAdd = !isChurchAdmin && await hasStaffPermission(caller, 'kan_lagg_till_personal', churchId)
+  if (!isChurchAdmin && !staffAdd) {
+    return forbidden('Du kan bara lägga till personer i en församling där du har behörighet.')
   }
+  if (staffAdd && role !== 'ideell') return forbidden('Du kan bara lägga till ideella.')
   const myLevel = await churchLevel(caller, churchId)
-  if (!canAssignLevel(myLevel, roleToAdminLevel(role)) || !(await canAssignRole(supabase, caller.id, churchId, role))) {
+  if (isChurchAdmin && (!canAssignLevel(myLevel, roleToAdminLevel(role)) || !(await canAssignRole(supabase, caller.id, churchId, role)))) {
     return forbidden('Du kan inte ge någon högre behörighet än du själv har i församlingen.')
   }
 

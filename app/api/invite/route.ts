@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sendInvitation } from '@/lib/email'
 import { canAssignRole, roleIsEmployee, roleToAdminLevel } from '@/lib/membershipAuth'
 import {
-  getCaller, canAdminChurch, canAssignLevel, churchLevel, isValidRole, levelRank, profileMaxLevel,
+  getCaller, canAdminChurch, canAssignLevel, churchLevel, hasStaffPermission, isValidRole, levelRank, profileMaxLevel,
   unauthorized, forbidden,
 } from '@/lib/authz'
 
@@ -26,12 +26,19 @@ export async function POST(req: NextRequest) {
   const normalizedName = name.trim()
   const adminLevel = roleToAdminLevel(role)
 
-  // Bara admin för församlingen, och aldrig högre nivå än man själv har där.
-  if (!(await canAdminChurch(caller, churchId))) {
-    return forbidden('Du kan bara bjuda in till en församling du är admin för.')
+  // Admin för församlingen (aldrig högre nivå än man själv har där), eller
+  // anställd med kan_lagg_till_personal i just den församlingen, som bara får
+  // bjuda in med rollen ideell och aldrig ändra någons befintliga roll.
+  const isChurchAdmin = await canAdminChurch(caller, churchId)
+  const staffInvite = !isChurchAdmin && await hasStaffPermission(caller, 'kan_lagg_till_personal', churchId)
+  if (!isChurchAdmin && !staffInvite) {
+    return forbidden('Du kan bara bjuda in till en församling där du har behörighet.')
+  }
+  if (staffInvite && role !== 'ideell') {
+    return forbidden('Du kan bara bjuda in ideella.')
   }
   const myLevel = await churchLevel(caller, churchId)
-  if (!canAssignLevel(myLevel, adminLevel) || !(await canAssignRole(supabase, caller.id, churchId, role))) {
+  if (isChurchAdmin && (!canAssignLevel(myLevel, adminLevel) || !(await canAssignRole(supabase, caller.id, churchId, role)))) {
     return forbidden('Du kan inte ge någon högre behörighet än du själv har i församlingen.')
   }
   if (normalizedEmail === caller.email?.toLowerCase()) {
@@ -135,6 +142,9 @@ export async function POST(req: NextRequest) {
     .eq('profile_id', existingUser.id)
     .eq('church_id', churchId)
     .maybeSingle()
+  if (staffInvite && currentMembership?.active) {
+    return NextResponse.json({ error: 'Personen finns redan i församlingen' }, { status: 409 })
+  }
   if (currentMembership?.active && levelRank(currentMembership.admin_level) > levelRank(myLevel)) {
     return forbidden('Personen har högre behörighet i församlingen än du. Kontakta en pastoratsadmin.')
   }
