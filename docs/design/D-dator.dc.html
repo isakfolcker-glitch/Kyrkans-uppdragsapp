@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<title>Startsida, förslag D dator</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&amp;family=Spectral:ital,wght@1,400;1,500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'DM Sans',Arial,sans-serif;background:#FFEBE1;color:#000}
+a{color:#7D0037}a:hover{color:#000}
+.serif{font-family:'Spectral','Times New Roman',serif;font-style:italic;font-weight:400}
+</style>
+</helmet>
+<div style="width: 1280px; height: 900px; box-sizing: border-box; display: flex; background: #FFEBE1; font-family: 'DM Sans', Arial, sans-serif; color: #000">
+<nav aria-label="Huvudmeny" style="width: 232px; flex-shrink: 0; box-sizing: border-box; background: #7D0037; color: #FFEBE1; padding: 40px 20px; display: flex; flex-direction: column; gap: 44px; border-radius: 0 0 116px 0">
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 0 12px">
+<span style="font-size: 18px; font-weight: 500">Kyrkouppdrag</span>
+<span class="serif" style="font-size: 15px">Domkyrkan</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px; font-size: 16px">
+<a href="#" aria-current="page" style="display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 22px; background: #FFC3AA; color: #000; text-decoration: none; font-weight: 500"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5"></path><path d="M6 10v9h12v-9"></path><path d="M10 19v-5a2 2 0 0 1 4 0v5"></path></svg>Start</a>
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 11px 12px; color: #FFEBE1; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14" rx="3"></rect><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"></path></svg>Lediga pass</a>
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 11px 12px; color: #FFEBE1; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1Z"></path></svg>Mina bokningar</a>
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 11px 12px; color: #FFEBE1; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15L6 16Z"></path><path d="M10 20.5a2 2 0 0 0 4 0"></path></svg>Notiser (2)</a>
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 11px 12px; color: #FFEBE1; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5"></circle><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"></path></svg>Min profil</a>
+</div>
+</nav>
+<main style="flex-grow: 1; box-sizing: border-box; padding: 52px 64px; display: grid; grid-template-columns: minmax(0, 1fr) 280px; column-gap: 56px; align-content: start; row-gap: 40px">
+<header style="grid-column: span 2; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px">
+<h1 style="margin: 0; font-size: 56px; font-weight: 500; line-height: 0.98">God morgon,<br><span class="serif">Maria</span></h1>
+<div style="display: flex; align-items: center; gap: 22px; padding-left: 24px; border-left: 1px solid rgba(0,0,0,0.18)">
+<div style="width: 104px; height: 104px; border-radius: 52px 52px 0 0; background: #FF785A; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 12px; box-sizing: border-box; line-height: 1">
+<span style="font-size: 40px; font-weight: 500">4</span><span class="serif" style="font-size: 16px">okt</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px; font-size: 16px">
+<span>Ditt nästa uppdrag</span>
+<span style="font-size: 22px; font-weight: 500">Söndagsgudstjänst</span>
+<span style="color: rgba(0,0,0,0.72)">09.30, Domkyrkan, kyrkvärd</span>
+<a href="#" style="font-weight: 500">Visa passet</a>
+</div>
+</div>
+</header>
+<section aria-labelledby="dpass" style="display: flex; flex-direction: column; gap: 26px">
+<h2 id="dpass" style="margin: 0; font-size: 28px; font-weight: 500">Kommande pass <span class="serif">för dig</span></h2>
+<sc-for list="{{weeks}}" as="w" hint-placeholder-count="2">
+<div style="display: flex; flex-direction: column">
+<h3 style="margin: 0 0 6px; font-size: 16px; font-weight: 500; color: #7D0037">{{w.label}}</h3>
+<sc-for list="{{w.rows}}" as="r" hint-placeholder-count="2">
+<div style="display: grid; grid-template-columns: 72px minmax(0, 1fr) 160px; align-items: center; gap: 20px; padding: 14px 0; border-top: 1px solid rgba(125,0,55,0.18)">
+<span style="display: flex; flex-direction: column; line-height: 1.05"><span style="font-size: 28px; font-weight: 500">{{r.day}}</span><span style="font-size: 14px">{{r.wd}}</span></span>
+<span style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 18px; font-weight: 500">{{r.title}}</span><span style="font-size: 15px; color: rgba(0,0,0,0.72)">{{r.meta}}</span></span>
+<sc-if value="{{r.booked}}" hint-placeholder-val="{{false}}">
+<span style="justify-self: end; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 16px; border-radius: 18px; background: #FFC3AA; font-size: 15px; font-weight: 500"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>Du är bokad</span>
+</sc-if>
+<sc-if value="{{r.open}}" hint-placeholder-val="{{true}}">
+<button type="button" style="justify-self: end; min-height: 44px; padding: 0 20px; border: 0; border-radius: 22px; background: #7D0037; color: #fff; font-family: inherit; font-size: 15px; font-weight: 500">Ta passet</button>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</section>
+<aside aria-labelledby="dnotiser" style="display: flex; flex-direction: column; gap: 14px; padding-top: 6px">
+<h2 id="dnotiser" style="margin: 0; font-size: 20px; font-weight: 500">Nytt sedan sist</h2>
+<a href="#" style="display: flex; flex-direction: column; gap: 3px; padding: 14px 0; border-top: 1px solid rgba(125,0,55,0.18); color: #000; text-decoration: none; font-size: 15px"><span style="font-weight: 500">Johan svarade på din fråga</span><span style="color: rgba(0,0,0,0.72)">Nattvardsgudstjänst, i går</span></a>
+<a href="#" style="display: flex; flex-direction: column; gap: 3px; padding: 14px 0; border-top: 1px solid rgba(125,0,55,0.18); color: #000; text-decoration: none; font-size: 15px"><span style="font-weight: 500">Nytt pass för konsertguider</span><span style="color: rgba(0,0,0,0.72)">Orgelkonsert, Bach, 5 oktober</span></a>
+<a href="#" style="font-size: 15px; font-weight: 500">Alla notiser</a>
+</aside>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      weeks: [
+        { label: 'Den här veckan', rows: [
+          { day: '4', wd: 'söndag', title: 'Söndagsgudstjänst', meta: '09.30 · Domkyrkan · kyrkvärd', booked: true, open: false },
+          { day: '5', wd: 'måndag', title: 'Orgelkonsert, Bach', meta: '19.00 · Domkyrkan · 3 platser kvar', booked: false, open: true }
+        ] },
+        { label: 'Nästa vecka', rows: [
+          { day: '8', wd: 'torsdag', title: 'Skördefest i parken', meta: '15.00 · Domkyrkoparken · 5 platser kvar', booked: false, open: true },
+          { day: '9', wd: 'fredag', title: 'Barnkör, ledarstöd', meta: '09.30 · Församlingshemmet · 1 plats kvar', booked: false, open: true }
+        ] }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
