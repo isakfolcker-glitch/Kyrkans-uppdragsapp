@@ -496,23 +496,173 @@ a:hover { color: var(--text); }
   margin-bottom: 14px;
 }
 
-/* ── Statistikrutor (tas bort i nya startsidan) ─────────── */
-.stats-grid {
+/* ── Startsidan ───────────────────────────────────────────── */
+.muted { color: var(--text-2); }
+
+.link-btn {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--vin);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.link-btn:hover { color: var(--text); }
+
+.start {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 16px;
-  margin-bottom: 26px;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 26px;
 }
 
-.stat-card {
-  background: var(--yta);
-  border-radius: 20px;
-  padding: 22px 24px;
-  border: 1px solid var(--linje);
+.start-head { display: flex; flex-direction: column; }
+.start-greeting { margin: 0; font-size: 56px; font-weight: 500; line-height: 0.98; }
+
+.next { display: flex; align-items: center; gap: 16px; }
+.next-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.next-kicker { font-size: 14px; }
+.next-title  { font-size: 20px; font-weight: 500; }
+.next-meta   { font-size: 14px; }
+
+.start-main { display: flex; flex-direction: column; gap: 32px; min-width: 0; }
+.start-section { display: flex; flex-direction: column; }
+.start-h2 { margin: 0 0 4px; font-size: 22px; font-weight: 500; line-height: 1.15; }
+.start-h2-small { font-size: 20px; }
+.start-note { font-size: 15px; color: var(--text-2); margin: 8px 0; }
+
+.pass-rows, .notif-rows, .overview-rows { list-style: none; margin: 0; padding: 0; }
+
+.week { display: flex; flex-direction: column; }
+.week + .week .week-label { margin-top: 14px; }
+
+.pass-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
 }
 
-.stat-num { font-size: 40px; font-weight: 500; color: var(--vin); line-height: 1; }
-.stat-lbl { font-size: 14px; color: var(--text-2); margin-top: 8px; }
+.pass-row-day  { display: flex; flex-direction: column; line-height: 1.05; }
+.pass-row-num  { font-size: 22px; font-weight: 500; }
+.pass-row-wd   { font-size: 12px; }
+.wd-long       { display: none; }
+.pass-row-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pass-row-title { font-size: 16px; font-weight: 500; }
+.pass-row-meta  { font-size: 13px; }
+
+.booked-pill {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 18px;
+  background: var(--rosa);
+  color: #000;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.take-btn { justify-self: end; padding: 0 16px; font-size: 14px; }
+
+.start-aside { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+.notif-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  min-height: 44px;
+  padding: 14px 0;
+  border: none;
+  border-top: 1px solid var(--linje);
+  background: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.notif-row:hover { background: rgba(125,0,55,0.04); }
+
+.overview-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 10px 0;
+}
+
+.overview-text {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+}
+
+.overview-value { font-weight: 500; font-size: 18px; }
+
+@media (min-width: 901px) {
+  .start { row-gap: 40px; }
+  .start-head {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .next { gap: 22px; padding-left: 24px; border-left: 1px solid var(--linje); }
+  .next-text { gap: 4px; font-size: 16px; }
+  .next-kicker { font-size: 16px; }
+  .next-title  { font-size: 22px; }
+  .next-meta   { font-size: 16px; }
+
+  .start-section { gap: 0; }
+  .start-section > .start-h2 { margin-bottom: 22px; font-size: 28px; }
+  .start-aside > .start-h2 { font-size: 20px; margin: 0; }
+  .week + .week { margin-top: 26px; }
+  .week + .week .week-label { margin-top: 0; }
+
+  .pass-row {
+    grid-template-columns: 72px minmax(0, 1fr) 160px;
+    gap: 20px;
+    padding: 14px 0;
+  }
+  .pass-row-num   { font-size: 28px; }
+  .pass-row-wd    { font-size: 14px; }
+  .wd-long        { display: inline; }
+  .wd-short       { display: none; }
+  .pass-row-title { font-size: 18px; }
+  .pass-row-meta  { font-size: 15px; }
+  .booked-pill    { padding: 0 16px; font-size: 15px; }
+  .take-btn       { padding: 0 20px; font-size: 15px; }
+}
+
+@media (min-width: 1180px) {
+  .start {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    column-gap: 56px;
+    align-content: start;
+  }
+  .start-head  { grid-column: 1 / -1; }
+  .start-aside { padding-top: 6px; }
+}
 
 /* ── Kort (generellt) ────────────────────────────────────── */
 .kuf-card {
