@@ -58,7 +58,8 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-a { color: var(--vin); }
+/* Länkar är alltid understrukna (Tailwinds grundstil tar annars bort det) */
+a { color: var(--vin); text-decoration: underline; text-underline-offset: 3px; }
 a:hover { color: var(--text); }
 
 :focus-visible {
@@ -1203,6 +1204,24 @@ a:hover { color: var(--text); }
 }
 
 .person-info { flex: 1; min-width: 0; }
+
+.person-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+/* Smal skärm: åtgärderna på egen rad under namnet, så att namnet får plats */
+@media (max-width: 600px) {
+  .person-row { flex-wrap: wrap; }
+  .person-actions {
+    flex-basis: 100%;
+    justify-content: flex-start;
+    padding-left: 50px;
+  }
+}
 .person-name  { font-size: 15px; font-weight: 500; color: var(--text); }
 .person-email { font-size: 14px; color: var(--text-2); margin-top: 2px; }
 .person-tags  { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
@@ -1503,6 +1522,26 @@ a:hover { color: var(--text); }
 .policy-text ul { padding-left: 22px; margin-bottom: 10px; }
 .policy-text li { margin-bottom: 4px; }
 .policy-text strong { font-weight: 500; }
+
+/* ── Demoremsa ─────────────────────────────────────────── */
+.demo-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 12px 4px 16px;
+  background: var(--rosa);
+  color: #000;
+  font-size: 14px;
+}
+
+.demo-strip-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.demo-short { display: none; }
+
+@media (max-width: 600px) {
+  .demo-long  { display: none; }
+  .demo-short { display: inline; }
+}
 
 /* ── Responsivt ──────────────────────────────────────────── */
 @media (max-width: 900px) {

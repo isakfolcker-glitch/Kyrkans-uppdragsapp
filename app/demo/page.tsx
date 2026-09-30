@@ -67,15 +67,14 @@ export default function DemoPage() {
   return (
     <DemoProvider key={activeRole} initialIndex={activeRole}>
       {/* Demoremsa överst, i flödet så att den inte täcker appen */}
-      <div role="region" aria-label="Demoläge" style={{
-        background: '#FFC3AA', color: '#000',
-        display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px 12px',
-        padding: '4px 16px', fontSize: 14,
-      }}>
-        <strong style={{ fontWeight: 500 }}>Demoläge</strong>
-        <span style={{ flex: 1, minWidth: 180 }}>Ingen data sparas. Byt roll längst ned i menyn.</span>
+      <div role="region" aria-label="Demoläge" className="demo-strip">
+        <span className="demo-strip-text">
+          <strong style={{ fontWeight: 500 }}>Demoläge</strong>
+          <span className="demo-long">. Ingen data sparas. Byt roll längst ned i menyn.</span>
+          <span className="demo-short">, inget sparas</span>
+        </span>
         <button type="button" className="btn btn-secondary btn-sm" onClick={() => setActiveRole(null)}>
-          <Icon name="X" size={18} />Avsluta demo
+          <Icon name="X" size={18} />Avsluta<span className="demo-long"> demo</span>
         </button>
       </div>
 

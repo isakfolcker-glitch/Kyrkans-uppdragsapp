@@ -263,7 +263,7 @@ export default function PersonalPage() {
                     {person.groups.map(groupId => <span key={groupId} className={`tag ${gCls(groupId, groups)}`}>{gLabel(groupId, groups)}</span>)}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <div className="person-actions">
                   {person.mail && canInvite && (
                     <button className="btn btn-secondary btn-sm btn-icon" title="Skicka ny inbjudan" aria-label={`Skicka ny inbjudan till ${person.name}`} onClick={async () => {
                       const res = await fetch('/api/invite/resend', {

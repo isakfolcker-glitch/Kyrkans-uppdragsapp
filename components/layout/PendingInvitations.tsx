@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Icon from '@/components/ui/Icon'
+import { useApp } from '@/lib/appStore'
 
 type Invitation = { churchId: number; churchName: string; role: string }
 
@@ -13,14 +14,20 @@ export default function PendingInvitations() {
   const [busy, setBusy] = useState<number | null>(null)
   const [error, setError] = useState('')
 
+  const { loadingAuth, currentUser } = useApp()
+  const userId = currentUser?.id as string | undefined
+
   useEffect(() => {
+    // Demoläget har ingen inloggad användare (currentUser är null), och
+    // då finns inga inbjudningar att hämta. Samma kontroll som OpenPassFromUrl.
+    if (loadingAuth || !userId) return
     let cancelled = false
     fetch('/api/memberships/pending')
       .then(res => (res.ok ? res.json() : []))
       .then((data: Invitation[]) => { if (!cancelled && Array.isArray(data)) setInvites(data) })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [])
+  }, [loadingAuth, userId])
 
   const respond = async (churchId: number, action: 'accept' | 'decline') => {
     setBusy(churchId); setError('')

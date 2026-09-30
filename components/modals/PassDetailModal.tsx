@@ -16,8 +16,13 @@ export default function PassDetailModal({ passId }: { passId: number }) {
     <>
       <h2 className="modal-title">{p.title}</h2>
       <PassMeta date={p.date} time={p.time} plats={p.plats} className="meta-row" />
-      <div style={{ height: 12 }} />
-      <div className="pass-vk" style={{ marginBottom: 12 }}><strong>{p.vk}</strong> &nbsp;{p.tel}</div>
+      {(p.vk || p.tel) && (
+        <div className="meta-row" style={{ marginTop: 6 }}>
+          {p.vk && <span><Icon name="User" size={16} className="pass-meta-icon" /><span className="sr-only">Vaktmästare: </span>{p.vk}</span>}
+          {p.tel && <span><Icon name="Phone" size={16} className="pass-meta-icon" />{p.tel}</span>}
+        </div>
+      )}
+      <div style={{ height: 16 }} />
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
         <h3 className="section-label" style={{ margin: 0 }}>Bokade ({p.bookings.length} av {p.spots})</h3>
@@ -32,11 +37,11 @@ export default function PassDetailModal({ passId }: { passId: number }) {
         p.bookings.map((b, i) => (
           <div key={i} className="booked-row">
             <div className="booked-av" aria-hidden="true" style={{ background: avBg(b.av), color: avFg(b.ac) }}>{b.ini}</div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
               <div style={{ fontSize: 15, fontWeight: 500, color: '#000' }}>{b.name}</div>
               <div style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)' }}>{b.mail || b.tel || ''}</div>
             </div>
-            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               {b.source === 'kiosk' && <span className="badge badge-kiosk">Kiosk</span>}
               {b.source === 'manual' && <span className="badge badge-manual">Manuellt</span>}
               {b.noAccount && <span className="badge badge-noaccount">Ej konto</span>}
