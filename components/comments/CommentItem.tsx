@@ -36,10 +36,10 @@ function fullTime(iso: string) {
 const actionBtn: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 5,
   background: 'none', border: 'none', cursor: 'pointer',
-  color: '#412B72', fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit',
+  color: '#7D0037', fontSize: 14, fontWeight: 500, fontFamily: 'inherit',
   padding: '8px 10px', minHeight: 40, borderRadius: 8,
 }
-const dangerBtn: React.CSSProperties = { ...actionBtn, color: '#B23A1E' }
+const dangerBtn: React.CSSProperties = { ...actionBtn, color: '#7D0037' }
 
 interface Props {
   message: PassMessage
@@ -104,21 +104,21 @@ export default function CommentItem(props: Props) {
       id={`pass-comment-${m.id}`}
       aria-label={deleted ? 'Borttagen kommentar' : `${isReply ? 'Svar' : 'Kommentar'} från ${who}`}
       style={{
-        background: '#fff',
-        border: '1px solid #E7DAD0',
+        background: '#FFF7F2',
+        border: '1px solid rgba(125,0,55,0.18)',
         borderRadius: 12,
         padding: '10px 12px',
         opacity: pending ? 0.7 : 1,
       }}
     >
       {deleted ? (
-        <p style={{ fontSize: 14, color: '#5F5E5A', fontStyle: 'italic', margin: 0 }}>Kommentaren är borttagen.</p>
+        <p style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)', fontStyle: 'italic', margin: 0 }}>Kommentaren är borttagen.</p>
       ) : (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: '#1A1024' }}>{who}</span>
+            <span style={{ fontSize: 14, fontWeight: 500, color: '#000' }}>{who}</span>
             {m.authorIsStaff && <StaffBadge />}
-            <span style={{ fontSize: 12.5, color: '#5F5E5A' }}>
+            <span style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)' }}>
               <time dateTime={m.createdAt} title={fullTime(m.createdAt)}>
                 {pending ? 'skickas…' : formatCommentTime(m.createdAt)}
               </time>
@@ -143,10 +143,10 @@ export default function CommentItem(props: Props) {
               onCancel={() => { focusNext.current = 'edit'; setMode('view') }}
             />
           ) : (
-            <p style={{ fontSize: 14.5, color: '#1A1024', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: 0 }}>
+            <p style={{ fontSize: 15, color: '#000', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: 0 }}>
               {splitMentions(m.body, m.mentions).map((s, i) =>
                 s.kind === 'mention' ? (
-                  <span key={i} style={{ color: '#7D0037', fontWeight: 700, background: '#FBE9F0', borderRadius: 4, padding: '0 2px' }}>
+                  <span key={i} style={{ color: '#7D0037', fontWeight: 500, background: '#FFC3AA', borderRadius: 4, padding: '0 2px' }}>
                     {s.text}
                   </span>
                 ) : (
@@ -160,9 +160,9 @@ export default function CommentItem(props: Props) {
             <div
               role="group"
               aria-label="Bekräfta borttagning"
-              style={{ marginTop: 10, background: '#FFF4EF', border: '1px solid #F2C9BC', borderRadius: 10, padding: 12 }}
+              style={{ marginTop: 10, background: '#FFC3AA', border: '1px solid #FF785A', borderRadius: 10, padding: 12 }}
             >
-              <p style={{ fontSize: 14, fontWeight: 700, color: '#7D0037', margin: '0 0 10px' }}>Ta bort kommentaren?</p>
+              <p style={{ fontSize: 14, fontWeight: 500, color: '#7D0037', margin: '0 0 10px' }}>Ta bort kommentaren?</p>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button
                   ref={confirmCancelRef}
@@ -222,7 +222,7 @@ export default function CommentItem(props: Props) {
       )}
 
       {(replies.length > 0 || replying) && (
-        <div style={{ marginTop: 10, marginLeft: 4, paddingLeft: 12, borderLeft: '2px solid #E7DAD0' }}>
+        <div style={{ marginTop: 10, marginLeft: 4, paddingLeft: 12, borderLeft: '2px solid rgba(125,0,55,0.18)' }}>
           {replies.length > 0 && (
             <ul aria-label={`Svar till ${deleted ? 'borttagen kommentar' : who}`} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {replies.map(r => (

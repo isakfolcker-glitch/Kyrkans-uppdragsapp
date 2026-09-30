@@ -24,8 +24,8 @@ export default function MentionPicker({
       aria-label="Personer du kan nämna"
       style={{
         listStyle: 'none', margin: '6px 0 0', padding: 4,
-        background: '#fff', border: '1.5px solid #C9BEE6', borderRadius: 12,
-        boxShadow: '0 8px 24px rgba(28,14,52,.12)',
+        background: '#fff', border: '1.5px solid rgba(125,0,55,0.35)', borderRadius: 12,
+        boxShadow: '0 8px 24px rgba(0,0,0,.12)',
         maxHeight: 220, overflowY: 'auto',
       }}
     >
@@ -43,12 +43,12 @@ export default function MentionPicker({
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
               padding: '10px 12px', minHeight: 44, borderRadius: 8, cursor: 'pointer',
-              background: active ? '#F1ECFF' : 'transparent',
-              color: '#1A1024', fontSize: 14.5,
-              outline: active ? '2px solid #412B72' : 'none', outlineOffset: -2,
+              background: active ? '#FFC3AA' : 'transparent',
+              color: '#000', fontSize: 15,
+              outline: active ? '2px solid #7D0037' : 'none', outlineOffset: -2,
             }}
           >
-            <span style={{ fontWeight: 600 }}>{p.name}</span>
+            <span style={{ fontWeight: 500 }}>{p.name}</span>
             {p.isStaff && <StaffBadge />}
           </li>
         )
@@ -61,8 +61,8 @@ export default function MentionPicker({
 export function StaffBadge() {
   return (
     <span style={{
-      fontSize: 11, fontWeight: 700, background: '#7D0037', color: '#fff',
-      borderRadius: 6, padding: '2px 6px', letterSpacing: 0.2, lineHeight: 1.3,
+      fontSize: 13, fontWeight: 500, background: '#7D0037', color: '#fff',
+      borderRadius: 999, padding: '2px 6px', lineHeight: 1.3,
     }}>
       Personal
     </span>

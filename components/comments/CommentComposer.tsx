@@ -124,7 +124,7 @@ const CommentComposer = forwardRef<CommentComposerHandle, Props>(function Commen
 
   return (
     <div className="form-field" style={{ marginBottom: 0 }}>
-      <label htmlFor={textareaId} style={{ color: '#412B72', textTransform: 'none', letterSpacing: 0, fontSize: 13.5, marginBottom: 6 }}>
+      <label htmlFor={textareaId} style={{ color: '#7D0037', fontSize: 14, marginBottom: 6 }}>
         {label}
       </label>
       <textarea
@@ -159,10 +159,10 @@ const CommentComposer = forwardRef<CommentComposerHandle, Props>(function Commen
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-        <span id={hintId} style={{ fontSize: 12.5, color: '#5F5E5A', flex: '1 1 160px' }}>
+        <span id={hintId} style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)', flex: '1 1 160px' }}>
           {mentionsOn ? 'Skriv @ för att nämna någon.' : ''}
         </span>
-        <span id={counterId} style={{ fontSize: 12.5, color: nearLimit ? '#B23A1E' : '#5F5E5A', fontVariantNumeric: 'tabular-nums' }}>
+        <span id={counterId} style={{ fontSize: 14, color: nearLimit ? '#7D0037' : 'rgba(0,0,0,0.72)', fontVariantNumeric: 'tabular-nums' }}>
           <span style={srOnly}>Antal tecken: </span>{text.length} / {COMMENT_MAX_LENGTH}
         </span>
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>

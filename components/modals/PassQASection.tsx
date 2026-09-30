@@ -32,11 +32,11 @@ export default function PassQASection({ passId, targetCommentId }: { passId: num
         id={headingId}
         ref={headingRef}
         tabIndex={-1}
-        style={{ fontSize: 13.5, fontWeight: 700, color: '#412B72', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px', outlineOffset: 2 }}
+        style={{ fontSize: 16, fontWeight: 500, color: '#7D0037', margin: '0 0 10px', outlineOffset: 2 }}
       >
         Kommentarer
         {count > 0 && (
-          <span style={{ marginLeft: 6, fontWeight: 500, color: '#5F5E5A', textTransform: 'none', letterSpacing: 0 }}>
+          <span style={{ marginLeft: 6, fontWeight: 500, color: 'rgba(0,0,0,0.72)' }}>
             ({count})
           </span>
         )}
@@ -54,11 +54,11 @@ export default function PassQASection({ passId, targetCommentId }: { passId: num
       )}
 
       {c.status === 'loading' && (
-        <p role="status" style={{ fontSize: 14, color: '#5F5E5A', padding: '8px 0', margin: 0 }}>Hämtar kommentarer…</p>
+        <p role="status" style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)', padding: '8px 0', margin: 0 }}>Hämtar kommentarer…</p>
       )}
 
       {c.status === 'forbidden' && (
-        <p style={{ fontSize: 14, color: '#5F5E5A', lineHeight: 1.5, margin: 0 }}>
+        <p style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)', lineHeight: 1.5, margin: 0 }}>
           Kommentarerna kan bara läsas av dem som är bokade på passet, ansvariga och administratörer.
         </p>
       )}
@@ -66,7 +66,7 @@ export default function PassQASection({ passId, targetCommentId }: { passId: num
       {c.status === 'ready' && (
         <>
           {groups.length === 0 ? (
-            <p style={{ fontSize: 14, color: '#5F5E5A', textAlign: 'center', padding: '8px 0 14px', margin: 0 }}>
+            <p style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)', textAlign: 'center', padding: '8px 0 14px', margin: 0 }}>
               Inga kommentarer ännu. Skriv gärna om du undrar något.
             </p>
           ) : (

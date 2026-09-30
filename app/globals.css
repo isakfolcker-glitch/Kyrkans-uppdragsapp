@@ -956,13 +956,24 @@ a:hover { color: var(--text); }
   box-shadow: 0 24px 60px rgba(0,0,0,.25);
 }
 
+.modal-box { position: relative; }
+
+.modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
+
 .modal-title {
   font-size: 24px;
   font-weight: 500;
   color: var(--text);
   margin: 0 0 12px;
+  padding-right: 52px;
   line-height: 1.1;
 }
+
+.confirm-box { margin-top: 44px; }
 
 .modal-body {
   padding: 0;
@@ -994,6 +1005,13 @@ a:hover { color: var(--text); }
   font-size: 14px;
   color: var(--text);
   display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.field-label {
+  font-size: 14px;
+  color: var(--text);
   margin-bottom: 6px;
   font-weight: 500;
 }
@@ -1141,6 +1159,23 @@ a:hover { color: var(--text); }
   border-color: var(--rosa);
   font-weight: 500;
 }
+
+.pick-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 4px;
+  border: none;
+  border-top: 1px solid var(--linje);
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pick-row:hover { background: rgba(125,0,55,0.04); }
 
 /* ── Personrader ─────────────────────────────────────────── */
 .person-list { display: flex; flex-direction: column; }
