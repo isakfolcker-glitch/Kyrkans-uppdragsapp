@@ -74,7 +74,7 @@ export default function DemoPage() {
           <span className="demo-short">, inget sparas</span>
         </span>
         <button type="button" className="btn btn-secondary btn-sm" onClick={() => setActiveRole(null)}>
-          <Icon name="X" size={18} />Avsluta<span className="demo-long"> demo</span>
+          <Icon name="X" size={18} /><span>Avsluta<span className="demo-long"> demo</span></span>
         </button>
       </div>
 
