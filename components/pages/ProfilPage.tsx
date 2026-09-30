@@ -11,6 +11,7 @@ const notifDefs = [
   { key: 'instllt',   lbl: 'Inställt pass',              sub: 'E-post om ett bokat pass ställs in' },
   { key: 'nyttpass',  lbl: 'Nya pass i mina grupper',    sub: 'När admin publicerar nytt pass' },
   { key: 'meddelande',lbl: 'Meddelanden från admin',     sub: 'Utskick till din grupp eller alla' },
+  { key: 'kommentar_mail', lbl: 'Mail om kommentarer',   sub: 'Mail när någon nämner dig eller svarar på din kommentar. Du får alltid en notis i appen.' },
 ]
 
 export default function ProfilPage() {
@@ -162,6 +163,9 @@ export default function ProfilPage() {
                   className={`toggle-switch${notifs[n.key] ? ' on' : ''}`}
                   onClick={() => updateUserNotif(n.key, !notifs[n.key])}
                   type="button"
+                  role="switch"
+                  aria-checked={!!notifs[n.key]}
+                  aria-label={n.lbl}
                 />
               </div>
             ))}

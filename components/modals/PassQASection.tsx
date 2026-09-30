@@ -1,163 +1,104 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
-import { useApp } from '@/lib/appStore'
-import { PassMessage } from '@/types'
-
-function fmt(iso: string) {
-  const d = new Date(iso)
-  return d.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' }) +
-    ' ' + d.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })
-}
+// Kommentarer på ett pass. Används i PassDetailModal och PassQAModal.
+// Logiken finns i lib/usePassComments.ts, utseendet i components/comments/.
+import { useEffect, useId, useRef } from 'react'
+import { usePassComments } from '@/lib/usePassComments'
+import { groupThread, countLive } from '@/lib/comments/threadView'
+import CommentItem from '@/components/comments/CommentItem'
+import CommentComposer from '@/components/comments/CommentComposer'
 
 export default function PassQASection({ passId, targetCommentId }: { passId: number; targetCommentId?: number | null }) {
-  const { currentUser, passes, isResponsible, isAdmin, u } = useApp()
-  const pass = passes.find(p => p.id === passId)
-  const isDemo = !currentUser
+  const c = usePassComments(passId)
+  const headingId = useId()
+  const headingRef = useRef<HTMLHeadingElement>(null)
 
-  const [messages, setMessages] = useState<PassMessage[]>([])
-  const [loading, setLoading] = useState(!isDemo)
-  const [body, setBody] = useState('')
-  const [sending, setSending] = useState(false)
-  const bottomRef = useRef<HTMLDivElement>(null)
-
-  const staffMode = pass ? (isAdmin() || isResponsible(pass)) : false
-
+  // Från en notis: scrolla till och markera rätt kommentar när tråden laddats
   useEffect(() => {
-    if (isDemo) return
-    setLoading(true)
-    fetch(`/api/passes/${passId}/messages`)
-      .then(r => r.json())
-      .then((data: any[]) => {
-        if (Array.isArray(data)) {
-          setMessages(data.map(m => ({
-            id: m.id, passId: m.pass_id, authorId: m.author_id,
-            authorName: m.author_name, body: m.body,
-            isStaffReply: m.is_staff_reply, createdAt: m.created_at,
-          })))
-        }
-      })
-      .finally(() => setLoading(false))
-  }, [passId, isDemo])
+    if (!targetCommentId || c.status !== 'ready') return
+    const el = document.getElementById(`pass-comment-${targetCommentId}`)
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.style.outline = '2px solid #7D0037'
+    const t = setTimeout(() => { el.style.outline = '' }, 2500)
+    return () => clearTimeout(t)
+  }, [targetCommentId, c.status])
 
-  useEffect(() => {
-    if (targetCommentId) {
-      const target = document.getElementById(`pass-comment-${targetCommentId}`)
-      target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      return
-    }
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, targetCommentId])
-
-  const send = async () => {
-    if (!body.trim() || sending) return
-    setSending(true)
-
-    if (isDemo) {
-      setMessages(prev => [...prev, {
-        id: Date.now(), passId, authorId: null,
-        authorName: u().name, body: body.trim(),
-        isStaffReply: staffMode, createdAt: new Date().toISOString(),
-      }])
-      setBody('')
-      setSending(false)
-      return
-    }
-
-    const res = await fetch(`/api/passes/${passId}/messages`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ body, is_staff_reply: staffMode }),
-    })
-    const data = await res.json()
-    if (res.ok) {
-      setMessages(prev => [...prev, {
-        id: data.id, passId: data.pass_id, authorId: data.author_id,
-        authorName: data.author_name, body: data.body,
-        isStaffReply: data.is_staff_reply, createdAt: data.created_at,
-      }])
-      setBody('')
-    }
-    setSending(false)
-  }
+  const groups = groupThread(c.messages)
+  const count = countLive(c.messages)
 
   return (
-    <div style={{ marginTop: 20 }}>
-      <div className="section-label" style={{ marginBottom: 8 }}>
-        Frågor &amp; svar
-        {messages.length > 0 && (
-          <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 400, color: '#888780' }}>
-            ({messages.length})
+    <section aria-labelledby={headingId} style={{ marginTop: 20 }}>
+      <h3
+        id={headingId}
+        ref={headingRef}
+        tabIndex={-1}
+        style={{ fontSize: 13.5, fontWeight: 700, color: '#412B72', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px', outlineOffset: 2 }}
+      >
+        Kommentarer
+        {count > 0 && (
+          <span style={{ marginLeft: 6, fontWeight: 500, color: '#5F5E5A', textTransform: 'none', letterSpacing: 0 }}>
+            ({count})
           </span>
         )}
-      </div>
+      </h3>
 
-      {loading ? (
-        <div style={{ fontSize: 12, color: '#888780', padding: '8px 0' }}>Laddar…</div>
-      ) : messages.length === 0 ? (
-        <div style={{ fontSize: 12, color: '#888780', textAlign: 'center', padding: '12px 0' }}>
-          Inga frågor ännu. Skriv gärna om du undrar något!
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12, maxHeight: 260, overflowY: 'auto', paddingRight: 2 }}>
-          {messages.map(m => (
-            <div
-              key={m.id}
-              id={`pass-comment-${m.id}`}
-              style={{
-                background: m.id === targetCommentId
-                  ? '#FFF2B8'
-                  : m.isStaffReply ? '#F0EDFF' : '#F7F6F1',
-                border: m.id === targetCommentId
-                  ? '2px solid #BC8E4C'
-                  : m.isStaffReply ? '1px solid #C8C2F5' : '1px solid #E8E5DC',
-                borderRadius: 8,
-                padding: '8px 10px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: '#2C2C2A' }}>{m.authorName}</span>
-                {m.isStaffReply && (
-                  <span style={{
-                    fontSize: 10, fontWeight: 600, background: '#7C6FE0', color: '#fff',
-                    borderRadius: 4, padding: '1px 5px', letterSpacing: 0.3,
-                  }}>Svar</span>
-                )}
-                <span style={{ fontSize: 11, color: '#888780', marginLeft: 'auto' }}>{fmt(m.createdAt)}</span>
-              </div>
-              <div style={{ fontSize: 13, color: '#3C3A34', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>{m.body}</div>
-            </div>
-          ))}
-          <div ref={bottomRef} />
+      {c.error && (
+        <div role="alert" className="alert alert-red" style={{ marginBottom: 12, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <span style={{ flex: 1 }}>{c.error}</span>
+          {c.status === 'error' ? (
+            <button type="button" className="btn btn-secondary btn-sm" onClick={c.reload}>Försök igen</button>
+          ) : (
+            <button type="button" className="btn btn-secondary btn-sm" onClick={c.clearError}>Stäng</button>
+          )}
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
-        <textarea
-          value={body}
-          onChange={e => setBody(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-          placeholder={staffMode ? 'Skriv ett svar…' : 'Skriv en fråga…'}
-          rows={2}
-          style={{
-            flex: 1, resize: 'none', borderRadius: 8,
-            border: '1px solid #E8E5DC', padding: '8px 10px',
-            fontSize: 13, fontFamily: 'inherit', outline: 'none',
-          }}
-        />
-        <button
-          className="btn btn-purple btn-sm"
-          onClick={send}
-          disabled={!body.trim() || sending}
-          style={{ alignSelf: 'flex-end', minWidth: 64 }}
-        >
-          {sending ? '…' : staffMode ? 'Svara' : 'Fråga'}
-        </button>
-      </div>
-      {staffMode && (
-        <div style={{ fontSize: 11, color: '#7C6FE0', marginTop: 4 }}>
-          Du svarar som ansvarig — ditt svar visas med "Svar"-badge för alla.
-        </div>
+      {c.status === 'loading' && (
+        <p role="status" style={{ fontSize: 14, color: '#5F5E5A', padding: '8px 0', margin: 0 }}>Hämtar kommentarer…</p>
       )}
-    </div>
+
+      {c.status === 'forbidden' && (
+        <p style={{ fontSize: 14, color: '#5F5E5A', lineHeight: 1.5, margin: 0 }}>
+          Kommentarerna kan bara läsas av dem som är bokade på passet, ansvariga och administratörer.
+        </p>
+      )}
+
+      {c.status === 'ready' && (
+        <>
+          {groups.length === 0 ? (
+            <p style={{ fontSize: 14, color: '#5F5E5A', textAlign: 'center', padding: '8px 0 14px', margin: 0 }}>
+              Inga kommentarer ännu. Skriv gärna om du undrar något.
+            </p>
+          ) : (
+            <ul aria-labelledby={headingId} style={{ listStyle: 'none', margin: '0 0 14px', padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {groups.map(g => (
+                <li key={g.comment.id}>
+                  <CommentItem
+                    message={g.comment}
+                    replies={g.replies}
+                    isReply={g.comment.parentId != null}
+                    meId={c.meId}
+                    canModerate={c.canModerate}
+                    participants={c.participants}
+                    onCreate={c.create}
+                    onEdit={c.edit}
+                    onDelete={c.remove}
+                    onDeleted={() => headingRef.current?.focus()}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <CommentComposer
+            label="Skriv en kommentar"
+            placeholder="Fråga eller skriv något till de andra på passet"
+            submitLabel="Skicka"
+            participants={c.participants}
+            onSubmit={(body, ids) => c.create(body, ids, null)}
+          />
+        </>
+      )}
+    </section>
   )
 }

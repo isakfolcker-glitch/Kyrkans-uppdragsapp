@@ -258,5 +258,120 @@ export async function filterMembersOfChurch(profileIds: unknown, churchId: numbe
   return new Set((data ?? []).map(r => r.profile_id as string))
 }
 
+// ---------- Kommentarer på pass (migration 018) ----------
+
+/**
+ * Har anroparen åtkomst till passets kommentarer? Frågar databasen
+ * (can_access_pass_thread) med anroparens egen klient, så att regeln bara finns
+ * på ett ställe: bokad, ansvarig, vaktmästare eller admin för passets församling.
+ * Aldrig kiosk.
+ */
+export async function canAccessPassThread(caller: Caller, passId: number, supabase?: SupabaseClient): Promise<boolean> {
+  if (!Number.isInteger(passId) || passId <= 0) return false
+  const client = supabase ?? await createClient()
+  const { data, error } = await client.rpc('can_access_pass_thread', { pass_id_arg: passId, uid: caller.id })
+  return !error && data === true
+}
+
+/**
+ * Samma regel som can_admin_church_for i databasen, som ren funktion:
+ * täcker en admin med viss nivå och församling målförsamlingen?
+ * adminChurchId null betyder att admin saknar församling (då räknas pastoratsnivån inte).
+ */
+export function levelCoversChurch(
+  admin: { adminLevel: string | null | undefined; churchId: number | null; pastoratId: number | null },
+  target: { churchId: number; pastoratId: number | null },
+): boolean {
+  switch (admin.adminLevel) {
+    case 'super': return true
+    case 'pastorat': return admin.churchId != null && admin.pastoratId != null && admin.pastoratId === target.pastoratId
+    case 'forsamling': return admin.churchId != null && admin.churchId === target.churchId
+    default: return false
+  }
+}
+
+export type ThreadMember = { profileId: string; name: string; isStaff: boolean }
+
+export type PassThreadAudience = {
+  passId: number
+  title: string
+  churchId: number
+  vkId: string | null
+  responsibleIds: string[]
+  bookedIds: string[]
+  churchAdminIds: string[]
+  /** Alla med åtkomst till passets kommentarer (utom kiosk), med namn. */
+  members: Map<string, ThreadMember>
+}
+
+type ChurchJoin = { pastorat_id: number | null } | { pastorat_id: number | null }[] | null | undefined
+const pastoratOf = (c: ChurchJoin): number | null =>
+  (Array.isArray(c) ? c[0]?.pastorat_id : c?.pastorat_id) ?? null
+
+/**
+ * Hämtar alla som har åtkomst till passets kommentarer, med service role.
+ * Speglar pass_thread_access_for i databasen. Anroparen MÅSTE först ha
+ * kontrollerat att den inloggade själv har åtkomst (canAccessPassThread).
+ * Returnerar null om passet inte finns.
+ */
+export async function loadPassThreadAudience(passId: number): Promise<PassThreadAudience | null> {
+  const admin = createAdminClient()
+  const { data: pass } = await admin
+    .from('passes')
+    .select('id, title, church_id, vk_profile_id, churches(pastorat_id)')
+    .eq('id', passId)
+    .maybeSingle()
+  if (!pass) return null
+
+  const target = { churchId: pass.church_id as number, pastoratId: pastoratOf(pass.churches as ChurchJoin) }
+
+  // Admins räknas per församlingsmedlemskap (profile_churches). Superadmin
+  // kan också finnas kvar i den gamla kolumnen profiles.admin_level.
+  const [{ data: resp }, { data: books }, { data: memberships }, { data: legacySupers }] = await Promise.all([
+    admin.from('pass_responsible').select('profile_id').eq('pass_id', passId),
+    admin.from('bookings').select('profile_id').eq('pass_id', passId).not('profile_id', 'is', null),
+    admin.from('profile_churches').select('profile_id, admin_level, church_id, churches(pastorat_id)')
+      .eq('active', true).neq('admin_level', 'none'),
+    admin.from('profiles').select('id').eq('admin_level', 'super'),
+  ])
+
+  const responsibleIds = Array.from(new Set((resp ?? []).map(r => r.profile_id as string).filter(Boolean)))
+  const bookedIds = Array.from(new Set((books ?? []).map(b => b.profile_id as string).filter(Boolean)))
+  const churchAdminIds = Array.from(new Set([
+    ...(memberships ?? [])
+      .filter(m => levelCoversChurch(
+        { adminLevel: m.admin_level, churchId: m.church_id, pastoratId: pastoratOf(m.churches as ChurchJoin) },
+        target,
+      ))
+      .map(m => m.profile_id as string),
+    ...(legacySupers ?? []).map(p => p.id as string),
+  ]))
+  const vkId = (pass.vk_profile_id as string | null) ?? null
+
+  const allIds = Array.from(new Set([...responsibleIds, ...bookedIds, ...churchAdminIds, ...(vkId ? [vkId] : [])]))
+  const { data: profiles } = allIds.length
+    ? await admin.from('profiles').select('id, name, role, is_employee').in('id', allIds)
+    : { data: [] as { id: string; name: string; role: string; is_employee: boolean }[] }
+
+  const staffIds = new Set([...responsibleIds, ...churchAdminIds, ...(vkId ? [vkId] : [])])
+  const members = new Map<string, ThreadMember>()
+  for (const p of profiles ?? []) {
+    if (p.role === 'kiosk') continue
+    members.set(p.id, { profileId: p.id, name: p.name, isStaff: staffIds.has(p.id) || p.is_employee === true })
+  }
+
+  const keep = (ids: string[]) => ids.filter(id => members.has(id))
+  return {
+    passId,
+    title: pass.title as string,
+    churchId: target.churchId,
+    vkId: vkId && members.has(vkId) ? vkId : null,
+    responsibleIds: keep(responsibleIds),
+    bookedIds: keep(bookedIds),
+    churchAdminIds: keep(churchAdminIds),
+    members,
+  }
+}
+
 export const unauthorized = () => Response.json({ error: 'Ej inloggad' }, { status: 401 })
 export const forbidden = (msg = 'Saknar behörighet') => Response.json({ error: msg }, { status: 403 })

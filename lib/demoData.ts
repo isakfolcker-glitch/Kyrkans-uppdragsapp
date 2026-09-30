@@ -1,4 +1,5 @@
 import { Group, Church, PersonData, PassData, MessageData, NotifData, PastoratData, UserDef } from './appData'
+import type { PassMessage } from '@/types'
 
 export const DEMO_GROUPS: Group[] = [
   { id: 'kyrkv',   label: 'Kyrkvärd',     cls: 'tag-kyrkv',   churchId: 1 },
@@ -24,7 +25,7 @@ export const DEMO_USERS: UserDef[] = [
     role: 'ideell', isEmployee: false, adminLevel: 'none',
     ini: 'ML', av: '#EEEDFE', ac: '#3C3489', badge: 'rb-ideell', badgeLbl: 'Ideell',
     groups: ['kyrkv', 'extra'], churches: [1], responsibleForPasses: [],
-    notifs: { reminder: true, cancelled: true, nyttpass: true }, available: true,
+    notifs: { reminder: true, cancelled: true, nyttpass: true, kommentar_mail: true }, available: true,
   },
   {
     id: 2, name: 'Johan Eriksson', email: 'johan@kyrkan.se',
@@ -233,4 +234,32 @@ export const DEMO_NOTIFICATIONS: NotifData[] = [
   { id: 1, userId: 1, type: 'new_pass',  title: 'Nytt pass: Orgelkonsert – Bach',          body: 'Det finns ett nytt pass för din grupp Konsertguide.',         time: new Date(Date.now() - 86400000).toISOString(),      read: false },
   { id: 2, userId: 1, type: 'reminder',  title: 'Påminnelse: Nattvardsgudstjänst imorgon', body: 'Du är bokad på Nattvardsgudstjänst kl 18:30 i Domkyrkan.', time: new Date(Date.now() - 2 * 3600000).toISOString(),  read: false },
   { id: 3, userId: 1, type: 'cancelled', title: 'Kantatgudstjänst är inställd',             body: 'Passet ' + d(4) + ' kl 10:00 har ställts in.',              time: new Date(Date.now() - 3600000).toISOString(),       read: true  },
+]
+
+// Kommentarer på pass i demoläget. authorId och profileId är demo-personernas id som text,
+// precis som i skarpt läge där de är profilernas uuid.
+const hoursAgo = (h: number) => new Date(Date.now() - h * 3600000).toISOString()
+
+export const DEMO_COMMENTS: PassMessage[] = [
+  {
+    id: 1, passId: 1, parentId: null, authorId: '1', authorName: 'Maria Lindström',
+    body: 'Hej! Ska vi kyrkvärdar vara på plats 09:30 som vanligt?',
+    createdAt: hoursAgo(26), editedAt: null, deletedAt: null, authorIsStaff: false, mentions: [],
+  },
+  {
+    id: 2, passId: 1, parentId: 1, authorId: '2', authorName: 'Johan Eriksson',
+    body: 'Hej @Maria Lindström! Ja, 09:30 vid sakristian. Jag låser upp.',
+    createdAt: hoursAgo(22), editedAt: null, deletedAt: null, authorIsStaff: true,
+    mentions: [{ profileId: '1', name: 'Maria Lindström' }],
+  },
+  {
+    id: 3, passId: 1, parentId: null, authorId: '4', authorName: 'Lars Pettersson',
+    body: 'Jag kan ta dörren vid norra ingången om ingen annan vill.',
+    createdAt: hoursAgo(3), editedAt: hoursAgo(2), deletedAt: null, authorIsStaff: false, mentions: [],
+  },
+  {
+    id: 4, passId: 4, parentId: null, authorId: '3', authorName: 'Sarah Björk',
+    body: 'Vi behöver några som kan bära bord från församlingshemmet kl 14. Skriv här om du kan hjälpa till!',
+    createdAt: hoursAgo(30), editedAt: null, deletedAt: null, authorIsStaff: true, mentions: [],
+  },
 ]

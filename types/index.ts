@@ -87,8 +87,24 @@ export interface PassMessage {
   authorId: string | null
   authorName: string
   body: string
-  isStaffReply: boolean
+  /** Används inte längre (märket räknas fram i authorIsStaff). Kvar för bakåtkompatibilitet. */
+  isStaffReply?: boolean
   createdAt: string
+  /** Kommentaren som besvaras, null för en ny kommentar. Bara en svarsnivå. */
+  parentId: number | null
+  editedAt: string | null
+  /** Satt om kommentaren är borttagen. body är då tom. */
+  deletedAt: string | null
+  /** Författaren är ansvarig, vaktmästare, admin för passet eller anställd. */
+  authorIsStaff: boolean
+  mentions: { profileId: string; name: string }[]
+}
+
+/** En person som kan @nämnas i ett pass kommentarer. Aldrig mail eller telefon. */
+export interface CommentParticipant {
+  profileId: string
+  name: string
+  isStaff: boolean
 }
 
 export interface MessageLog {
