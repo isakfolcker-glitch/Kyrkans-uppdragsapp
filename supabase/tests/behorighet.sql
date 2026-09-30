@@ -51,11 +51,23 @@ FROM (VALUES ('sec-sup@test.invalid','superadmin','super','Test Församling A'),
 WHERE p.email = t.email;
 
 -- Från och med migration 019 styrs behörighet av medlemskap per församling
-INSERT INTO profile_churches (profile_id, church_id, role, admin_level, is_employee, active)
-SELECT id, church_id, role, admin_level, is_employee, true FROM profiles
+INSERT INTO profile_churches (profile_id, church_id, role, admin_level, is_employee, active, accepted_at)
+SELECT id, church_id, role, admin_level, is_employee, true, now() FROM profiles
 WHERE email LIKE 'sec-%@test.invalid' AND church_id IS NOT NULL
 ON CONFLICT (profile_id, church_id) DO UPDATE
-  SET role = EXCLUDED.role, admin_level = EXCLUDED.admin_level, is_employee = EXCLUDED.is_employee, active = true;
+  SET role = EXCLUDED.role, admin_level = EXCLUDED.admin_level, is_employee = EXCLUDED.is_employee,
+      active = true, accepted_at = COALESCE(profile_churches.accepted_at, now());
+
+-- Väntande inbjudan: församlingsadmin A är inbjuden som admin i B men har inte accepterat
+INSERT INTO profile_churches (profile_id, church_id, role, admin_level, is_employee, active, accepted_at)
+SELECT '00000000-0000-0000-0000-00000000a003', id, 'fadmin', 'forsamling', true, true, NULL
+FROM churches WHERE name = 'Test Församling B'
+ON CONFLICT (profile_id, church_id) DO UPDATE SET accepted_at = NULL, active = true, admin_level = 'forsamling', role = 'fadmin';
+
+-- Ett opublicerat pass i A
+INSERT INTO passes (church_id, title, date_str, time_str, spots, pub_status)
+SELECT id, 'Säk-utkast A', '2030-12-03', '10:00–12:00', 3, 'scheduled' FROM churches
+WHERE name = 'Test Församling A' AND NOT EXISTS (SELECT 1 FROM passes WHERE title = 'Säk-utkast A');
 
 INSERT INTO passes (church_id, title, date_str, time_str, spots)
 SELECT id, 'Säk-pass ' || name, '2030-12-01', '10:00–12:00', 3 FROM churches
@@ -74,6 +86,7 @@ DECLARE
   b int := (SELECT id FROM churches WHERE name = 'Test Församling B');
   passA int := (SELECT id FROM passes WHERE title = 'Säk-pass Test Församling A');
   passB int := (SELECT id FROM passes WHERE title = 'Säk-pass Test Församling B');
+  draftA int := (SELECT id FROM passes WHERE title = 'Säk-utkast A');
   upd text := $q$WITH u AS (UPDATE profiles SET %s WHERE id = %L RETURNING 1) SELECT count(*)::text FROM u$q$;
 BEGIN
   FOR t IN SELECT * FROM (VALUES
@@ -103,7 +116,12 @@ BEGIN
    (24,'Ideell ändrar sin nivå i medlemskap',ideA,format($q$WITH u AS (UPDATE profile_churches SET admin_level='super' WHERE profile_id=%L RETURNING 1) SELECT count(*)::text FROM u$q$,ideA),'ERROR'),
    (25,'Ideell ser medlemskap i sin församling',ideA,format($q$SELECT count(*)::text FROM profile_churches WHERE church_id=%s$q$,a),'1'),
    (26,'Fadmin A ser medlemskap i A',fadA,format($q$SELECT (count(*) >= 4)::text FROM profile_churches WHERE church_id=%s$q$,a),'true'),
-   (27,'Fadmin A ser medlemskap i B',fadA,format($q$SELECT count(*)::text FROM profile_churches WHERE church_id=%s$q$,b),'0')
+   (27,'Fadmin A ser bara sin egen väntande rad i B',fadA,format($q$SELECT count(*)::text FROM profile_churches WHERE church_id=%s$q$,b),'1'),
+   (28,'Väntande admin i B ser inte personer i B',fadA,format($q$SELECT count(*)::text FROM profiles WHERE church_id=%s$q$,b),'0'),
+   (29,'Väntande admin i B skapar pass i B',fadA,format($q$WITH u AS (INSERT INTO passes (church_id,title,date_str,time_str,spots) VALUES (%s,'hack','2030-12-02','10:00',1) RETURNING 1) SELECT count(*)::text FROM u$q$,b),'ERROR'),
+   (30,'Väntande admin i B ser pass i B',fadA,format($q$SELECT count(*)::text FROM passes WHERE id=%s$q$,passB),'0'),
+   (31,'Ideell bokar sig på opublicerat pass',ideA,format($q$WITH u AS (INSERT INTO bookings (pass_id, profile_id, name) VALUES (%s, %L, 'x') RETURNING 1) SELECT count(*)::text FROM u$q$,draftA,ideA),'ERROR'),
+   (32,'Ideell skriver i gamla staff_permissions',ideA,format($q$WITH u AS (INSERT INTO staff_permissions (profile_id, kan_skapa_pass) VALUES (%L, true) RETURNING 1) SELECT count(*)::text FROM u$q$,ideA),'ERROR')
   ) AS v(n,test,uid,sql,expected) LOOP
     PERFORM set_config('request.jwt.claims', json_build_object('sub',t.uid,'role','authenticated')::text, true);
     PERFORM set_config('role','authenticated', true);
@@ -119,6 +137,11 @@ BEGIN
   INSERT INTO sec_test.results
   SELECT results[i][1]::int, results[i][2], results[i][3], results[i][4] FROM generate_subscripts(results,1) i;
 END $$;
+
+-- Städa väntande inbjudan och utkast
+DELETE FROM profile_churches WHERE profile_id = '00000000-0000-0000-0000-00000000a003'
+  AND church_id = (SELECT id FROM churches WHERE name = 'Test Församling B');
+DELETE FROM passes WHERE title = 'Säk-utkast A';
 
 SELECT n, test, expected, got, CASE WHEN expected = got THEN 'OK' ELSE 'FEL' END AS status
 FROM sec_test.results ORDER BY n;

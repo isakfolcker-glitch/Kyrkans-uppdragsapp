@@ -34,11 +34,12 @@ FROM (VALUES ('00000000-0000-0000-0000-00000000a007'::uuid,'anstalld',true),
  ('00000000-0000-0000-0000-00000000a010'::uuid,'ideell',false)) t(id,role,emp)
 WHERE p.id = t.id;
 
-INSERT INTO profile_churches (profile_id, church_id, role, admin_level, is_employee, active)
-SELECT id, church_id, role, admin_level, is_employee, true FROM profiles
+INSERT INTO profile_churches (profile_id, church_id, role, admin_level, is_employee, active, accepted_at)
+SELECT id, church_id, role, admin_level, is_employee, true, now() FROM profiles
 WHERE email LIKE 'sec-%@test.invalid' AND church_id IS NOT NULL
 ON CONFLICT (profile_id, church_id) DO UPDATE
-  SET role = EXCLUDED.role, admin_level = EXCLUDED.admin_level, is_employee = EXCLUDED.is_employee, active = true;
+  SET role = EXCLUDED.role, admin_level = EXCLUDED.admin_level, is_employee = EXCLUDED.is_employee,
+      active = true, accepted_at = COALESCE(profile_churches.accepted_at, now());
 
 UPDATE passes SET vk_profile_id = '00000000-0000-0000-0000-00000000a007' WHERE title = 'Säk-pass Test Församling A';
 

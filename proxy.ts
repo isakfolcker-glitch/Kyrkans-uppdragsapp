@@ -39,6 +39,11 @@ export async function proxy(request: NextRequest) {
     return response
   }
 
+  // Integritetspolicyn ska alltid gå att läsa, även utloggad och utan församling.
+  if (pathname === '/integritetspolicy' || pathname.startsWith('/integritetspolicy/')) {
+    return response
+  }
+
   const isPublicAuthRoute = pathname === '/login' || pathname.startsWith('/auth')
   const isApiRoute = pathname.startsWith('/api')
   const isPublicRoute = pathname.startsWith('/kiosk') || isPublicAuthRoute || isApiRoute
@@ -54,18 +59,25 @@ export async function proxy(request: NextRequest) {
       .eq('id', user.id)
       .maybeSingle()
 
+    // Bara aktiva OCH accepterade medlemskap ger tillgång. Väntande inbjudningar
+    // räknas bara för att skicka nya användare till onboarding.
     const { data: memberships, error: membershipError } = await supabase
       .from('profile_churches')
-      .select('church_id')
+      .select('church_id, accepted_at')
       .eq('profile_id', user.id)
       .eq('active', true)
-      .limit(1)
 
-    // Om migration 016 ännu inte är installerad används legacy church_id tillfälligt.
+    // Om medlemskapstabellen inte går att läsa används legacy church_id tillfälligt.
     const hasMembership = membershipError
       ? Boolean(profile?.church_id)
-      : Boolean(memberships?.length)
+      : Boolean(memberships?.some(m => m.accepted_at != null))
+    const hasPending = !membershipError && Boolean(memberships?.some(m => m.accepted_at == null))
     const hasAccess = hasMembership || profile?.admin_level === 'super'
+
+    // Ny användare med väntande inbjudan: till onboarding, där inbjudan accepteras.
+    if (!profile?.onboarding_done && !hasAccess && hasPending && !pathname.startsWith('/auth') && !isApiRoute) {
+      return NextResponse.redirect(new URL('/auth/confirm', request.url))
+    }
 
     if (!hasAccess && pathname !== '/no-access' && !pathname.startsWith('/auth') && !isApiRoute) {
       return NextResponse.redirect(new URL('/no-access', request.url))

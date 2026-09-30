@@ -11,6 +11,7 @@ async function callerPastoratIds(userId: string): Promise<number[]> {
     .select('church_id, admin_level, churches!inner(pastorat_id)')
     .eq('profile_id', userId)
     .eq('active', true)
+    .not('accepted_at', 'is', null)
     .eq('admin_level', 'pastorat')
 
   const ids = new Set<number>()

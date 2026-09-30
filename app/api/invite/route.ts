@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendInvitation } from '@/lib/email'
-import { canAssignRole, roleIsEmployee, roleToAdminLevel } from '@/lib/membershipAuth'
+import { canAssignRole, roleToAdminLevel } from '@/lib/membershipAuth'
+import { savePendingMembership, sendMembershipInvitation } from '@/lib/membershipInvite'
 import {
-  getCaller, canAdminChurch, canAssignLevel, churchLevel, hasStaffPermission, isValidRole, levelRank, profileMaxLevel,
+  getCaller, canAdminChurch, canAssignLevel, churchLevel, hasStaffPermission, isValidRole, levelRank,
   unauthorized, forbidden,
 } from '@/lib/authz'
 
@@ -56,22 +56,9 @@ export async function POST(req: NextRequest) {
 
   const inviterName = caller.name
   const inviterEmail = caller.email ?? undefined
-  const isEmployee = roleIsEmployee(role)
 
-  const saveMembership = async (profileId: string) => {
-    const { error } = await admin.from('profile_churches').upsert({
-      profile_id: profileId,
-      church_id: churchId,
-      role,
-      admin_level: adminLevel,
-      is_employee: isEmployee,
-      active: true,
-      invited_by: caller.id,
-      invited_at: new Date().toISOString(),
-    }, { onConflict: 'profile_id,church_id' })
-    return error
-  }
-
+  // Ny användare: profilen är nyskapad av inbjudan och får namn och e-post.
+  // Medlemskapet är väntande tills personen gjort onboarding och accepterat.
   const { data: createData, error: createError } = await admin.auth.admin.createUser({
     email: normalizedEmail,
     email_confirm: false,
@@ -86,34 +73,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Kunde inte spara personen: ${profileErr.message}` }, { status: 500 })
     }
 
-    const membershipError = await saveMembership(createData.user.id)
+    const membershipError = await savePendingMembership(admin, {
+      profileId: createData.user.id, churchId, role, invitedBy: caller.id,
+    })
     if (membershipError) {
       return NextResponse.json({ error: `Kunde inte spara roll och församling: ${membershipError.message}` }, { status: 500 })
     }
 
-    const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
-      type: 'invite',
-      email: normalizedEmail,
-      options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm?church=${churchId}` },
+    const { error: mailErr } = await sendMembershipInvitation(admin, {
+      email: normalizedEmail, name: normalizedName, confirmed: false,
+      churchId, churchName: church.name, role, inviterName, inviterEmail,
     })
-    if (linkErr) return NextResponse.json({ error: linkErr.message }, { status: 400 })
+    if (mailErr) return NextResponse.json({ error: mailErr }, { status: 500 })
 
-    try {
-      await sendInvitation({
-        to: normalizedEmail,
-        name: normalizedName,
-        inviterName,
-        inviterEmail,
-        inviteUrl: linkData.properties.action_link,
-        role,
-        churchName: church.name,
-        existingAccount: false,
-      })
-    } catch (e: any) {
-      return NextResponse.json({ error: `Mailet kunde inte skickas: ${e.message}` }, { status: 500 })
-    }
-
-    return NextResponse.json({ ok: true, existingAccount: false, churchId })
+    return NextResponse.json({ ok: true, existingAccount: false, pending: true, churchId })
   }
 
   const alreadyExists = createError?.message.toLowerCase().includes('already been registered')
@@ -133,58 +106,41 @@ export async function POST(req: NextRequest) {
   }
   if (existingUser.id === caller.id) return forbidden('Du kan inte bjuda in dig själv.')
 
-  // Befintlig person: inbjudan lägger bara till eller ändrar medlemskapet i den här
-  // församlingen. Har personen redan ett medlemskap här med högre nivå än
-  // anroparens, eller en högre nivå någonstans, får anroparen inte ändra den.
+  // Befintlig person: bara ett VÄNTANDE medlemskap i den här församlingen skapas
+  // eller återaktiveras. Profilen (namn, telefon, e-post) rörs inte. Personen blir
+  // medlem först när hen själv accepterar. Är personen redan accepterad medlem
+  // här ändras rollen via Behörigheter, inte via en ny inbjudan.
   const { data: currentMembership } = await admin
     .from('profile_churches')
-    .select('admin_level, active')
+    .select('admin_level, active, accepted_at')
     .eq('profile_id', existingUser.id)
     .eq('church_id', churchId)
     .maybeSingle()
+  if (currentMembership?.active && currentMembership.accepted_at) {
+    return NextResponse.json({ error: 'Personen finns redan i församlingen. Ändra rollen under Behörigheter.' }, { status: 409 })
+  }
   if (staffInvite && currentMembership?.active) {
-    return NextResponse.json({ error: 'Personen finns redan i församlingen' }, { status: 409 })
+    return NextResponse.json({ error: 'Personen har redan en väntande inbjudan' }, { status: 409 })
   }
   if (currentMembership?.active && levelRank(currentMembership.admin_level) > levelRank(myLevel)) {
-    return forbidden('Personen har högre behörighet i församlingen än du. Kontakta en pastoratsadmin.')
-  }
-  const target = await profileMaxLevel(existingUser.id)
-  if (currentMembership?.active && target && levelRank(target.level) > levelRank(myLevel)) {
-    return forbidden('Personen har högre behörighet än du. Kontakta en pastoratsadmin.')
+    return forbidden('Inbjudan har högre behörighet än du har i församlingen. Kontakta en pastoratsadmin.')
   }
 
-  const membershipError = await saveMembership(existingUser.id)
+  const membershipError = await savePendingMembership(admin, {
+    profileId: existingUser.id, churchId, role, invitedBy: caller.id,
+  })
   if (membershipError) {
     return NextResponse.json({ error: `Kunde inte spara roll och församling: ${membershipError.message}` }, { status: 500 })
   }
 
   const isConfirmed = Boolean(existingUser.email_confirmed_at)
-  const linkType = isConfirmed ? 'magiclink' : 'invite'
-  const redirectTo = isConfirmed
-    ? `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?church=${churchId}`
-    : `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm?church=${churchId}`
-
-  const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
-    type: linkType,
+  const { error: mailErr } = await sendMembershipInvitation(admin, {
     email: normalizedEmail,
-    options: { redirectTo },
+    name: existingUser.user_metadata?.name || normalizedName,
+    confirmed: isConfirmed,
+    churchId, churchName: church.name, role, inviterName, inviterEmail,
   })
-  if (linkErr) return NextResponse.json({ error: linkErr.message }, { status: 400 })
+  if (mailErr) return NextResponse.json({ error: mailErr }, { status: 500 })
 
-  try {
-    await sendInvitation({
-      to: normalizedEmail,
-      name: existingUser.user_metadata?.name || normalizedName,
-      inviterName,
-      inviterEmail,
-      inviteUrl: linkData.properties.action_link,
-      role,
-      churchName: church.name,
-      existingAccount: isConfirmed,
-    })
-  } catch (e: any) {
-    return NextResponse.json({ error: `Mailet kunde inte skickas: ${e.message}` }, { status: 500 })
-  }
-
-  return NextResponse.json({ ok: true, existingAccount: isConfirmed, churchId })
+  return NextResponse.json({ ok: true, existingAccount: isConfirmed, pending: true, churchId })
 }

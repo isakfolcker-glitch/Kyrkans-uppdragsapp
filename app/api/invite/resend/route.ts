@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendInvitation } from '@/lib/email'
-import { getCaller, canAdminProfile, hasStaffPermission, profileMaxLevel, unauthorized, forbidden } from '@/lib/authz'
+import {
+  getCaller, churchLevel, hasStaffPermission, levelAllows, levelRank, profileMaxLevel, unauthorized, forbidden,
+} from '@/lib/authz'
 
 export async function POST(req: NextRequest) {
   const { caller } = await getCaller()
@@ -13,18 +15,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Person och församling krävs' }, { status: 400 })
   }
 
-  // Admin för personens församling (personen får inte ha högre nivå än anroparen),
+  // Admin för församlingen (personen får inte ha högre nivå än anroparen där),
   // eller anställd med kan_lagg_till_personal där, som bara får bjuda in ideella
-  // utan adminnivå någonstans.
-  const isProfileAdmin = await canAdminProfile(caller, profileId, churchId)
-  const staffResend = !isProfileAdmin && profileId !== caller.id
-    && await hasStaffPermission(caller, 'kan_lagg_till_personal', churchId)
-  if (!isProfileAdmin && !staffResend) {
+  // utan adminnivå någonstans. Gäller både accepterade och väntande medlemskap
+  // (en ny inbjudan ger ingen behörighet förrän personen accepterar).
+  if (profileId === caller.id) return forbidden('Du kan inte bjuda in dig själv.')
+  const myLevel = await churchLevel(caller, churchId)
+  const isChurchAdmin = levelRank(myLevel) >= 1
+  const staffResend = !isChurchAdmin && await hasStaffPermission(caller, 'kan_lagg_till_personal', churchId)
+  if (!isChurchAdmin && !staffResend) {
     return forbidden('Saknar behörighet för personen i församlingen')
   }
-  if (staffResend) {
-    const target = await profileMaxLevel(profileId)
-    if (!target || target.level !== 'none') return forbidden('Du får bara bjuda in ideella igen')
+  const target = await profileMaxLevel(profileId)
+  if (!target) return NextResponse.json({ error: 'Personen finns inte' }, { status: 404 })
+  if (staffResend && target.level !== 'none') return forbidden('Du får bara bjuda in ideella igen')
+  if (isChurchAdmin && !levelAllows(myLevel, target.level)) {
+    return forbidden('Personen har högre behörighet än du. Kontakta en pastoratsadmin.')
   }
 
   const admin = createAdminClient()

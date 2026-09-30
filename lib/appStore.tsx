@@ -141,6 +141,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .select('profile_id, church_id, role, admin_level, is_employee, active, accepted_at')
       .eq('profile_id', userId)
       .eq('active', true)
+      .not('accepted_at', 'is', null) // väntande inbjudningar ger ingen tillgång
 
     let mappedMemberships: ChurchMembershipData[] = (membershipRows ?? []).map((m: any) => ({
       profileId: m.profile_id,
@@ -354,10 +355,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }))
       setPasses(mappedPasses)
 
-      if (currentUser?.id) {
+      // Bygg från den laddade profilen: currentUser är null i första renderingen.
+      if (prof?.id) {
         const mine: Record<number, boolean> = {}
         mappedPasses.forEach(pass => {
-          if (pass.bookings.some(booking => booking.personId === currentUser.id)) mine[pass.id] = true
+          if (pass.bookings.some(booking => booking.personId === prof.id)) mine[pass.id] = true
         })
         setSelfBookings(mine)
       }
@@ -368,6 +370,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .from('profile_churches')
       .select('church_id, role, admin_level, is_employee, active, profiles!inner(id, name, email, phone, ini, av_color, ac_color, available, profile_groups(group_id))')
       .eq('active', true)
+      .not('accepted_at', 'is', null) // väntande inbjudningar visas inte som personer
 
     if (peopleMemberships) {
       const peopleRows: PersonData[] = peopleMemberships.map((membership: any) => {

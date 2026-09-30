@@ -41,6 +41,7 @@ export function roleIsEmployee(role: string): boolean {
   return role !== 'ideell' && role !== 'kiosk'
 }
 
+/** Aktiva OCH accepterade medlemskap. Väntande inbjudningar räknas inte. */
 export async function getActiveMemberships(
   supabase: SupabaseClient,
   profileId: string,
@@ -50,6 +51,7 @@ export async function getActiveMemberships(
     .select('profile_id, church_id, role, admin_level, is_employee, active, invited_by, invited_at, accepted_at, churches(id, name, pastorat_id)')
     .eq('profile_id', profileId)
     .eq('active', true)
+    .not('accepted_at', 'is', null)
     .order('invited_at', { ascending: true })
 
   if (error) return []
@@ -67,6 +69,7 @@ export async function getDirectMembership(
     .eq('profile_id', profileId)
     .eq('church_id', churchId)
     .eq('active', true)
+    .not('accepted_at', 'is', null)
     .maybeSingle()
 
   return (data as ChurchMembership | null) ?? null
@@ -91,7 +94,7 @@ export async function canAdminChurch(
   supabase: SupabaseClient,
   churchId: number,
 ): Promise<boolean> {
-  const { data } = await supabase.rpc('can_admin_church', { target_church_id: churchId })
+  const { data } = await supabase.rpc('can_admin_church', { target_church: churchId })
   return data === true
 }
 
@@ -102,13 +105,18 @@ export async function getEffectiveAdminLevel(
 ): Promise<MembershipAdminLevel> {
   if (await isSystemSuperAdmin(supabase)) return 'super'
 
+  // Direkt nivå i församlingen och pastoratsnivå räknas båda; högsta vinner.
+  // Ett direkt medlemskap med nivån 'none' får inte blockera pastoratsnivån.
   const membership = await getDirectMembership(supabase, profileId, churchId)
-  if (membership?.admin_level) return membership.admin_level
+  const direct: MembershipAdminLevel = membership?.admin_level ?? 'none'
+  if (direct === 'super') return 'super'
+  if (direct === 'pastorat') return 'pastorat'
 
   const { data: pastoratAccess } = await supabase.rpc('has_pastorat_admin_access', {
     target_church_id: churchId,
   })
-  return pastoratAccess === true ? 'pastorat' : 'none'
+  if (pastoratAccess === true) return 'pastorat'
+  return direct
 }
 
 export async function hasStaffPermission(

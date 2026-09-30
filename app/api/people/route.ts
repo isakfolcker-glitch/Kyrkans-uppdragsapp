@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { canAssignRole, roleIsEmployee, roleToAdminLevel } from '@/lib/membershipAuth'
+import { savePendingMembership, sendMembershipInvitation } from '@/lib/membershipInvite'
 import {
   getCaller, canAdminChurch, canAssignLevel, churchLevel, hasStaffPermission, isValidRole, levelRank, profileMaxLevel,
   unauthorized, forbidden,
@@ -58,17 +59,19 @@ export async function POST(req: NextRequest) {
     uid = existingAuthUser.id
     if (uid === caller.id) return forbidden('Du kan inte lägga till dig själv.')
 
-    // Befintlig person: rör inte profilen (namn, e-post, telefon) och ändra
-    // inte ett befintligt aktivt medlemskap här. Det görs via personens sida,
-    // där nivåtaket kontrolleras.
+    // Befintlig person: rör inte profilen (namn, e-post, telefon). Personen får
+    // bara ett VÄNTANDE medlemskap och en inbjudan; hen blir medlem först när hen
+    // själv accepterar. Ett befintligt aktivt medlemskap här ändras inte.
     const { data: currentMembership } = await admin
       .from('profile_churches')
-      .select('active')
+      .select('active, accepted_at')
       .eq('profile_id', uid)
       .eq('church_id', churchId)
       .maybeSingle()
     if (currentMembership?.active) {
-      return NextResponse.json({ error: 'Personen finns redan i församlingen' }, { status: 409 })
+      return NextResponse.json({
+        error: currentMembership.accepted_at ? 'Personen finns redan i församlingen' : 'Personen har redan en väntande inbjudan',
+      }, { status: 409 })
     }
     const target = await profileMaxLevel(uid)
     if (!target) {
@@ -77,6 +80,30 @@ export async function POST(req: NextRequest) {
     if (levelRank(target.level) > levelRank(myLevel)) {
       return forbidden('Personen har högre behörighet än du. Kontakta en pastoratsadmin.')
     }
+
+    const { data: church } = await admin.from('churches').select('name').eq('id', churchId).maybeSingle()
+    if (!church) return NextResponse.json({ error: 'Församlingen finns inte' }, { status: 404 })
+
+    const pendingErr = await savePendingMembership(admin, { profileId: uid, churchId, role, invitedBy: caller.id })
+    if (pendingErr) {
+      return NextResponse.json({ error: `Kunde inte spara inbjudan: ${pendingErr.message}` }, { status: 500 })
+    }
+
+    const authUser = existingAuthUser as { id: string; email_confirmed_at?: string | null; user_metadata?: { name?: string } }
+    const { error: mailErr } = await sendMembershipInvitation(admin, {
+      email: normalizedEmail,
+      name: authUser.user_metadata?.name || name.trim(),
+      confirmed: Boolean(authUser.email_confirmed_at),
+      churchId,
+      churchName: church.name,
+      role,
+      inviterName: caller.name,
+      inviterEmail: caller.email ?? undefined,
+    })
+    if (mailErr) return NextResponse.json({ error: mailErr }, { status: 500 })
+
+    // Grupper sätts inte förrän personen har accepterat.
+    return NextResponse.json({ id: uid, ini, existingAccount: true, invited: true, pending: true })
   } else {
     const authEmail = normalizedEmail || `noemail+${crypto.randomUUID()}@intern.local`
     const { data: authUser, error: authErr } = await admin.auth.admin.createUser({
@@ -103,6 +130,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Helt ny person som anroparen själv skapat (ingen annan äger kontot än):
+  // medlemskapet gäller direkt.
+  const now = new Date().toISOString()
   const { error: membershipErr } = await admin.from('profile_churches').upsert({
     profile_id: uid,
     church_id: churchId,
@@ -111,7 +141,8 @@ export async function POST(req: NextRequest) {
     is_employee: roleIsEmployee(role),
     active: true,
     invited_by: caller.id,
-    invited_at: new Date().toISOString(),
+    invited_at: now,
+    accepted_at: now,
   }, { onConflict: 'profile_id,church_id' })
   if (membershipErr) {
     return NextResponse.json({ error: `Kunde inte spara roll och församling: ${membershipErr.message}` }, { status: 500 })
@@ -145,7 +176,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     id: uid,
     ini,
-    existingAccount: Boolean(existingAuthUser),
+    existingAccount: false,
     invited: false,
   })
 }

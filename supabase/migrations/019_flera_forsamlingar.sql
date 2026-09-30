@@ -8,6 +8,9 @@
 --   * Församlingar: pastoratsadmin kan inte flytta församlingar mellan pastorat.
 --   * Kommentarer: reglerna från 018 behålls.
 --   * Behörighetsfunktionerna från 016 och 018 räknar med medlemskap.
+--   * Ett medlemskap ger behörighet först när det är accepterat (accepted_at).
+--     Befintliga kopplingar räknas som accepterade vid migreringen.
+--   * Egen bokning bara på publicerade pass, utskick bara i eget namn.
 -- profile_churches blir källa för medlemskap, roll och lokal adminnivå.
 -- Legacy-fälten på profiles behålls tillfälligt för bakåtkompatibilitet.
 -- Idempotent.
@@ -27,6 +30,8 @@ CREATE TABLE IF NOT EXISTS public.profile_churches (
   accepted_at TIMESTAMPTZ,
   PRIMARY KEY (profile_id, church_id)
 );
+
+ALTER TABLE public.profile_churches ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS profile_churches_church_idx
   ON public.profile_churches(church_id, active);
@@ -49,6 +54,8 @@ CREATE TABLE IF NOT EXISTS public.profile_church_permissions (
 );
 
 ALTER TABLE public.profile_church_permissions ENABLE ROW LEVEL SECURITY;
+REVOKE INSERT, UPDATE, DELETE ON public.profile_churches FROM anon, authenticated;
+REVOKE INSERT, UPDATE, DELETE ON public.profile_church_permissions FROM anon, authenticated;
 
 -- Flytta äldre personbehörigheter till personens tidigare huvudförsamling.
 INSERT INTO public.profile_church_permissions (
@@ -74,7 +81,9 @@ INSERT INTO public.profile_churches (
 SELECT
   id, church_id, role, admin_level, is_employee, true,
   COALESCE(created_at, now()),
-  CASE WHEN onboarding_done THEN COALESCE(updated_at, now()) ELSE NULL END
+  -- Befintliga kopplingar är redan godkända och gäller direkt. Nya inbjudningar
+  -- skapas av appen med accepted_at NULL och gäller först när personen accepterat.
+  COALESCE(updated_at, now())
 FROM public.profiles
 WHERE church_id IS NOT NULL
 ON CONFLICT (profile_id, church_id) DO NOTHING;
@@ -95,8 +104,6 @@ WHERE p.admin_level = 'super'
   )
 ON CONFLICT (profile_id, church_id) DO NOTHING;
 
-ALTER TABLE public.profile_churches ENABLE ROW LEVEL SECURITY;
-
 -- Utskick behöver veta vilken församling de hör till.
 ALTER TABLE public.message_logs
   ADD COLUMN IF NOT EXISTS church_id INT REFERENCES public.churches(id) ON DELETE SET NULL;
@@ -112,7 +119,7 @@ RETURNS BOOLEAN AS $$
     COALESCE((SELECT admin_level = 'super' FROM public.profiles WHERE id = auth.uid()), false)
     OR EXISTS (
       SELECT 1 FROM public.profile_churches
-      WHERE profile_id = auth.uid() AND active AND admin_level = 'super'
+      WHERE profile_id = auth.uid() AND active AND accepted_at IS NOT NULL AND admin_level = 'super'
     );
 $$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
 
@@ -123,6 +130,7 @@ RETURNS BOOLEAN AS $$
     WHERE profile_id = auth.uid()
       AND church_id = target_church_id
       AND active
+      AND accepted_at IS NOT NULL
   );
 $$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
 
@@ -134,6 +142,7 @@ RETURNS TEXT AS $$
     WHERE profile_id = auth.uid()
       AND church_id = target_church_id
       AND active
+      AND accepted_at IS NOT NULL
     LIMIT 1
   ), 'none');
 $$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
@@ -146,6 +155,7 @@ RETURNS TEXT AS $$
     WHERE profile_id = auth.uid()
       AND church_id = target_church_id
       AND active
+      AND accepted_at IS NOT NULL
     LIMIT 1
   ), 'ideell');
 $$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
@@ -159,6 +169,7 @@ RETURNS BOOLEAN AS $$
     JOIN public.churches target_church ON target_church.id = target_church_id
     WHERE pc.profile_id = auth.uid()
       AND pc.active
+      AND pc.accepted_at IS NOT NULL
       AND pc.admin_level IN ('pastorat','super')
       AND source_church.pastorat_id IS NOT NULL
       AND source_church.pastorat_id = target_church.pastorat_id
@@ -225,11 +236,11 @@ RETURNS TEXT AS $$
     WHEN public.is_system_super_admin() THEN 'super'
     WHEN EXISTS (
       SELECT 1 FROM public.profile_churches
-      WHERE profile_id = auth.uid() AND active AND admin_level = 'pastorat'
+      WHERE profile_id = auth.uid() AND active AND accepted_at IS NOT NULL AND admin_level = 'pastorat'
     ) THEN 'pastorat'
     WHEN EXISTS (
       SELECT 1 FROM public.profile_churches
-      WHERE profile_id = auth.uid() AND active AND admin_level = 'forsamling'
+      WHERE profile_id = auth.uid() AND active AND accepted_at IS NOT NULL AND admin_level = 'forsamling'
     ) THEN 'forsamling'
     ELSE 'none'
   END;
@@ -239,7 +250,7 @@ CREATE OR REPLACE FUNCTION public.current_church_id()
 RETURNS INT AS $$
   SELECT church_id
   FROM public.profile_churches
-  WHERE profile_id = auth.uid() AND active
+  WHERE profile_id = auth.uid() AND active AND accepted_at IS NOT NULL
   ORDER BY invited_at, church_id
   LIMIT 1;
 $$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
@@ -257,6 +268,7 @@ RETURNS BOOLEAN AS $$
       FROM public.profile_churches target_membership
       WHERE target_membership.profile_id = target_profile_id
         AND target_membership.active
+        AND target_membership.accepted_at IS NOT NULL
         AND public.can_view_people_in_church(target_membership.church_id)
     );
 $$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
@@ -325,6 +337,7 @@ CREATE POLICY "profiles_select" ON public.profiles FOR SELECT
       SELECT 1 FROM public.profile_churches target_membership
       WHERE target_membership.profile_id = profiles.id
         AND target_membership.active
+        AND target_membership.accepted_at IS NOT NULL
         AND public.can_view_people_in_church(target_membership.church_id)
     )
   );
@@ -474,6 +487,7 @@ CREATE POLICY "bookings_insert_scope" ON public.bookings FOR INSERT
     (profile_id = auth.uid() AND EXISTS (
       SELECT 1 FROM public.passes p
       WHERE p.id = bookings.pass_id AND public.can_access_church(p.church_id)
+        AND p.pub_status = 'live' AND p.cancelled = false
     ))
     OR EXISTS (
       SELECT 1 FROM public.passes p
@@ -537,6 +551,7 @@ CREATE POLICY "staff_permissions_read" ON public.staff_permissions FOR SELECT
       SELECT 1 FROM public.profile_churches pc
       WHERE pc.profile_id = staff_permissions.profile_id
         AND pc.active
+        AND pc.accepted_at IS NOT NULL
         AND public.can_admin_church(pc.church_id)
     )
   );
@@ -546,6 +561,7 @@ CREATE POLICY "staff_permissions_write" ON public.staff_permissions FOR ALL
       SELECT 1 FROM public.profile_churches pc
       WHERE pc.profile_id = staff_permissions.profile_id
         AND pc.active
+        AND pc.accepted_at IS NOT NULL
         AND public.can_admin_church(pc.church_id)
     )
   )
@@ -554,6 +570,7 @@ CREATE POLICY "staff_permissions_write" ON public.staff_permissions FOR ALL
       SELECT 1 FROM public.profile_churches pc
       WHERE pc.profile_id = staff_permissions.profile_id
         AND pc.active
+        AND pc.accepted_at IS NOT NULL
         AND public.can_admin_church(pc.church_id)
     )
   );
@@ -618,7 +635,8 @@ CREATE POLICY "message_logs_select" ON public.message_logs FOR SELECT
   );
 CREATE POLICY "message_logs_insert" ON public.message_logs FOR INSERT
   WITH CHECK (
-    church_id IS NOT NULL
+    from_user_id = auth.uid()
+    AND church_id IS NOT NULL
     AND (
       public.can_admin_church(church_id)
       OR public.has_staff_permission_for_church(church_id, 'kan_skicka_utskick')
@@ -658,7 +676,7 @@ RETURNS SETOF INT AS $$
   SELECT DISTINCT c.pastorat_id
   FROM public.profile_churches pc
   JOIN public.churches c ON c.id = pc.church_id
-  WHERE pc.profile_id = auth.uid() AND pc.active
+  WHERE pc.profile_id = auth.uid() AND pc.active AND pc.accepted_at IS NOT NULL
     AND pc.admin_level = 'pastorat' AND c.pastorat_id IS NOT NULL;
 $$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
 
@@ -697,7 +715,7 @@ CREATE OR REPLACE FUNCTION public.can_admin_profile(target UUID)
 RETURNS BOOLEAN AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.profile_churches pc
-    WHERE pc.profile_id = target AND pc.active
+    WHERE pc.profile_id = target AND pc.active AND pc.accepted_at IS NOT NULL
       AND public.can_admin_church(pc.church_id)
   )
   AND public.level_rank(public.profile_max_level(target)) <= public.level_rank(public.current_admin_level());
@@ -711,18 +729,18 @@ RETURNS BOOLEAN AS $$
     EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = uid AND p.admin_level = 'super')
     OR EXISTS (
       SELECT 1 FROM public.profile_churches pc
-      WHERE pc.profile_id = uid AND pc.active AND pc.admin_level = 'super'
+      WHERE pc.profile_id = uid AND pc.active AND pc.accepted_at IS NOT NULL AND pc.admin_level = 'super'
     )
     OR EXISTS (
       SELECT 1 FROM public.profile_churches pc
-      WHERE pc.profile_id = uid AND pc.active AND pc.admin_level = 'forsamling'
+      WHERE pc.profile_id = uid AND pc.active AND pc.accepted_at IS NOT NULL AND pc.admin_level = 'forsamling'
         AND pc.church_id = target_church
     )
     OR EXISTS (
       SELECT 1 FROM public.profile_churches pc
       JOIN public.churches mine ON mine.id = pc.church_id
       JOIN public.churches t ON t.id = target_church
-      WHERE pc.profile_id = uid AND pc.active AND pc.admin_level = 'pastorat'
+      WHERE pc.profile_id = uid AND pc.active AND pc.accepted_at IS NOT NULL AND pc.admin_level = 'pastorat'
         AND mine.pastorat_id IS NOT NULL AND mine.pastorat_id = t.pastorat_id
     )
   );
@@ -751,3 +769,7 @@ REVOKE EXECUTE ON FUNCTION public.profile_max_level(UUID)          FROM PUBLIC, 
 REVOKE EXECUTE ON FUNCTION public.can_admin_church_for(INT, UUID)  FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.pass_thread_access_for(INT, UUID) FROM PUBLIC, anon, authenticated;
 GRANT  EXECUTE ON FUNCTION public.admin_pastorat_ids()             TO authenticated;
+
+-- Den gamla tabellen staff_permissions styr inte längre behörighet
+-- (profile_church_permissions gör det). Inloggade får bara läsa.
+REVOKE INSERT, UPDATE, DELETE ON public.staff_permissions FROM anon, authenticated;

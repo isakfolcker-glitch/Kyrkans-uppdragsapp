@@ -5,7 +5,7 @@ import { sendBookingConfirmation } from '@/lib/email'
 import { promoteFromWaitlist } from '@/app/api/waitlist/route'
 import { isLockedForSelfCancel } from '@/lib/passTiming'
 import { canAccessChurch } from '@/lib/membershipAuth'
-import { getCaller, canAdminOrStaff, isKioskIn } from '@/lib/authz'
+import { getCaller, canAdminChurch, canAdminOrStaff, isKioskIn } from '@/lib/authz'
 
 const KIOSK_AV = '#FFEBE1'
 const KIOSK_AC = '#7D0037'
@@ -120,6 +120,7 @@ export async function POST(req: NextRequest) {
       .eq('profile_id', override_profile_id)
       .eq('church_id', pass.church_id)
       .eq('active', true)
+      .not('accepted_at', 'is', null)
       .maybeSingle()
     if (!targetMembership) {
       return NextResponse.json({ error: 'Personen tillhör inte passets församling' }, { status: 400 })
@@ -133,6 +134,18 @@ export async function POST(req: NextRequest) {
   }
 
   const bookingForOther = profileId !== user.id
+
+  // Egen bokning: bara på publicerade pass som inte är inställda, och bara i en
+  // församling där man är accepterad medlem (eller admin).
+  if (!bookingForOther) {
+    if (pass.pub_status !== 'live' || pass.cancelled) {
+      return NextResponse.json({ error: 'Passet går inte att boka' }, { status: 403 })
+    }
+    const isMember = caller.memberships.some(m => m.churchId === Number(pass.church_id))
+    if (!isMember && !(await canAdminChurch(caller, pass.church_id))) {
+      return NextResponse.json({ error: 'Du har inte tillgång till passets församling' }, { status: 403 })
+    }
+  }
   // Bokar man sig själv används alltid den egna adressen och det egna namnet.
   const confirmMail = bookingForOther ? (typeof mail === 'string' ? mail.trim() : '') : (user.email ?? '')
   const bookingName = bookingForOther ? name : caller.name

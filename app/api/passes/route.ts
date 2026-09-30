@@ -123,6 +123,7 @@ export async function POST(req: NextRequest) {
       .select('profile_id, profiles!inner(email, notif_settings(nyttpass), profile_groups(group_id))')
       .eq('church_id', churchId)
       .eq('active', true)
+      .not('accepted_at', 'is', null)
 
     const emails = Array.from(new Set(
       (memberships ?? []).flatMap((membership: any) => {

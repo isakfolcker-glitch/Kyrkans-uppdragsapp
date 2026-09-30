@@ -3,6 +3,9 @@
 //
 // Medlemskapsmodellen: en person kan tillhöra flera församlingar via
 // profile_churches, med egen roll och adminnivå i varje församling.
+// Ett medlemskap räknas bara när det är aktivt OCH accepterat
+// (active = true AND accepted_at IS NOT NULL). Väntande inbjudningar ger
+// ingen behörighet och ingen synlighet.
 // Reglerna speglar databasfunktionerna is_system_super_admin, has_pastorat_admin_access
 // och can_admin_church (supabase/migrations/016_multi_church_memberships.sql),
 // med ett undantag som gör koden striktare: pastoratsbehörighet kräver att båda
@@ -88,7 +91,7 @@ export function levelInChurch(caller: Caller, churchId: number, churchPastoratId
   return maxLevel(direct, pastoratAccess ? 'pastorat' : 'none')
 }
 
-/** Hämtar inloggad användare med alla aktiva medlemskap. caller är null om ej inloggad. */
+/** Hämtar inloggad användare med alla aktiva och accepterade medlemskap. caller är null om ej inloggad. */
 export async function getCaller(): Promise<{ caller: Caller | null; supabase: SupabaseClient }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -100,7 +103,8 @@ export async function getCaller(): Promise<{ caller: Caller | null; supabase: Su
     admin.from('profile_churches')
       .select('church_id, role, admin_level, churches(pastorat_id)')
       .eq('profile_id', user.id)
-      .eq('active', true),
+      .eq('active', true)
+      .not('accepted_at', 'is', null),
   ])
 
   type Row = { church_id: number; role: string; admin_level: string; churches: { pastorat_id: number | null } | { pastorat_id: number | null }[] | null }
@@ -143,27 +147,46 @@ export async function canAdminChurch(caller: Caller, churchId: number | null | u
   return levelRank(await churchLevel(caller, churchId)) >= RANK.forsamling
 }
 
-/** Högsta nivå en person har någonstans (alla aktiva medlemskap och äldre profiles.admin_level). null om personen inte finns. */
-export async function profileMaxLevel(targetId: string): Promise<{ level: AdminLevel; churchIds: number[] } | null> {
+export type ProfileMemberships = {
+  /** Högsta nivå: accepterade OCH väntande medlemskap samt äldre profiles.admin_level (striktast möjliga). */
+  level: AdminLevel
+  /** Församlingar där personen har aktivt, accepterat medlemskap. */
+  churchIds: number[]
+  /** Församlingar där personen har en väntande inbjudan. */
+  pendingChurchIds: number[]
+}
+
+/** Personens medlemskap och högsta nivå. null om personen inte finns. */
+export async function profileMaxLevel(targetId: string): Promise<ProfileMemberships | null> {
   const admin = createAdminClient()
   const [{ data: profile }, { data: rows }] = await Promise.all([
     admin.from('profiles').select('id, admin_level').eq('id', targetId).maybeSingle(),
-    admin.from('profile_churches').select('church_id, admin_level').eq('profile_id', targetId).eq('active', true),
+    admin.from('profile_churches').select('church_id, admin_level, accepted_at').eq('profile_id', targetId).eq('active', true),
   ])
   if (!profile) return null
+  const all = (rows ?? []) as { church_id: number; admin_level: string; accepted_at: string | null }[]
   return {
-    level: maxLevel(profile.admin_level, ...(rows ?? []).map(r => r.admin_level)),
-    churchIds: (rows ?? []).map(r => Number(r.church_id)),
+    level: maxLevel(profile.admin_level, ...all.map(r => r.admin_level)),
+    churchIds: all.filter(r => r.accepted_at != null).map(r => Number(r.church_id)),
+    pendingChurchIds: all.filter(r => r.accepted_at == null).map(r => Number(r.church_id)),
   }
+}
+
+/** Ren regel: tillåter anroparens nivå åtgärden mot en person med viss nivå? */
+export function levelAllows(callerLevel: AdminLevel, targetLevel: AdminLevel, strictlyLower = false): boolean {
+  if (levelRank(callerLevel) < RANK.forsamling) return false
+  return strictlyLower
+    ? levelRank(targetLevel) < levelRank(callerLevel)
+    : levelRank(targetLevel) <= levelRank(callerLevel)
 }
 
 /**
  * Samma idé som can_admin_profile: anroparen är admin i en församling där personen
- * har aktivt medlemskap, och personens högsta nivå (i alla församlingar) är inte
- * högre än anroparens nivå i den församlingen.
- * - churchId: kontrollera bara den församlingen (personen måste vara medlem där).
- * - strictlyLower: personens nivå måste vara lägre, inte lika (t.ex. sätta lösenord).
- * Personer utan medlemskap kan bara administreras av superadmin.
+ * har aktivt och accepterat medlemskap, och personens högsta nivå (i alla
+ * församlingar) är inte högre än anroparens nivå i den församlingen.
+ * - churchId: kontrollera bara den församlingen (personen måste vara accepterad medlem där).
+ * - strictlyLower: personens nivå måste vara lägre, inte lika.
+ * Personer utan accepterat medlemskap kan bara administreras av superadmin.
  */
 export async function canAdminProfile(
   caller: Caller,
@@ -179,18 +202,44 @@ export async function canAdminProfile(
     ? target.churchIds.filter(c => c === Number(churchId))
     : target.churchIds
 
-  const allowedAt = (lvl: AdminLevel) => levelRank(lvl) >= RANK.forsamling && (opts.strictlyLower
-    ? levelRank(target.level) < levelRank(lvl)
-    : levelRank(target.level) <= levelRank(lvl))
-
   if (!candidates.length) {
     // Ingen församling att pröva mot. Bara superadmin, och bara om ingen församling angavs.
-    return churchId == null && caller.isSuper && allowedAt('super')
+    return churchId == null && caller.isSuper && levelAllows('super', target.level, opts.strictlyLower)
   }
   for (const c of candidates) {
-    if (allowedAt(await churchLevel(caller, c))) return true
+    if (levelAllows(await churchLevel(caller, c), target.level, opts.strictlyLower)) return true
   }
   return false
+}
+
+/** Ren regel för canAdminAllMemberships, så att den kan enhetstestas. */
+export function coversAllMemberships(
+  callerLevels: Record<number, AdminLevel>,
+  target: Pick<ProfileMemberships, 'level' | 'churchIds'>,
+  opts: { churchId?: number | null; strictlyLower?: boolean } = {},
+): boolean {
+  if (!target.churchIds.length) return false
+  if (opts.churchId != null && !target.churchIds.includes(Number(opts.churchId))) return false
+  return target.churchIds.every(c => levelAllows(callerLevels[c] ?? 'none', target.level, opts.strictlyLower))
+}
+
+/**
+ * Striktare än canAdminProfile, för sådant som påverkar hela kontot (lösenord,
+ * namn, telefon): ALLA personens accepterade medlemskap ligger i församlingar
+ * som anroparen administrerar, med nivåtak i var och en. Personen måste ha minst
+ * ett accepterat medlemskap (och i churchId om den anges).
+ */
+export async function canAdminAllMemberships(
+  caller: Caller,
+  targetId: string,
+  opts: { churchId?: number | null; strictlyLower?: boolean } = {},
+): Promise<boolean> {
+  if (!isAdmin(caller)) return false
+  const target = await profileMaxLevel(targetId)
+  if (!target) return false
+  const levels: Record<number, AdminLevel> = {}
+  for (const c of target.churchIds) levels[c] = await churchLevel(caller, c)
+  return coversAllMemberships(levels, target, opts)
 }
 
 export async function canAdminPass(caller: Caller, passId: number): Promise<boolean> {
@@ -247,14 +296,15 @@ export async function filterGroupsForChurch(groupIds: unknown, churchId: number)
   return (data ?? []).map(g => g.id)
 }
 
-/** Profil-id:n bland ids som har aktivt medlemskap i församlingen. */
+/** Profil-id:n bland ids som har aktivt och accepterat medlemskap i församlingen. */
 export async function filterMembersOfChurch(profileIds: unknown, churchId: number): Promise<Set<string>> {
   if (!Array.isArray(profileIds) || !profileIds.length) return new Set()
   const ids = profileIds.filter((p): p is string => typeof p === 'string')
   if (!ids.length) return new Set()
   const admin = createAdminClient()
   const { data } = await admin.from('profile_churches')
-    .select('profile_id').eq('church_id', churchId).eq('active', true).in('profile_id', ids)
+    .select('profile_id').eq('church_id', churchId).eq('active', true).not('accepted_at', 'is', null)
+    .in('profile_id', ids)
   return new Set((data ?? []).map(r => r.profile_id as string))
 }
 
@@ -327,13 +377,17 @@ export async function loadPassThreadAudience(passId: number): Promise<PassThread
 
   // Admins räknas per församlingsmedlemskap (profile_churches). Superadmin
   // kan också finnas kvar i den gamla kolumnen profiles.admin_level.
-  const [{ data: resp }, { data: books }, { data: memberships }, { data: legacySupers }] = await Promise.all([
+  const [{ data: resp }, { data: books }, { data: memberships }, { data: legacySupers }, { data: kioskRows }] = await Promise.all([
     admin.from('pass_responsible').select('profile_id').eq('pass_id', passId),
     admin.from('bookings').select('profile_id').eq('pass_id', passId).not('profile_id', 'is', null),
     admin.from('profile_churches').select('profile_id, admin_level, church_id, churches(pastorat_id)')
-      .eq('active', true).neq('admin_level', 'none'),
+      .eq('active', true).not('accepted_at', 'is', null).neq('admin_level', 'none'),
     admin.from('profiles').select('id').eq('admin_level', 'super'),
+    // Kioskkonton i passets församling räknas aldrig in, som i databasen.
+    admin.from('profile_churches').select('profile_id')
+      .eq('church_id', pass.church_id).eq('role', 'kiosk').eq('active', true),
   ])
+  const kioskIds = new Set((kioskRows ?? []).map(k => k.profile_id as string))
 
   const responsibleIds = Array.from(new Set((resp ?? []).map(r => r.profile_id as string).filter(Boolean)))
   const bookedIds = Array.from(new Set((books ?? []).map(b => b.profile_id as string).filter(Boolean)))
@@ -356,7 +410,7 @@ export async function loadPassThreadAudience(passId: number): Promise<PassThread
   const staffIds = new Set([...responsibleIds, ...churchAdminIds, ...(vkId ? [vkId] : [])])
   const members = new Map<string, ThreadMember>()
   for (const p of profiles ?? []) {
-    if (p.role === 'kiosk') continue
+    if (p.role === 'kiosk' || kioskIds.has(p.id)) continue
     members.set(p.id, { profileId: p.id, name: p.name, isStaff: staffIds.has(p.id) || p.is_employee === true })
   }
 

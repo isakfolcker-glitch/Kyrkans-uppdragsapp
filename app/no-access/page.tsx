@@ -1,5 +1,6 @@
 'use client'
 import { createClient } from '@/lib/supabase/client'
+import PendingInvitations from '@/components/layout/PendingInvitations'
 
 export default function NoAccessPage() {
   const logout = async () => {
@@ -28,6 +29,7 @@ export default function NoAccessPage() {
           Ditt konto finns, men är inte kopplat till någon aktiv församling i Kyrkans uppdragsapp.
           Be en administratör i din församling att bjuda in dig.
         </p>
+        <PendingInvitations />
         <button className="btn btn-primary" onClick={logout}>Logga ut</button>
       </div>
     </div>

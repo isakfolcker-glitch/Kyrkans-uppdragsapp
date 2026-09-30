@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { canAssignRole, roleIsEmployee, roleToAdminLevel } from '@/lib/membershipAuth'
 import {
-  getCaller, canAdminProfile, canAssignLevel, churchLevel, isValidRole,
-  STAFF_PERMISSIONS, unauthorized, forbidden,
+  getCaller, canAdminProfile, canAdminAllMemberships, canAssignLevel, churchLevel, isValidRole,
+  levelAllows, levelRank, STAFF_PERMISSIONS, unauthorized, forbidden, type AdminLevel,
 } from '@/lib/authz'
 import { deletePersonData } from '@/lib/gdpr'
 import { promoteFromWaitlist } from '@/app/api/waitlist/route'
@@ -11,6 +11,9 @@ import { promoteFromWaitlist } from '@/app/api/waitlist/route'
 // Profilfält som får ändras via denna route. Allt annat i profiles (roll,
 // nivå, församling m.m.) ignoreras. Roll och nivå per församling ändras bara
 // via fältet role nedan, med nivåtak.
+// - email: bara superadmin (personen själv ändrar sin e-post via Min profil).
+// - övriga profilfält påverkar hela kontot, så de kräver att anroparen
+//   administrerar ALLA personens accepterade medlemskap.
 const TEXT_FIELDS = ['name', 'phone', 'email', 'ini', 'av_color', 'ac_color'] as const
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -25,9 +28,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   // Admin för personens församling, och personen har inte högre nivå än anroparen där.
-  // canAdminProfile kräver också att personen har aktivt medlemskap i församlingen.
+  // canAdminProfile kräver också att personen har aktivt, accepterat medlemskap i församlingen.
   if (!(await canAdminProfile(caller, targetId, churchId))) {
     return forbidden('Saknar behörighet för personen i församlingen')
+  }
+
+  // Kontogemensamma profilfält kontrolleras innan något sparas.
+  const touchesProfile = TEXT_FIELDS.some(key => key in body) || 'available' in body
+  if ('email' in body && !caller.isSuper) {
+    return forbidden('E-post kan bara ändras av personen själv eller av superadmin.')
+  }
+  if (touchesProfile && !(await canAdminAllMemberships(caller, targetId, { churchId }))) {
+    return forbidden('Personen tillhör även en församling du inte administrerar. Namn och telefon kan du inte ändra.')
   }
 
   const admin = createAdminClient()
@@ -37,6 +49,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .eq('profile_id', targetId)
     .eq('church_id', churchId)
     .eq('active', true)
+    .not('accepted_at', 'is', null)
     .maybeSingle()
   if (!targetMembership) return NextResponse.json({ error: 'Medlemskapet finns inte' }, { status: 404 })
 
@@ -197,19 +210,35 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   }
   if (targetId === caller.id) return forbidden('Radera ditt eget konto via Min profil.')
 
-  // Admin för personens församling, med samma nivåtak som övriga personändringar.
-  if (!(await canAdminProfile(caller, targetId, churchId))) {
-    return forbidden('Saknar behörighet för personen i församlingen')
-  }
-
   const admin = createAdminClient()
   const { data: membership } = await admin
     .from('profile_churches')
-    .select('profile_id')
+    .select('profile_id, admin_level, accepted_at')
     .eq('profile_id', targetId)
     .eq('church_id', churchId)
     .eq('active', true)
     .maybeSingle()
+
+  // Väntande inbjudan: admin för församlingen kan dra tillbaka den (inte en
+  // inbjudan med högre nivå än sin egen). Bara inbjudan stängs, inget annat rörs.
+  if (membership && membership.accepted_at == null) {
+    const myLevel = await churchLevel(caller, churchId)
+    if (levelRank(myLevel) < 1 || !levelAllows(myLevel, membership.admin_level as AdminLevel)) {
+      return forbidden('Saknar behörighet för inbjudan i församlingen')
+    }
+    const { error: cancelErr } = await admin.from('profile_churches')
+      .update({ active: false })
+      .eq('profile_id', targetId)
+      .eq('church_id', churchId)
+      .is('accepted_at', null)
+    if (cancelErr) return NextResponse.json({ error: `Kunde inte dra tillbaka inbjudan: ${cancelErr.message}` }, { status: 500 })
+    return NextResponse.json({ ok: true, deletedCompletely: false, invitationCancelled: true })
+  }
+
+  // Admin för personens församling, med samma nivåtak som övriga personändringar.
+  if (!(await canAdminProfile(caller, targetId, churchId))) {
+    return forbidden('Saknar behörighet för personen i församlingen')
+  }
   if (!membership) return NextResponse.json({ error: 'Medlemskapet finns inte' }, { status: 404 })
 
   const { data: churchGroups } = await admin.from('groups').select('id').eq('church_id', churchId)

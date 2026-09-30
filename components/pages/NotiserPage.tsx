@@ -2,11 +2,17 @@
 import { useApp } from '@/lib/appStore'
 import PassQAModal from '@/components/modals/PassQAModal'
 
+// Notistyper som öppnar passets kommentarstråd.
+const THREAD_TYPES = new Set(['message', 'comment', 'comment_reply', 'comment_mention'])
+
 const typeMap: Record<string, [string, string]> = {
   reminder:          ['ii-green',  '🔔'],
   cancelled:         ['ii-red',    '⚠️'],
   new_pass:          ['ii-purple', '📅'],
   message:           ['ii-dark',   '💬'],
+  comment:           ['ii-dark',   '💬'],
+  comment_reply:     ['ii-dark',   '↩️'],
+  comment_mention:   ['ii-purple', '@'],
   signup:            ['ii-green',  '✅'],
   waitlist_joined:   ['ii-purple', '⏳'],
   waitlist_promoted: ['ii-green',  '🎉'],
@@ -44,7 +50,7 @@ export default function NotiserPage() {
       if (churchIndex >= 0) setChurch(churchIndex)
     }
 
-    if (notification.type === 'message') {
+    if (THREAD_TYPES.has(notification.type)) {
       if (pass) {
         showModal(
           <PassQAModal
@@ -110,7 +116,7 @@ export default function NotiserPage() {
                 <div className="inbox-sub">{notification.body}</div>
                 <div className="inbox-time">
                   {formatTime(notification.time)}
-                  {notification.type === 'message' && notification.passId ? ' · Öppna tråden' : ''}
+                  {THREAD_TYPES.has(notification.type) && notification.passId ? ' · Öppna tråden' : ''}
                 </div>
               </div>
             </button>

@@ -1,6 +1,7 @@
 'use client'
 import { useApp } from '@/lib/appStore'
 import Sidebar from '@/components/layout/Sidebar'
+import PendingInvitations from '@/components/layout/PendingInvitations'
 import Modal from '@/components/ui/Modal'
 import PassPage from '@/components/pages/PassPage'
 import MinaAnsvarPage from '@/components/pages/MinaAnsvarPage'
@@ -45,6 +46,7 @@ export default function AppShell() {
       <div className="app-shell">
         <Sidebar />
         <main className="main-content" style={{ paddingBottom: 80 }}>
+          <PendingInvitations />
           <ChurchSwitcher />
           <PageContent />
         </main>

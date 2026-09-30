@@ -37,7 +37,7 @@ export default function IntegritetspolicyPage() {
             <li><strong>Skicka notiser och påminnelser</strong> – e-post om pass och bokningar (rättslig grund: samtycke via notis-inställningar)</li>
             <li><strong>Säkerhet</strong> – kontaktperson i nödsituation används bara vid faktiska nödsituationer (rättslig grund: vitalt intresse)</li>
           </ul>
-          <p>Kommentarer på ett pass kan läsas av de som är bokade på passet, passets ansvariga och vaktmästare samt administratörer för församlingen. De ser ditt namn, men aldrig din e-post eller ditt telefonnummer. Tar du bort ditt konto raderas dina kommentarer. Har någon svarat på en kommentar blir den i stället anonym, så att svaret finns kvar.</p>
+          <p>Kommentarer på ett pass kan läsas av de som är bokade på passet, passets ansvariga och vaktmästare samt administratörer för församlingen och pastoratet. De ser ditt namn, men aldrig din e-post eller ditt telefonnummer. Tar du bort ditt konto raderas dina kommentarer. Har någon svarat på en kommentar blir den i stället anonym, så att svaret finns kvar.</p>
         </Section>
 
         <Section title="4. Hur länge sparar vi dina uppgifter?">

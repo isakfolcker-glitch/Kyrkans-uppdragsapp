@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
     .select('profile_id, profiles!inner(email)')
     .eq('church_id', churchId)
     .eq('active', true)
+    .not('accepted_at', 'is', null)
 
   // Mottagare måste vara aktiva medlemmar i församlingen OCH synliga för
   // avsändaren enligt databasens regler (vanlig klient med RLS).

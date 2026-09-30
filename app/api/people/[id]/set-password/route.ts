@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getCaller, canAdminProfile, unauthorized, forbidden } from '@/lib/authz'
+import { getCaller, canAdminAllMemberships, unauthorized, forbidden } from '@/lib/authz'
 
-// Admin sätter lösenord åt en person. Tillåts bara för personer med LÄGRE
-// behörighet (högsta nivå i alla församlingar) än admin själv har i en
-// församling där personen är medlem och admin ansvarar, så att ingen kan ta
-// över ett konto med samma eller högre behörighet.
+// Admin sätter lösenord åt en person. Tillåts bara om admin ansvarar för ALLA
+// personens accepterade medlemskap och personen har LÄGRE behörighet (högsta
+// nivå i alla församlingar), så att ingen kan ta över ett konto.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { caller } = await getCaller()
   if (!caller) return unauthorized()
@@ -19,8 +18,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
   if (targetId === caller.id) return forbidden('Byt ditt eget lösenord via Min profil.')
 
-  // Kräver aktivt medlemskap i församlingen, admin där och strikt lägre nivå.
-  if (!(await canAdminProfile(caller, targetId, churchId, { strictlyLower: true }))) {
+  // Kräver accepterat medlemskap i församlingen, och att ALLA personens accepterade
+  // medlemskap ligger i församlingar som anroparen administrerar, med strikt lägre
+  // nivå än anroparen i var och en. Annars kunde en admin i en annan församling
+  // ta över kontot.
+  if (!(await canAdminAllMemberships(caller, targetId, { churchId, strictlyLower: true }))) {
     return forbidden('Du kan bara sätta lösenord åt personer med lägre behörighet än du själv i församlingen.')
   }
 

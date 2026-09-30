@@ -42,6 +42,19 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const admin = createAdminClient()
+  // Församlingar med aktiva eller väntande medlemskap tas inte bort.
+  const { count, error: countErr } = await admin
+    .from('profile_churches')
+    .select('profile_id', { count: 'exact', head: true })
+    .eq('church_id', churchId)
+    .eq('active', true)
+  if (countErr) return NextResponse.json({ error: `Kunde inte kontrollera medlemmar: ${countErr.message}` }, { status: 500 })
+  if ((count ?? 0) > 0) {
+    return NextResponse.json({
+      error: `Församlingen har ${count} medlemmar eller väntande inbjudningar. Flytta eller ta bort personerna först.`,
+    }, { status: 409 })
+  }
+
   const { error } = await admin.from('churches').delete().eq('id', churchId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
