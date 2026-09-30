@@ -1,6 +1,7 @@
 'use client'
 import { useApp } from '@/lib/appStore'
 import { NAV_ITEMS } from '@/lib/appData'
+import Icon from '@/components/ui/Icon'
 
 export default function Sidebar() {
   const { u, page, goTo, cycleUser, churches, isKiosk, isPAdmin, isSuperAdmin, currentUser, profile, logout, notifications, perm, currentChurchId } = useApp()
@@ -58,7 +59,7 @@ export default function Sidebar() {
           return (
             <button key={item.id} className={`nav-item${page === item.id ? ' active' : ''}`} onClick={() => goTo(item.id)}>
               <span style={{ width: 19, fontSize: 16, position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
-                {iconFor(item.icon)}
+                <Icon name={item.icon} />
                 {unread > 0 && (
                   <span style={{
                     position: 'absolute', top: -4, right: -6,
@@ -85,10 +86,10 @@ export default function Sidebar() {
               <div className="user-name">{displayName}</div>
             </div>
           </div>
-          <button onClick={logout} title="Logga ut" style={{
-            background: 'transparent', border: 'none', color: '#C7B8E8',
-            cursor: 'pointer', padding: 6, borderRadius: 8,
-          }}>⏻</button>
+          <button type="button" onClick={logout} className="nav-item" style={{ width: 'auto' }}>
+            <Icon name="Logout" />
+            Logga ut
+          </button>
         </div>
       ) : (
         <div className="sidebar-user" onClick={cycleUser} title="Byt testanvändare (demo)" style={{ cursor: 'pointer' }}>
@@ -103,14 +104,4 @@ export default function Sidebar() {
       )}
     </aside>
   )
-}
-
-function iconFor(name: string): string {
-  const map: Record<string, string> = {
-    Calendar: '📅', Bookmark: '🔖', Bell: '🔔', User: '👤',
-    ShieldCheck: '🛡', Users: '👥', UsersGroup: '👥', Send: '✉',
-    Shield: '🛡', Download: '⬇', LayoutDashboard: '📊',
-    BuildingChurch: '⛪', World: '🌐', DeviceIpad: '📟',
-  }
-  return map[name] ?? '•'
 }
