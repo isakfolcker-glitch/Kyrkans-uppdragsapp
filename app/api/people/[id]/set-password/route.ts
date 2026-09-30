@@ -1,40 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { canAdminChurch } from '@/lib/membershipAuth'
+import { getCaller, canAdminProfile, unauthorized, forbidden } from '@/lib/authz'
 
+// Admin sätter lösenord åt en person. Tillåts bara för personer med LÄGRE
+// behörighet (högsta nivå i alla församlingar) än admin själv har i en
+// församling där personen är medlem och admin ansvarar, så att ingen kan ta
+// över ett konto med samma eller högre behörighet.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
+  const { caller } = await getCaller()
+  if (!caller) return unauthorized()
 
-  const { id } = await params
+  const { id: targetId } = await params
   const { password, church_id } = await req.json()
   const churchId = Number(church_id)
 
   if (!churchId || Number.isNaN(churchId)) {
     return NextResponse.json({ error: 'Församling krävs' }, { status: 400 })
   }
-  if (!(await canAdminChurch(supabase, churchId))) {
-    return NextResponse.json({ error: 'Saknar behörighet i församlingen' }, { status: 403 })
+  if (targetId === caller.id) return forbidden('Byt ditt eget lösenord via Min profil.')
+
+  // Kräver aktivt medlemskap i församlingen, admin där och strikt lägre nivå.
+  if (!(await canAdminProfile(caller, targetId, churchId, { strictlyLower: true }))) {
+    return forbidden('Du kan bara sätta lösenord åt personer med lägre behörighet än du själv i församlingen.')
   }
-  if (!password || password.length < 8) {
+
+  if (typeof password !== 'string' || password.length < 8) {
     return NextResponse.json({ error: 'Lösenordet måste vara minst 8 tecken.' }, { status: 400 })
   }
 
   const admin = createAdminClient()
-  const { data: membership } = await admin
-    .from('profile_churches')
-    .select('profile_id')
-    .eq('profile_id', id)
-    .eq('church_id', churchId)
-    .eq('active', true)
-    .maybeSingle()
-  if (!membership) {
-    return NextResponse.json({ error: 'Personen tillhör inte den församlingen' }, { status: 404 })
-  }
-
-  const { error } = await admin.auth.admin.updateUserById(id, { password })
+  const { error } = await admin.auth.admin.updateUserById(targetId, { password })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ ok: true })

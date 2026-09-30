@@ -1,29 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendInvitation } from '@/lib/email'
-import { canAssignRole, hasStaffPermission, roleIsEmployee, roleToAdminLevel } from '@/lib/membershipAuth'
+import { canAssignRole, roleIsEmployee, roleToAdminLevel } from '@/lib/membershipAuth'
+import {
+  getCaller, canAdminChurch, canAssignLevel, churchLevel, isValidRole, levelRank, profileMaxLevel,
+  unauthorized, forbidden,
+} from '@/lib/authz'
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
+  const { caller, supabase } = await getCaller()
+  if (!caller) return unauthorized()
 
   const { email, name, role, church_id } = await req.json()
   const churchId = Number(church_id)
 
-  if (!email?.trim() || !name?.trim() || !role) {
+  if (typeof email !== 'string' || !email.trim() || typeof name !== 'string' || !name.trim() || !role) {
     return NextResponse.json({ error: 'Namn, e-post och roll krävs' }, { status: 400 })
   }
+  if (!isValidRole(role)) return NextResponse.json({ error: 'Ogiltig roll' }, { status: 400 })
   if (!churchId || Number.isNaN(churchId)) {
     return NextResponse.json({ error: `Ogiltigt kyrk-ID: ${church_id}. Ladda om sidan och försök igen.` }, { status: 400 })
   }
 
-  const canAssign = await canAssignRole(supabase, user.id, churchId, role)
-  const canInviteIdeell = role === 'ideell'
-    && await hasStaffPermission(supabase, user.id, churchId, 'kan_lagg_till_personal')
-  if (!canAssign && !canInviteIdeell) {
-    return NextResponse.json({ error: 'Saknar behörighet att bjuda in med den rollen i församlingen' }, { status: 403 })
+  const normalizedEmail = email.trim().toLowerCase()
+  const normalizedName = name.trim()
+  const adminLevel = roleToAdminLevel(role)
+
+  // Bara admin för församlingen, och aldrig högre nivå än man själv har där.
+  if (!(await canAdminChurch(caller, churchId))) {
+    return forbidden('Du kan bara bjuda in till en församling du är admin för.')
+  }
+  const myLevel = await churchLevel(caller, churchId)
+  if (!canAssignLevel(myLevel, adminLevel) || !(await canAssignRole(supabase, caller.id, churchId, role))) {
+    return forbidden('Du kan inte ge någon högre behörighet än du själv har i församlingen.')
+  }
+  if (normalizedEmail === caller.email?.toLowerCase()) {
+    return forbidden('Du kan inte bjuda in dig själv.')
   }
 
   const admin = createAdminClient()
@@ -35,17 +47,9 @@ export async function POST(req: NextRequest) {
 
   if (!church) return NextResponse.json({ error: 'Församlingen finns inte' }, { status: 404 })
 
-  const { data: inviterProfile } = await supabase
-    .from('profiles')
-    .select('name')
-    .eq('id', user.id)
-    .single()
-  const inviterName = inviterProfile?.name ?? 'Administratören'
-  const inviterEmail = user.email
-  const adminLevel = roleToAdminLevel(role)
+  const inviterName = caller.name
+  const inviterEmail = caller.email ?? undefined
   const isEmployee = roleIsEmployee(role)
-  const normalizedEmail = email.trim().toLowerCase()
-  const normalizedName = name.trim()
 
   const saveMembership = async (profileId: string) => {
     const { error } = await admin.from('profile_churches').upsert({
@@ -55,7 +59,7 @@ export async function POST(req: NextRequest) {
       admin_level: adminLevel,
       is_employee: isEmployee,
       active: true,
-      invited_by: user.id,
+      invited_by: caller.id,
       invited_at: new Date().toISOString(),
     }, { onConflict: 'profile_id,church_id' })
     return error
@@ -68,13 +72,16 @@ export async function POST(req: NextRequest) {
   })
 
   if (!createError && createData.user) {
-    await admin.from('profiles')
+    const { error: profileErr } = await admin.from('profiles')
       .update({ email: normalizedEmail, name: normalizedName })
       .eq('id', createData.user.id)
+    if (profileErr) {
+      return NextResponse.json({ error: `Kunde inte spara personen: ${profileErr.message}` }, { status: 500 })
+    }
 
     const membershipError = await saveMembership(createData.user.id)
     if (membershipError) {
-      return NextResponse.json({ error: membershipError.message }, { status: 500 })
+      return NextResponse.json({ error: `Kunde inte spara roll och församling: ${membershipError.message}` }, { status: 500 })
     }
 
     const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
@@ -117,10 +124,28 @@ export async function POST(req: NextRequest) {
   if (!existingUser) {
     return NextResponse.json({ error: 'Kunde inte hitta befintlig användare. Kontakta support.' }, { status: 400 })
   }
+  if (existingUser.id === caller.id) return forbidden('Du kan inte bjuda in dig själv.')
+
+  // Befintlig person: inbjudan lägger bara till eller ändrar medlemskapet i den här
+  // församlingen. Har personen redan ett medlemskap här med högre nivå än
+  // anroparens, eller en högre nivå någonstans, får anroparen inte ändra den.
+  const { data: currentMembership } = await admin
+    .from('profile_churches')
+    .select('admin_level, active')
+    .eq('profile_id', existingUser.id)
+    .eq('church_id', churchId)
+    .maybeSingle()
+  if (currentMembership?.active && levelRank(currentMembership.admin_level) > levelRank(myLevel)) {
+    return forbidden('Personen har högre behörighet i församlingen än du. Kontakta en pastoratsadmin.')
+  }
+  const target = await profileMaxLevel(existingUser.id)
+  if (currentMembership?.active && target && levelRank(target.level) > levelRank(myLevel)) {
+    return forbidden('Personen har högre behörighet än du. Kontakta en pastoratsadmin.')
+  }
 
   const membershipError = await saveMembership(existingUser.id)
   if (membershipError) {
-    return NextResponse.json({ error: membershipError.message }, { status: 500 })
+    return NextResponse.json({ error: `Kunde inte spara roll och församling: ${membershipError.message}` }, { status: 500 })
   }
 
   const isConfirmed = Boolean(existingUser.email_confirmed_at)

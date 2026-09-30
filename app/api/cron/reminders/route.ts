@@ -5,8 +5,12 @@ import { sendPassReminder, sendStaffDeltagarlista } from '@/lib/email'
 // Anropas av Vercel Cron varje dag kl 18:00
 // Konfigurera i vercel.json: { "crons": [{ "path": "/api/cron/reminders", "schedule": "0 18 * * *" }] }
 export async function GET(req: NextRequest) {
-  const secret = req.headers.get('x-cron-secret')
-  if (secret !== process.env.CRON_SECRET) {
+  // Vercel Cron skickar "Authorization: Bearer <CRON_SECRET>". Tidigare lästes fel header,
+  // så påminnelserna avvisades. Utan satt CRON_SECRET nekas alla anrop.
+  const expected = process.env.CRON_SECRET
+  const auth = req.headers.get('authorization')
+  const legacy = req.headers.get('x-cron-secret')
+  if (!expected || (auth !== `Bearer ${expected}` && legacy !== expected)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendNewPassNotice } from '@/lib/email'
-import { canAdminChurch, hasStaffPermission } from '@/lib/membershipAuth'
+import { getCaller, canAdminChurch, hasStaffPermission, filterMembersOfChurch } from '@/lib/authz'
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
@@ -42,10 +42,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Titel, datum, tid, plats och antal platser krävs' }, { status: 400 })
   }
 
-  const allowed = await canAdminChurch(supabase, churchId)
-    || await hasStaffPermission(supabase, user.id, churchId, 'kan_skapa_pass')
+  // Admin för passets församling, eller anställd med "skapa pass" i just den församlingen.
+  const { caller } = await getCaller()
+  if (!caller) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
+  const allowed = (await canAdminChurch(caller, churchId))
+    || (await hasStaffPermission(caller, churchId, 'kan_skapa_pass'))
   if (!allowed) {
     return NextResponse.json({ error: 'Saknar behörighet att skapa pass i församlingen' }, { status: 403 })
+  }
+  if (!Array.isArray(groups) || !Array.isArray(responsible_ids)) {
+    return NextResponse.json({ error: 'Grupper och ansvariga måste vara listor' }, { status: 400 })
   }
 
   const admin = createAdminClient()
@@ -63,15 +69,16 @@ export async function POST(req: NextRequest) {
   }
 
   if (responsible_ids.length) {
-    const { data: validResponsibles } = await admin
-      .from('profile_churches')
-      .select('profile_id')
-      .eq('church_id', churchId)
-      .eq('active', true)
-      .in('profile_id', responsible_ids)
-    const validIds = new Set((validResponsibles ?? []).map(row => row.profile_id))
+    const validIds = await filterMembersOfChurch(responsible_ids, churchId)
     if (responsible_ids.some((profileId: string) => !validIds.has(profileId))) {
       return NextResponse.json({ error: 'En eller flera ansvariga tillhör inte vald församling' }, { status: 400 })
+    }
+  }
+
+  if (vk_profile_id) {
+    const validVk = await filterMembersOfChurch([vk_profile_id], churchId)
+    if (!validVk.has(vk_profile_id)) {
+      return NextResponse.json({ error: 'Vaktmästaren tillhör inte vald församling' }, { status: 400 })
     }
   }
 
@@ -89,7 +96,7 @@ export async function POST(req: NextRequest) {
     pub_status: pub_status || 'live',
     pub_date: pub_date || '',
     kiosk_visible: Boolean(kiosk_visible),
-    created_by: user.id,
+    created_by: caller.id,
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

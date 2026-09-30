@@ -4,7 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sendBookingConfirmation } from '@/lib/email'
 import { promoteFromWaitlist } from '@/app/api/waitlist/route'
 import { isLockedForSelfCancel } from '@/lib/passTiming'
-import { canAccessChurch, canAdminChurch, hasStaffPermission } from '@/lib/membershipAuth'
+import { canAccessChurch, canAdminChurch as rpcCanAdminChurch, hasStaffPermission } from '@/lib/membershipAuth'
+import { getCaller, canAdminChurch } from '@/lib/authz'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -28,16 +29,20 @@ export async function POST(req: NextRequest) {
   }
   if (pass.filled >= pass.spots) return NextResponse.json({ error: 'Fullbokat' }, { status: 409 })
 
-  const { data: responsible } = await supabase
+  // Admin för passets församling eller ansvarig för passet kan boka in andra
+  // (manuellt eller utan konto). Övriga kan bara boka sig själva, och
+  // bekräftelsen går då bara till den egna adressen från inloggningen.
+  const { caller } = await getCaller()
+  if (!caller) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
+
+  const { data: responsible } = await admin
     .from('pass_responsible')
     .select('profile_id')
-    .eq('pass_id', pass_id)
+    .eq('pass_id', pass.id)
     .eq('profile_id', user.id)
     .maybeSingle()
 
-  const canManageBookings = await canAdminChurch(supabase, pass.church_id)
-    || await hasStaffPermission(supabase, user.id, pass.church_id, 'kan_hantera_bokningar')
-    || Boolean(responsible)
+  const canManageBookings = (await canAdminChurch(caller, pass.church_id)) || Boolean(responsible)
 
   let profileId: string | null = user.id
   if (override_profile_id) {
@@ -62,24 +67,29 @@ export async function POST(req: NextRequest) {
     profileId = null
   }
 
+  const bookingForOther = profileId !== user.id
+  // Bokar man sig själv används alltid den egna adressen och det egna namnet.
+  const confirmMail = bookingForOther ? (typeof mail === 'string' ? mail.trim() : '') : (user.email ?? '')
+  const bookingName = bookingForOther ? name : caller.name
+
   if (profileId) {
     const { data: existing } = await admin
       .from('bookings')
       .select('id')
-      .eq('pass_id', pass_id)
+      .eq('pass_id', pass.id)
       .eq('profile_id', profileId)
       .maybeSingle()
     if (existing) return NextResponse.json({ error: 'Personen är redan bokad' }, { status: 409 })
   }
 
   const { data: booking, error } = await admin.from('bookings').insert({
-    pass_id,
+    pass_id: pass.id,
     profile_id: profileId,
-    name,
-    mail: mail || '',
+    name: bookingName,
+    mail: confirmMail,
     tel: tel || '',
     source: source || 'app',
-    no_account: Boolean(no_account),
+    no_account: profileId === null,
     ini: ini || '',
     av_color: av_color || '#EEEDFE',
     ac_color: ac_color || '#3C3489',
@@ -87,17 +97,18 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  if (mail) {
+  // Skicka bekräftelse om e-post finns (inte till interna platshållaradresser)
+  if (confirmMail && !confirmMail.endsWith('@intern.local')) {
     await sendBookingConfirmation({
-      to: mail,
-      name,
+      to: confirmMail,
+      name: bookingName,
       passTitle: pass.title,
       date: pass.date_str,
       time: pass.time_str,
       plats: pass.plats,
       vk: pass.vk,
       tel: pass.tel,
-    }).catch(() => {})
+    }).catch(() => {}) // Tyst fel om mail misslyckas
   }
 
   if (profileId) {
@@ -142,7 +153,7 @@ export async function DELETE(req: NextRequest) {
     .eq('profile_id', user.id)
     .maybeSingle()
 
-  const canManage = await canAdminChurch(supabase, churchId)
+  const canManage = await rpcCanAdminChurch(supabase, churchId)
     || await hasStaffPermission(supabase, user.id, churchId, 'kan_hantera_bokningar')
     || Boolean(responsible)
 

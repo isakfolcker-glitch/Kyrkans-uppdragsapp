@@ -3,7 +3,20 @@ const FROM_EMAIL = process.env.BREVO_FROM ?? 'isak.folcker@svenskakyrkan.se'
 const FROM_NAME  = process.env.BREVO_FROM_NAME ?? 'Kyrkans uppdragsapp'
 
 function escapeHtml(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
+// Escapar alla textfält (även nästlade) innan de sätts in i mailens HTML,
+// så att ingen kan smyga in egna länkar eller HTML via t.ex. passets titel.
+function escapeAll<T>(obj: T): T {
+  if (typeof obj === 'string') return escapeHtml(obj) as unknown as T
+  if (Array.isArray(obj)) return obj.map(v => escapeAll(v)) as unknown as T
+  if (obj && typeof obj === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(obj)) out[k] = escapeAll(v)
+    return out as T
+  }
+  return obj
 }
 
 // I testmiljön sätts EMAIL_ALLOWLIST (kommaseparerad) så mail bara kan gå till
@@ -61,16 +74,17 @@ async function send(to: string | string[], subject: string, html: string, replyT
 export async function sendBookingConfirmation(opts: {
   to: string; name: string; passTitle: string; date: string; time: string; plats: string; vk: string; tel: string
 }) {
+  const h = escapeAll(opts)
   return send(opts.to, `Bokningsbekräftelse: ${opts.passTitle}`, `
     <div style="font-family:sans-serif;max-width:500px;margin:0 auto">
-      <h2 style="color:#534AB7">Hej ${opts.name}!</h2>
+      <h2 style="color:#534AB7">Hej ${h.name}!</h2>
       <p>Du är bokad på följande pass:</p>
       <div style="background:#F1EFE8;border-radius:10px;padding:16px;margin:16px 0">
-        <strong style="font-size:16px">${opts.passTitle}</strong><br>
-        📅 ${opts.date} &nbsp;🕐 ${opts.time}<br>
-        📍 ${opts.plats}
+        <strong style="font-size:16px">${h.passTitle}</strong><br>
+        📅 ${h.date} &nbsp;🕐 ${h.time}<br>
+        📍 ${h.plats}
       </div>
-      <p>Vakmästare: <strong>${opts.vk}</strong> – ${opts.tel}</p>
+      <p>Vaktmästare: <strong>${h.vk}</strong> – ${h.tel}</p>
       <p style="color:#888780;font-size:12px">Kyrkans uppdragsapp</p>
     </div>
   `)
@@ -79,13 +93,14 @@ export async function sendBookingConfirmation(opts: {
 export async function sendCancellationNotice(opts: {
   to: string; name: string; passTitle: string; date: string
 }) {
+  const h = escapeAll(opts)
   return send(opts.to, `Inställt: ${opts.passTitle}`, `
     <div style="font-family:sans-serif;max-width:500px;margin:0 auto">
       <h2 style="color:#791F1F">Passet är inställt</h2>
-      <p>Hej ${opts.name},</p>
+      <p>Hej ${h.name},</p>
       <p>Tyvärr har följande pass ställts in:</p>
       <div style="background:#FCEBEB;border-radius:10px;padding:16px;margin:16px 0">
-        <strong>${opts.passTitle}</strong><br>📅 ${opts.date}
+        <strong>${h.passTitle}</strong><br>📅 ${h.date}
       </div>
       <p>Du har avbokats automatiskt.</p>
       <p style="color:#888780;font-size:12px">Kyrkans uppdragsapp</p>
@@ -96,14 +111,15 @@ export async function sendCancellationNotice(opts: {
 export async function sendPassChangeNotice(opts: {
   to: string; name: string; passTitle: string; date: string; time: string; plats: string
 }) {
+  const h = escapeAll(opts)
   return send(opts.to, `Uppdatering: ${opts.passTitle}`, `
     <div style="font-family:sans-serif;max-width:500px;margin:0 auto">
       <h2 style="color:#633806">Pass uppdaterat</h2>
-      <p>Hej ${opts.name}, ett pass du är bokad på har ändrats:</p>
+      <p>Hej ${h.name}, ett pass du är bokad på har ändrats:</p>
       <div style="background:#FAEEDA;border-radius:10px;padding:16px;margin:16px 0">
-        <strong>${opts.passTitle}</strong><br>
-        📅 ${opts.date} &nbsp;🕐 ${opts.time}<br>
-        📍 ${opts.plats}
+        <strong>${h.passTitle}</strong><br>
+        📅 ${h.date} &nbsp;🕐 ${h.time}<br>
+        📍 ${h.plats}
       </div>
       <p style="color:#888780;font-size:12px">Kyrkans uppdragsapp</p>
     </div>
@@ -124,6 +140,7 @@ export async function sendBulkMessage(opts: {
 export async function sendNewPassNotice(opts: {
   to: string[]; passTitle: string; date: string; time: string; plats: string; groups: string[]
 }) {
+  const h = escapeAll(opts)
   if (!opts.to.length) return
   return send(opts.to, `Nytt pass: ${opts.passTitle}`, `
     <div style="font-family:sans-serif;max-width:500px;margin:0 auto">
@@ -132,9 +149,9 @@ export async function sendNewPassNotice(opts: {
       </div>
       <div style="background:#FFEBE1;padding:20px;border-radius:0 0 12px 12px">
         <div style="background:#fff;border-radius:10px;padding:16px;margin-bottom:16px;border-left:4px solid #7D0037">
-          <strong style="font-size:16px;color:#000">${opts.passTitle}</strong><br>
-          <span style="color:#5F5E5A">📅 ${opts.date} &nbsp;🕐 ${opts.time}</span><br>
-          <span style="color:#5F5E5A">📍 ${opts.plats}</span>
+          <strong style="font-size:16px;color:#000">${h.passTitle}</strong><br>
+          <span style="color:#5F5E5A">📅 ${h.date} &nbsp;🕐 ${h.time}</span><br>
+          <span style="color:#5F5E5A">📍 ${h.plats}</span>
         </div>
         <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" style="display:inline-block;background:#7D0037;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700">
           Se passet och anmäl dig →
@@ -149,6 +166,7 @@ export async function sendPassReminder(opts: {
   to: string; name: string; passTitle: string; date: string; time: string; plats: string; vk: string; tel: string
   ansvarig?: { name: string; tel?: string; mail?: string }
 }) {
+  const h = escapeAll(opts)
   const showAnsvarig = opts.ansvarig && opts.ansvarig.name && opts.ansvarig.name !== opts.vk
   return send(opts.to, `Påminnelse imorgon: ${opts.passTitle}`, `
     <div style="font-family:sans-serif;max-width:500px;margin:0 auto">
@@ -156,14 +174,14 @@ export async function sendPassReminder(opts: {
         <h2 style="color:#fff;margin:0">Påminnelse – imorgon!</h2>
       </div>
       <div style="background:#FFEBE1;padding:20px;border-radius:0 0 12px 12px">
-        <p style="color:#000">Hej ${opts.name}, du har ett uppdrag imorgon:</p>
+        <p style="color:#000">Hej ${h.name}, du har ett uppdrag imorgon:</p>
         <div style="background:#fff;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #28A88E">
-          <strong style="font-size:16px;color:#000">${opts.passTitle}</strong><br>
-          <span style="color:#5F5E5A">📅 ${opts.date} &nbsp;🕐 ${opts.time}</span><br>
-          <span style="color:#5F5E5A">📍 ${opts.plats}</span>
+          <strong style="font-size:16px;color:#000">${h.passTitle}</strong><br>
+          <span style="color:#5F5E5A">📅 ${h.date} &nbsp;🕐 ${h.time}</span><br>
+          <span style="color:#5F5E5A">📍 ${h.plats}</span>
         </div>
-        <p style="color:#5F5E5A">Vaktmästare: <strong>${opts.vk || '–'}</strong>${opts.tel ? ' – ' + opts.tel : ''}</p>
-        ${showAnsvarig ? `<p style="color:#5F5E5A">Ansvarig: <strong>${opts.ansvarig!.name}</strong>${opts.ansvarig!.tel ? ' – ' + opts.ansvarig!.tel : ''}${opts.ansvarig!.mail ? ' – ' + opts.ansvarig!.mail : ''}</p>` : ''}
+        <p style="color:#5F5E5A">Vaktmästare: <strong>${h.vk || '–'}</strong>${h.tel ? ' – ' + h.tel : ''}</p>
+        ${showAnsvarig ? `<p style="color:#5F5E5A">Ansvarig: <strong>${h.ansvarig!.name}</strong>${h.ansvarig!.tel ? ' – ' + h.ansvarig!.tel : ''}${h.ansvarig!.mail ? ' – ' + h.ansvarig!.mail : ''}</p>` : ''}
         <p style="color:#888;font-size:12px">Kyrkans uppdragsapp</p>
       </div>
     </div>
@@ -174,6 +192,7 @@ export async function sendStaffDeltagarlista(opts: {
   to: string; name: string; passTitle: string; date: string; time: string; plats: string
   deltagare: { name: string; mail?: string; tel?: string }[]
 }) {
+  const h = escapeAll(opts)
   const rows = opts.deltagare.length
     ? opts.deltagare.map(d => `
         <tr>
@@ -188,11 +207,11 @@ export async function sendStaffDeltagarlista(opts: {
         <h2 style="color:#fff;margin:0">Deltagarlista – imorgon</h2>
       </div>
       <div style="background:#FFEBE1;padding:20px;border-radius:0 0 12px 12px">
-        <p style="color:#000">Hej ${opts.name}, du är vaktmästare eller ansvarig för:</p>
+        <p style="color:#000">Hej ${h.name}, du är vaktmästare eller ansvarig för:</p>
         <div style="background:#fff;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #412B72">
-          <strong style="font-size:16px;color:#000">${opts.passTitle}</strong><br>
-          <span style="color:#5F5E5A">📅 ${opts.date} &nbsp;🕐 ${opts.time}</span><br>
-          <span style="color:#5F5E5A">📍 ${opts.plats}</span>
+          <strong style="font-size:16px;color:#000">${h.passTitle}</strong><br>
+          <span style="color:#5F5E5A">📅 ${h.date} &nbsp;🕐 ${h.time}</span><br>
+          <span style="color:#5F5E5A">📍 ${h.plats}</span>
         </div>
         <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden">
           <thead>
@@ -211,19 +230,20 @@ export async function sendStaffDeltagarlista(opts: {
 export async function sendWaitlistPromotion(opts: {
   to: string; name: string; passTitle: string; date: string; time: string; plats: string; vk: string; tel: string
 }) {
+  const h = escapeAll(opts)
   return send(opts.to, `Du har fått en plats: ${opts.passTitle}`, `
     <div style="font-family:sans-serif;max-width:500px;margin:0 auto">
       <div style="background:#085041;padding:20px;border-radius:12px 12px 0 0">
         <h2 style="color:#fff;margin:0">Du har fått en plats!</h2>
       </div>
       <div style="background:#F0FAF6;padding:20px;border-radius:0 0 12px 12px">
-        <p style="color:#000">Hej ${opts.name}! En plats har öppnats upp och du var först i kön.</p>
+        <p style="color:#000">Hej ${h.name}! En plats har öppnats upp och du var först i kön.</p>
         <div style="background:#fff;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #085041">
-          <strong style="font-size:16px;color:#000">${opts.passTitle}</strong><br>
-          <span style="color:#5F5E5A">📅 ${opts.date} &nbsp;🕐 ${opts.time}</span><br>
-          <span style="color:#5F5E5A">📍 ${opts.plats}</span>
+          <strong style="font-size:16px;color:#000">${h.passTitle}</strong><br>
+          <span style="color:#5F5E5A">📅 ${h.date} &nbsp;🕐 ${h.time}</span><br>
+          <span style="color:#5F5E5A">📍 ${h.plats}</span>
         </div>
-        <p style="color:#5F5E5A">Vakmästare: <strong>${opts.vk}</strong>${opts.tel ? ' – ' + opts.tel : ''}</p>
+        <p style="color:#5F5E5A">Vaktmästare: <strong>${h.vk}</strong>${h.tel ? ' – ' + h.tel : ''}</p>
         <p style="color:#888;font-size:12px">Kyrkans uppdragsapp</p>
       </div>
     </div>
@@ -233,15 +253,16 @@ export async function sendWaitlistPromotion(opts: {
 export async function sendWaitlistJoinedNotice(opts: {
   to: string; name: string; volunteerName: string; passTitle: string; date: string; time: string; plats: string
 }) {
+  const h = escapeAll(opts)
   return send(opts.to, `Ny på väntelistan: ${opts.passTitle}`, `
     <div style="font-family:sans-serif;max-width:500px;margin:0 auto">
       <h2 style="color:#534AB7">Ny person på väntelistan</h2>
-      <p>Hej ${opts.name},</p>
-      <p><strong>${opts.volunteerName}</strong> har ställt sig på väntelistan för:</p>
+      <p>Hej ${h.name},</p>
+      <p><strong>${h.volunteerName}</strong> har ställt sig på väntelistan för:</p>
       <div style="background:#F1EFE8;border-radius:10px;padding:16px;margin:16px 0">
-        <strong style="font-size:16px">${opts.passTitle}</strong><br>
-        📅 ${opts.date} &nbsp;🕐 ${opts.time}<br>
-        📍 ${opts.plats}
+        <strong style="font-size:16px">${h.passTitle}</strong><br>
+        📅 ${h.date} &nbsp;🕐 ${h.time}<br>
+        📍 ${h.plats}
       </div>
       <p style="color:#888780;font-size:12px">Kyrkans uppdragsapp</p>
     </div>
@@ -258,6 +279,7 @@ export async function sendInvitation(opts: {
   churchName?: string
   existingAccount?: boolean
 }) {
+  const h = escapeAll(opts)
   const roleLabel: Record<string, string> = {
     ideell: 'Ideell volontär', anstalld: 'Anställd',
     fadmin: 'Församlingsadmin', padmin: 'Pastoratsadmin',
@@ -277,7 +299,7 @@ export async function sendInvitation(opts: {
       <p>${escapeHtml(opts.inviterName)} har bjudit in dig som <strong>${roleLabel[opts.role] ?? escapeHtml(opts.role)}</strong>${churchText} i Kyrkans uppdragsapp.</p>
       ${accountText}
       <div style="margin:24px 0;text-align:center">
-        <a href="${opts.inviteUrl}" style="background:#534AB7;color:#EEEDFE;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">
+        <a href="${escapeHtml(opts.inviteUrl)}" style="background:#534AB7;color:#EEEDFE;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">
           ${buttonText}
         </a>
       </div>

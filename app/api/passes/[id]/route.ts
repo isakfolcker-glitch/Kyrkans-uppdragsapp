@@ -2,22 +2,25 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendCancellationNotice, sendPassChangeNotice } from '@/lib/email'
-import { canAdminChurch, hasStaffPermission } from '@/lib/membershipAuth'
+import { getCaller, canAdminChurch, filterMembersOfChurch, type Caller } from '@/lib/authz'
 
-async function canEditPass(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  churchId: number,
-  passId: number,
-) {
-  if (await canAdminChurch(supabase, churchId)) return true
-  if (await hasStaffPermission(supabase, userId, churchId, 'kan_redigera_pass')) return true
+// Bara dessa fält får ändras. church_id, created_by, filled och cancelled
+// (cancelled hanteras separat nedan) ändras aldrig direkt härifrån.
+const EDITABLE = [
+  'title', 'date_str', 'time_str', 'plats', 'spots', 'vk', 'tel', 'vk_profile_id',
+  'description', 'pub_status', 'pub_date', 'kiosk_visible',
+] as const
 
-  const { data: responsible } = await supabase
+/** Admin för passets församling eller ansvarig för passet. */
+async function canEditPass(caller: Caller, churchId: number, passId: number) {
+  if (await canAdminChurch(caller, churchId)) return true
+
+  const admin = createAdminClient()
+  const { data: responsible } = await admin
     .from('pass_responsible')
     .select('profile_id')
     .eq('pass_id', passId)
-    .eq('profile_id', userId)
+    .eq('profile_id', caller.id)
     .maybeSingle()
   return Boolean(responsible)
 }
@@ -37,14 +40,32 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .single()
   if (!existing) return NextResponse.json({ error: 'Hittar inte passet' }, { status: 404 })
 
-  if (!(await canEditPass(supabase, user.id, existing.church_id, passId))) {
+  const { caller } = await getCaller()
+  if (!caller) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
+  if (!(await canEditPass(caller, existing.church_id, passId))) {
     return NextResponse.json({ error: 'Saknar behörighet att ändra passet' }, { status: 403 })
   }
 
   const body = await req.json()
-  const { cancelled, groups, responsible_ids, church_id: ignoredChurchId, ...rest } = body
+  const { cancelled, groups, responsible_ids } = body
+  const rest: Record<string, any> = {}
+  for (const key of EDITABLE) if (key in body) rest[key] = body[key]
 
-  if (groups !== undefined) {
+  if (groups !== undefined && !Array.isArray(groups)) {
+    return NextResponse.json({ error: 'Grupper måste vara en lista' }, { status: 400 })
+  }
+  if (responsible_ids !== undefined && !Array.isArray(responsible_ids)) {
+    return NextResponse.json({ error: 'Ansvariga måste vara en lista' }, { status: 400 })
+  }
+
+  if (rest.vk_profile_id) {
+    const validVk = await filterMembersOfChurch([rest.vk_profile_id], existing.church_id)
+    if (!validVk.has(rest.vk_profile_id)) {
+      return NextResponse.json({ error: 'Vaktmästaren tillhör inte passets församling' }, { status: 400 })
+    }
+  }
+
+  if (groups !== undefined && groups.length) {
     const { data: validGroups } = await admin
       .from('groups')
       .select('id')
@@ -57,20 +78,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   if (responsible_ids !== undefined) {
-    const canManageResponsibles = await canAdminChurch(supabase, existing.church_id)
-      || await hasStaffPermission(supabase, user.id, existing.church_id, 'kan_redigera_pass')
+    // Bara admin för församlingen får ändra vilka som är ansvariga.
+    const canManageResponsibles = await canAdminChurch(caller, existing.church_id)
     if (!canManageResponsibles) {
       return NextResponse.json({ error: 'Saknar behörighet att ändra ansvariga' }, { status: 403 })
     }
 
     if (responsible_ids.length) {
-      const { data: validResponsibles } = await admin
-        .from('profile_churches')
-        .select('profile_id')
-        .eq('church_id', existing.church_id)
-        .eq('active', true)
-        .in('profile_id', responsible_ids)
-      const validIds = new Set((validResponsibles ?? []).map(row => row.profile_id))
+      const validIds = await filterMembersOfChurch(responsible_ids, existing.church_id)
       if (responsible_ids.some((profileId: string) => !validIds.has(profileId))) {
         return NextResponse.json({ error: 'En eller flera ansvariga tillhör inte passets församling' }, { status: 400 })
       }
@@ -149,9 +164,10 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
   const { data: pass } = await admin.from('passes').select('church_id').eq('id', passId).single()
   if (!pass) return NextResponse.json({ error: 'Passet finns inte' }, { status: 404 })
 
-  const allowed = await canAdminChurch(supabase, pass.church_id)
-    || await hasStaffPermission(supabase, user.id, pass.church_id, 'kan_redigera_pass')
-  if (!allowed) return NextResponse.json({ error: 'Saknar behörighet att ta bort passet' }, { status: 403 })
+  // Bara admin för passets församling får ta bort pass.
+  const { caller } = await getCaller()
+  if (!caller) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
+  if (!(await canAdminChurch(caller, pass.church_id))) return NextResponse.json({ error: 'Saknar behörighet att ta bort passet' }, { status: 403 })
 
   const { error } = await admin.from('passes').delete().eq('id', passId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
