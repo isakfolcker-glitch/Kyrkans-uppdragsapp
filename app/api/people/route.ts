@@ -130,8 +130,34 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Helt ny person som anroparen själv skapat (ingen annan äger kontot än):
-  // medlemskapet gäller direkt.
+  // Helt ny person. Med riktig e-post blir medlemskapet VÄNTANDE och personen får
+  // en inbjudan; det godkänns först när personen själv gör onboarding. Bara
+  // personer utan riktig e-post (@intern.local), som aldrig kan logga in och
+  // godkänna, får medlemskapet godkänt direkt.
+  if (normalizedEmail) {
+    const { data: church } = await admin.from('churches').select('name').eq('id', churchId).maybeSingle()
+    if (!church) return NextResponse.json({ error: 'Församlingen finns inte' }, { status: 404 })
+
+    const pendingErr = await savePendingMembership(admin, { profileId: uid, churchId, role, invitedBy: caller.id })
+    if (pendingErr) {
+      return NextResponse.json({ error: `Kunde inte spara inbjudan: ${pendingErr.message}` }, { status: 500 })
+    }
+    const { error: mailErr } = await sendMembershipInvitation(admin, {
+      email: normalizedEmail,
+      name: name.trim(),
+      confirmed: false,
+      churchId,
+      churchName: church.name,
+      role,
+      inviterName: caller.name,
+      inviterEmail: caller.email ?? undefined,
+    })
+    if (mailErr) return NextResponse.json({ error: mailErr }, { status: 500 })
+
+    // Grupper sätts inte förrän personen har godkänt inbjudan.
+    return NextResponse.json({ id: uid, ini, existingAccount: false, invited: true, pending: true })
+  }
+
   const now = new Date().toISOString()
   const { error: membershipErr } = await admin.from('profile_churches').upsert({
     profile_id: uid,

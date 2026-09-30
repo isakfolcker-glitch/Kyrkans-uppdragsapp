@@ -25,9 +25,11 @@ export async function savePendingMembership(
 }
 
 /**
- * Skickar inbjudningsmail med en länk till personens EGEN adress (via lib/email.ts).
- * Bekräftade konton får en inloggningslänk till appen, där de accepterar eller
- * avböjer; obekräftade får en inbjudningslänk till onboarding.
+ * Skickar inbjudningsmail till personens EGEN adress (via lib/email.ts).
+ * - Nya, obekräftade konton får en inbjudningslänk (typ invite) till onboarding.
+ * - Befintliga, bekräftade konton får ALDRIG en inloggningslänk, bara en vanlig
+ *   länk till appen. Där loggar de in som vanligt och godkänner eller avböjer
+ *   inbjudan i PendingInvitations.
  */
 export async function sendMembershipInvitation(
   admin: SupabaseClient,
@@ -43,17 +45,18 @@ export async function sendMembershipInvitation(
   },
 ): Promise<{ error: string | null }> {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
-  const linkType = args.confirmed ? 'magiclink' : 'invite'
-  const redirectTo = args.confirmed
-    ? `${appUrl}/dashboard?church=${args.churchId}`
-    : `${appUrl}/auth/confirm?church=${args.churchId}`
-
-  const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
-    type: linkType,
-    email: args.email,
-    options: { redirectTo },
-  })
-  if (linkErr) return { error: `Kunde inte skapa inbjudningslänk: ${linkErr.message}` }
+  let inviteUrl: string
+  if (args.confirmed) {
+    inviteUrl = `${appUrl}/dashboard?church=${args.churchId}`
+  } else {
+    const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
+      type: 'invite',
+      email: args.email,
+      options: { redirectTo: `${appUrl}/auth/confirm?church=${args.churchId}` },
+    })
+    if (linkErr) return { error: `Kunde inte skapa inbjudningslänk: ${linkErr.message}` }
+    inviteUrl = linkData.properties.action_link
+  }
 
   try {
     await sendInvitation({
@@ -61,7 +64,7 @@ export async function sendMembershipInvitation(
       name: args.name,
       inviterName: args.inviterName,
       inviterEmail: args.inviterEmail,
-      inviteUrl: linkData.properties.action_link,
+      inviteUrl,
       role: args.role,
       churchName: args.churchName,
       existingAccount: args.confirmed,

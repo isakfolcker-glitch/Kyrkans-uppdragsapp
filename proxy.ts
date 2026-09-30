@@ -52,6 +52,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
+  // Onboarding-adressen behåller ?church så att rätt församling godkänns.
+  const confirmUrl = () => {
+    const url = new URL('/auth/confirm', request.url)
+    const church = request.nextUrl.searchParams.get('church')
+    if (church && /^\d+$/.test(church)) url.searchParams.set('church', church)
+    return url
+  }
+
   if (user) {
     const { data: profile } = await supabase
       .from('profiles')
@@ -76,7 +84,7 @@ export async function proxy(request: NextRequest) {
 
     // Ny användare med väntande inbjudan: till onboarding, där inbjudan accepteras.
     if (!profile?.onboarding_done && !hasAccess && hasPending && !pathname.startsWith('/auth') && !isApiRoute) {
-      return NextResponse.redirect(new URL('/auth/confirm', request.url))
+      return NextResponse.redirect(confirmUrl())
     }
 
     if (!hasAccess && pathname !== '/no-access' && !pathname.startsWith('/auth') && !isApiRoute) {
@@ -88,7 +96,7 @@ export async function proxy(request: NextRequest) {
     }
 
     if (!profile?.onboarding_done && hasAccess && !pathname.startsWith('/auth/confirm') && !isApiRoute) {
-      return NextResponse.redirect(new URL('/auth/confirm', request.url))
+      return NextResponse.redirect(confirmUrl())
     }
 
     if (pathname === '/login') {

@@ -2,8 +2,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import PendingInvitations from '@/components/layout/PendingInvitations'
 
-type Step = 'loading' | 'form' | 'saving' | 'done' | 'error'
+type Step = 'loading' | 'form' | 'saving' | 'invites' | 'done' | 'error'
 
 export default function AuthConfirmPage() {
   const router = useRouter()
@@ -115,21 +116,34 @@ export default function AuthConfirmPage() {
 
     if (profErr) { setError(profErr.message); setStep('form'); return }
 
+    // Godkänn bara församlingen i länken (?church). Varje församling godkänns för sig.
     const church = new URLSearchParams(window.location.search).get('church')
-    const acceptRes = await fetch('/api/memberships/accept', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ church_id: church ? Number(church) : undefined }),
-    })
-    if (!acceptRes.ok) {
-      const data = await acceptRes.json().catch(() => ({}))
-      setError(data.error ?? 'Kunde inte aktivera din församlingsinbjudan.')
-      setStep('form')
+    const churchId = church && /^\d+$/.test(church) ? Number(church) : null
+    if (churchId) {
+      const acceptRes = await fetch('/api/memberships/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ church_id: churchId }),
+      })
+      if (!acceptRes.ok) {
+        const data = await acceptRes.json().catch(() => ({}))
+        setError(data.error ?? 'Kunde inte aktivera din församlingsinbjudan.')
+        setStep('form')
+        return
+      }
+    }
+
+    // Finns fler väntande inbjudningar (eller ingen församling i länken) får
+    // personen godkänna eller avböja var och en för sig.
+    const pendingRes = await fetch('/api/memberships/pending').catch(() => null)
+    const pending = pendingRes?.ok ? await pendingRes.json().catch(() => []) : []
+    if (Array.isArray(pending) && pending.length) {
+      setStep('invites')
       return
     }
 
     setStep('done')
-    setTimeout(() => router.replace(church ? `/dashboard?church=${church}` : '/dashboard'), 1200)
+    setTimeout(() => router.replace(churchId ? `/dashboard?church=${churchId}` : '/dashboard'), 1200)
   }
 
   /* ── UI ── */
@@ -149,6 +163,20 @@ export default function AuthConfirmPage() {
         <div style={{ ...cross, background: '#28A88E' }}>✓</div>
         <h2 style={h2}>Välkommen!</h2>
         <p style={{ color: '#5F5E5A', fontSize: 14, marginTop: 8 }}>Du skickas vidare…</p>
+      </div>
+    </div>
+  )
+
+  if (step === 'invites') return (
+    <div style={wrap}>
+      <div style={{ ...card, maxWidth: 480 }}>
+        <div style={{ ...cross, background: '#28A88E' }}>✓</div>
+        <h2 style={h2}>Dina uppgifter är sparade</h2>
+        <p style={{ color: '#5F5E5A', fontSize: 14, margin: '8px 0 16px' }}>
+          Godkänn de församlingar du vill vara med i.
+        </p>
+        <PendingInvitations />
+        <button className="btn btn-secondary" onClick={() => router.replace('/dashboard')}>Gå vidare</button>
       </div>
     </div>
   )

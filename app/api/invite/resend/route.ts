@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendInvitation } from '@/lib/email'
+import { sendMembershipInvitation } from '@/lib/membershipInvite'
 import {
   getCaller, churchLevel, hasStaffPermission, levelAllows, levelRank, profileMaxLevel, unauthorized, forbidden,
 } from '@/lib/authz'
@@ -65,38 +65,24 @@ export async function POST(req: NextRequest) {
     existing => existing.email?.toLowerCase() === rawProfile.email.toLowerCase()
   )
   if (!authUser) return NextResponse.json({ error: 'Auth-konto saknas' }, { status: 404 })
-  // Länken loggar in som kontot, så kontot måste vara just den person man får administrera.
+  // Inbjudningslänken hör till kontot, så kontot måste vara just den person man får administrera.
   if (authUser.id !== profileId) {
     return NextResponse.json({ error: 'E-postadressen hör till ett annat konto. Kontakta support.' }, { status: 409 })
   }
 
+  // Bekräftade konton får aldrig en inloggningslänk, bara en vanlig länk till appen.
   const isConfirmed = Boolean(authUser.email_confirmed_at)
-  const linkType = isConfirmed ? 'magiclink' : 'invite'
-  const redirectTo = isConfirmed
-    ? `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?church=${churchId}`
-    : `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm?church=${churchId}`
-
-  const { data: linkData, error } = await admin.auth.admin.generateLink({
-    type: linkType,
+  const { error: mailErr } = await sendMembershipInvitation(admin, {
     email: rawProfile.email,
-    options: { redirectTo },
+    name: rawProfile.name,
+    confirmed: isConfirmed,
+    churchId,
+    churchName: rawChurch?.name,
+    role: membership.role,
+    inviterName: caller.name,
+    inviterEmail: caller.email ?? undefined,
   })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  try {
-    await sendInvitation({
-      to: rawProfile.email,
-      name: rawProfile.name,
-      inviterName: caller.name,
-      inviterEmail: caller.email ?? undefined,
-      inviteUrl: linkData.properties.action_link,
-      role: membership.role,
-      churchName: rawChurch?.name,
-      existingAccount: isConfirmed,
-    })
-  } catch (e: any) {
-    return NextResponse.json({ error: `Mailet kunde inte skickas: ${e.message}` }, { status: 500 })
-  }
+  if (mailErr) return NextResponse.json({ error: mailErr }, { status: 500 })
 
   return NextResponse.json({ ok: true })
 }
