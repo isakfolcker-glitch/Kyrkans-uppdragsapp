@@ -71,12 +71,15 @@ export const INITIAL_MESSAGES: MessageData[] = []
 export const INITIAL_NOTIFICATIONS: NotifData[] = []
 export const INITIAL_PASTORAT: PastoratData[] = []
 
+// Start (översikt) ligger först för alla utom kiosk. Det första menyvalet
+// används också som förvald sida när man byter roll eller församling.
+const START = {id:'oversikt',icon:'Home',lbl:'Start'}
 export const NAV_ITEMS: Record<string, {id:string;icon:string;lbl:string}[]> = {
-  ideell:     [{id:'pass',icon:'Calendar',lbl:'Pass'},{id:'mina-bokningar',icon:'Bookmark',lbl:'Mina bokningar'},{id:'notiser',icon:'Bell',lbl:'Notiser'},{id:'profil',icon:'User',lbl:'Min profil'}],
-  anstalld:   [{id:'pass',icon:'Calendar',lbl:'Pass'},{id:'mina-ansvar',icon:'ShieldCheck',lbl:'Mina ansvar'},{id:'mina-bokningar',icon:'Bookmark',lbl:'Mina bokningar'},{id:'notiser',icon:'Bell',lbl:'Notiser'},{id:'profil',icon:'User',lbl:'Min profil'}],
-  fadmin:     [{id:'pass',icon:'Calendar',lbl:'Pass'},{id:'personal',icon:'Users',lbl:'Personal'},{id:'grupper',icon:'UsersGroup',lbl:'Grupper'},{id:'utskick',icon:'Send',lbl:'Utskick'},{id:'behorigheter',icon:'Shield',lbl:'Behörigheter'},{id:'exportera',icon:'Download',lbl:'Exportera'},{id:'mina-bokningar',icon:'Bookmark',lbl:'Mina bokningar'},{id:'notiser',icon:'Bell',lbl:'Notiser'},{id:'profil',icon:'User',lbl:'Min profil'}],
-  padmin:     [{id:'oversikt',icon:'LayoutDashboard',lbl:'Översikt'},{id:'pass',icon:'Calendar',lbl:'Pass'},{id:'personal',icon:'Users',lbl:'Personal'},{id:'grupper',icon:'UsersGroup',lbl:'Grupper'},{id:'utskick',icon:'Send',lbl:'Utskick'},{id:'behorigheter',icon:'Shield',lbl:'Behörigheter'},{id:'forsamlingar',icon:'BuildingChurch',lbl:'Församlingar'},{id:'exportera',icon:'Download',lbl:'Exportera'},{id:'mina-bokningar',icon:'Bookmark',lbl:'Mina bokningar'},{id:'notiser',icon:'Bell',lbl:'Notiser'},{id:'profil',icon:'User',lbl:'Min profil'}],
-  superadmin: [{id:'pastorat',icon:'World',lbl:'Pastorat'},{id:'oversikt',icon:'LayoutDashboard',lbl:'Översikt'},{id:'pass',icon:'Calendar',lbl:'Pass'},{id:'personal',icon:'Users',lbl:'Personal'},{id:'grupper',icon:'UsersGroup',lbl:'Grupper'},{id:'utskick',icon:'Send',lbl:'Utskick'},{id:'behorigheter',icon:'Shield',lbl:'Behörigheter'},{id:'forsamlingar',icon:'BuildingChurch',lbl:'Församlingar'},{id:'exportera',icon:'Download',lbl:'Exportera'},{id:'profil',icon:'User',lbl:'Min profil'}],
+  ideell:     [START,{id:'pass',icon:'Calendar',lbl:'Pass'},{id:'mina-bokningar',icon:'Bookmark',lbl:'Mina bokningar'},{id:'notiser',icon:'Bell',lbl:'Notiser'},{id:'profil',icon:'User',lbl:'Min profil'}],
+  anstalld:   [START,{id:'pass',icon:'Calendar',lbl:'Pass'},{id:'mina-ansvar',icon:'ShieldCheck',lbl:'Mina ansvar'},{id:'mina-bokningar',icon:'Bookmark',lbl:'Mina bokningar'},{id:'notiser',icon:'Bell',lbl:'Notiser'},{id:'profil',icon:'User',lbl:'Min profil'}],
+  fadmin:     [START,{id:'pass',icon:'Calendar',lbl:'Pass'},{id:'personal',icon:'Users',lbl:'Personal'},{id:'grupper',icon:'UsersGroup',lbl:'Grupper'},{id:'utskick',icon:'Send',lbl:'Utskick'},{id:'behorigheter',icon:'Shield',lbl:'Behörigheter'},{id:'exportera',icon:'Download',lbl:'Exportera'},{id:'mina-bokningar',icon:'Bookmark',lbl:'Mina bokningar'},{id:'notiser',icon:'Bell',lbl:'Notiser'},{id:'profil',icon:'User',lbl:'Min profil'}],
+  padmin:     [START,{id:'pass',icon:'Calendar',lbl:'Pass'},{id:'personal',icon:'Users',lbl:'Personal'},{id:'grupper',icon:'UsersGroup',lbl:'Grupper'},{id:'utskick',icon:'Send',lbl:'Utskick'},{id:'behorigheter',icon:'Shield',lbl:'Behörigheter'},{id:'forsamlingar',icon:'BuildingChurch',lbl:'Församlingar'},{id:'exportera',icon:'Download',lbl:'Exportera'},{id:'mina-bokningar',icon:'Bookmark',lbl:'Mina bokningar'},{id:'notiser',icon:'Bell',lbl:'Notiser'},{id:'profil',icon:'User',lbl:'Min profil'}],
+  superadmin: [START,{id:'pastorat',icon:'World',lbl:'Pastorat'},{id:'pass',icon:'Calendar',lbl:'Pass'},{id:'personal',icon:'Users',lbl:'Personal'},{id:'grupper',icon:'UsersGroup',lbl:'Grupper'},{id:'utskick',icon:'Send',lbl:'Utskick'},{id:'behorigheter',icon:'Shield',lbl:'Behörigheter'},{id:'forsamlingar',icon:'BuildingChurch',lbl:'Församlingar'},{id:'exportera',icon:'Download',lbl:'Exportera'},{id:'profil',icon:'User',lbl:'Min profil'}],
   kiosk:      [{id:'kiosk',icon:'DeviceIpad',lbl:'Kiosk'}],
 }
 
@@ -84,8 +87,8 @@ export function gLabel(id: string, groups: Group[] = GROUPS) { return groups.fin
 export function gCls(id: string, groups: Group[] = GROUPS) { return groups.find(x=>x.id===id)?.cls ?? 'tag-extra' }
 export function ini2(name: string) { return name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase() }
 export function roleLabel(p: PersonData): [string, string, string] {
-  if(p.adminLevel==='pastorat')  return ['Pastoratsadmin','#3C3489','#CECBF6']
-  if(p.adminLevel==='forsamling')return ['Församlingsadmin','#085041','#9FE1CB']
-  if(p.isEmployee)               return ['Anställd','#633806','#FAEEDA']
-  return                                ['Ideell','#5F5E5A','#D3D1C7']
+  if(p.adminLevel==='pastorat')  return ['Pastoratsadmin','#000000','#FF785A']
+  if(p.adminLevel==='forsamling')return ['Församlingsadmin','#000000','#FFC3AA']
+  if(p.isEmployee)               return ['Anställd','#000000','#F3E3CC']
+  return                                ['Ideell','#7D0037','rgba(125,0,55,0.08)']
 }

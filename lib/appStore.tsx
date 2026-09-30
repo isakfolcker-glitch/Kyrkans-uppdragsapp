@@ -93,7 +93,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // State — börjar tomt, fylls på från Supabase när inloggad
   const [userIndex, setUserIndex] = useState(0)
-  const [page, setPage] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('lastPage') || 'pass' : 'pass'))
+  const [page, setPage] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('lastPage') || 'oversikt' : 'oversikt'))
   const [passes, setPasses] = useState<PassData[]>([])
   const [people, setPeople] = useState<PersonData[]>([])
   const [messages, setMessages] = useState<MessageData[]>([])
