@@ -1,4 +1,6 @@
--- Behörighetstester. Kör ENBART mot testdatabasen. Se README.md.
+-- Behörighetstester. Kör ENBART mot testdatabasen, efter migration 019. Se README.md.
+-- Profiler ändras av appens server (service role); inloggade användare kan bara
+-- ändra sina egna kontaktuppgifter. Behörighet styrs av profile_churches.
 -- Resultatet ska ha status OK på varje rad.
 
 DO $$
@@ -48,6 +50,13 @@ FROM (VALUES ('sec-sup@test.invalid','superadmin','super','Test Församling A'),
  ('sec-ideB@test.invalid','ideell','none','Test Församling B')) t(email,role,lvl,ch)
 WHERE p.email = t.email;
 
+-- Från och med migration 019 styrs behörighet av medlemskap per församling
+INSERT INTO profile_churches (profile_id, church_id, role, admin_level, is_employee, active)
+SELECT id, church_id, role, admin_level, is_employee, true FROM profiles
+WHERE email LIKE 'sec-%@test.invalid' AND church_id IS NOT NULL
+ON CONFLICT (profile_id, church_id) DO UPDATE
+  SET role = EXCLUDED.role, admin_level = EXCLUDED.admin_level, is_employee = EXCLUDED.is_employee, active = true;
+
 INSERT INTO passes (church_id, title, date_str, time_str, spots)
 SELECT id, 'Säk-pass ' || name, '2030-12-01', '10:00–12:00', 3 FROM churches
 WHERE name LIKE 'Test Församling %' AND NOT EXISTS (SELECT 1 FROM passes WHERE title = 'Säk-pass ' || churches.name);
@@ -80,18 +89,21 @@ BEGIN
    (10,'Fadmin A ser personer i B',fadA,format($q$SELECT count(*)::text FROM profiles WHERE church_id=%s$q$,b),'0'),
    (11,'Fadmin A ändrar person i B',fadA,format(upd,$s$name='hackad'$s$,ideB),'0'),
    (12,'Fadmin A raderar person i B',fadA,format($q$WITH u AS (DELETE FROM profiles WHERE id=%L RETURNING 1) SELECT count(*)::text FROM u$q$,ideB),'0'),
-   (13,'Fadmin A degraderar pastoratsadmin',fadA,format(upd,$s$admin_level='none', role='ideell'$s$,padA),'0'),
+   (13,'Fadmin A degraderar pastoratsadmin',fadA,format(upd,$s$admin_level='none', role='ideell'$s$,padA),'ERROR'),
    (14,'Fadmin A gör sig till pastoratsadmin',fadA,format(upd,$s$admin_level='pastorat', role='padmin'$s$,fadA),'ERROR'),
    (15,'Fadmin A befordrar ideell A till super',fadA,format(upd,$s$admin_level='super', role='superadmin'$s$,ideA),'ERROR'),
    (16,'Fadmin A ändrar pass i B',fadA,format($q$WITH u AS (UPDATE passes SET title='hackad' WHERE id=%s RETURNING 1) SELECT count(*)::text FROM u$q$,passB),'0'),
    (17,'Fadmin A skapar pass i B',fadA,format($q$WITH u AS (INSERT INTO passes (church_id,title,date_str,time_str,spots) VALUES (%s,'hack','2030-12-02','10:00',1) RETURNING 1) SELECT count(*)::text FROM u$q$,b),'ERROR'),
-   (18,'Fadmin ger sig själv personalbehörighet',fadA,format($q$WITH u AS (INSERT INTO staff_permissions (profile_id, kan_skapa_pass) VALUES (%L, true) RETURNING 1) SELECT count(*)::text FROM u$q$,fadA),'ERROR'),
+   (18,'Fadmin ger sig själv personalbehörighet',fadA,format($q$WITH u AS (INSERT INTO profile_church_permissions (profile_id, church_id, kan_skapa_pass) VALUES (%L, %s, true) RETURNING 1) SELECT count(*)::text FROM u$q$,fadA,a),'ERROR'),
    (19,'Fadmin B ser personer i A',fadB,format($q$SELECT count(*)::text FROM profiles WHERE church_id=%s$q$,a),'0'),
    (20,'Pastoratsadmin ser personer i B (samma pastorat)',padA,format($q$SELECT (count(*) > 0)::text FROM profiles WHERE church_id=%s$q$,b),'true'),
    (21,'Superadmin ser alla',sup,$q$SELECT (count(*) >= 6)::text FROM profiles$q$,'true'),
    (22,'Fadmin A ser personer i A',fadA,format($q$SELECT (count(*) >= 4)::text FROM profiles WHERE church_id=%s$q$,a),'true'),
-   (23,'Fadmin A ändrar ideell A i egen församling',fadA,format(upd,$s$available=true$s$,ideA),'1'),
-   (24,'Fadmin A gör ideell A till anställd',fadA,format(upd,$s$is_employee=true, role='anstalld'$s$,ideA),'1')
+   (23,'Ideell skapar eget medlemskap i B',ideA,format($q$WITH u AS (INSERT INTO profile_churches (profile_id, church_id) VALUES (%L, %s) RETURNING 1) SELECT count(*)::text FROM u$q$,ideA,b),'ERROR'),
+   (24,'Ideell ändrar sin nivå i medlemskap',ideA,format($q$WITH u AS (UPDATE profile_churches SET admin_level='super' WHERE profile_id=%L RETURNING 1) SELECT count(*)::text FROM u$q$,ideA),'ERROR'),
+   (25,'Ideell ser medlemskap i sin församling',ideA,format($q$SELECT count(*)::text FROM profile_churches WHERE church_id=%s$q$,a),'1'),
+   (26,'Fadmin A ser medlemskap i A',fadA,format($q$SELECT (count(*) >= 4)::text FROM profile_churches WHERE church_id=%s$q$,a),'true'),
+   (27,'Fadmin A ser medlemskap i B',fadA,format($q$SELECT count(*)::text FROM profile_churches WHERE church_id=%s$q$,b),'0')
   ) AS v(n,test,uid,sql,expected) LOOP
     PERFORM set_config('request.jwt.claims', json_build_object('sub',t.uid,'role','authenticated')::text, true);
     PERFORM set_config('role','authenticated', true);
@@ -107,9 +119,6 @@ BEGIN
   INSERT INTO sec_test.results
   SELECT results[i][1]::int, results[i][2], results[i][3], results[i][4] FROM generate_subscripts(results,1) i;
 END $$;
-
--- Återställ testkontot efter test 24
-UPDATE profiles SET is_employee=false, role='ideell' WHERE email='sec-ideA@test.invalid';
 
 SELECT n, test, expected, got, CASE WHEN expected = got THEN 'OK' ELSE 'FEL' END AS status
 FROM sec_test.results ORDER BY n;

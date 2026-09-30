@@ -1,6 +1,17 @@
--- Migration 016: flera församlingar per konto och roll per församling
+-- =====================================================================
+-- Migration 019: flera församlingar per konto och roll per församling
+-- Byggd av ChatGPT:s 016_multi_church_memberships, anpassad så att den körs
+-- ovanpå 016_behorighetsharding, 017 och 018 (som redan finns i produktion
+-- respektive körs före denna):
+--   * Rättad dollar-quoting ($ -> $$) och samma parameternamn på can_admin_church.
+--   * Pastoratsåtkomst kräver ett riktigt pastorat, inte två tomma.
+--   * Församlingar: pastoratsadmin kan inte flytta församlingar mellan pastorat.
+--   * Kommentarer: reglerna från 018 behålls.
+--   * Behörighetsfunktionerna från 016 och 018 räknar med medlemskap.
 -- profile_churches blir källa för medlemskap, roll och lokal adminnivå.
 -- Legacy-fälten på profiles behålls tillfälligt för bakåtkompatibilitet.
+-- Idempotent.
+-- =====================================================================
 
 CREATE TABLE IF NOT EXISTS public.profile_churches (
   profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -149,7 +160,8 @@ RETURNS BOOLEAN AS $$
     WHERE pc.profile_id = auth.uid()
       AND pc.active
       AND pc.admin_level IN ('pastorat','super')
-      AND source_church.pastorat_id IS NOT DISTINCT FROM target_church.pastorat_id
+      AND source_church.pastorat_id IS NOT NULL
+      AND source_church.pastorat_id = target_church.pastorat_id
   );
 $$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
 
@@ -160,21 +172,23 @@ RETURNS BOOLEAN AS $$
     OR public.has_pastorat_admin_access(target_church_id);
 $$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
 
-CREATE OR REPLACE FUNCTION public.can_admin_church(target_church_id INT)
+-- Parameternamnet måste vara target_church, samma som i 016_behorighetsharding,
+-- annars vägrar PostgreSQL att ersätta funktionen.
+CREATE OR REPLACE FUNCTION public.can_admin_church(target_church INT)
 RETURNS BOOLEAN AS $$
   SELECT public.is_system_super_admin()
-    OR public.membership_admin_level(target_church_id) = 'forsamling'
-    OR public.has_pastorat_admin_access(target_church_id);
+    OR public.membership_admin_level(target_church) = 'forsamling'
+    OR public.has_pastorat_admin_access(target_church);
 $$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
 
 CREATE OR REPLACE FUNCTION public.can_manage_church_settings(target_church_id INT)
-RETURNS BOOLEAN AS $
+RETURNS BOOLEAN AS $$
   SELECT public.is_system_super_admin()
     OR public.has_pastorat_admin_access(target_church_id);
-$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
+$$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
 
 CREATE OR REPLACE FUNCTION public.has_staff_permission_for_church(target_church_id INT, permission_name TEXT)
-RETURNS BOOLEAN AS $
+RETURNS BOOLEAN AS $$
   SELECT public.has_active_membership(target_church_id)
     AND public.membership_role(target_church_id) = 'anstalld'
     AND EXISTS (
@@ -194,14 +208,15 @@ RETURNS BOOLEAN AS $
           ELSE false
         END
     );
-$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
+$$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
 
 CREATE OR REPLACE FUNCTION public.can_view_people_in_church(target_church_id INT)
-RETURNS BOOLEAN AS $
+RETURNS BOOLEAN AS $$
   SELECT public.can_admin_church(target_church_id)
     OR public.has_staff_permission_for_church(target_church_id, 'kan_se_personal')
-    OR public.has_staff_permission_for_church(target_church_id, 'kan_lagg_till_personal');
-$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
+    OR public.has_staff_permission_for_church(target_church_id, 'kan_lagg_till_personal')
+    OR public.has_staff_permission_for_church(target_church_id, 'kan_skicka_utskick');
+$$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
 
 -- Bakåtkompatibla helpers använder högsta aktiva medlemskapsnivå.
 CREATE OR REPLACE FUNCTION public.current_admin_level()
@@ -318,13 +333,7 @@ CREATE POLICY "profiles_update_self" ON public.profiles FOR UPDATE
   USING (id = auth.uid())
   WITH CHECK (id = auth.uid());
 
--- CHURCHES
-DROP POLICY IF EXISTS "churches_select_all" ON public.churches;
-DROP POLICY IF EXISTS "churches_modify_admin" ON public.churches;
-CREATE POLICY "churches_select_all" ON public.churches FOR SELECT USING (true);
-CREATE POLICY "churches_modify_admin" ON public.churches FOR ALL
-  USING (public.can_manage_church_settings(id))
-  WITH CHECK (public.can_manage_church_settings(id));
+-- CHURCHES: se slutet av filen (ersätter 017 med medlemskapsmodellen)
 
 -- GROUPS
 DROP POLICY IF EXISTS "groups_select_all" ON public.groups;
@@ -582,50 +591,7 @@ CREATE POLICY "waitlist_delete_scope" ON public.waitlist FOR DELETE
     )
   );
 
--- PASS_MESSAGES
-DROP POLICY IF EXISTS "pass_messages_select" ON public.pass_messages;
-DROP POLICY IF EXISTS "pass_messages_insert" ON public.pass_messages;
-DROP POLICY IF EXISTS "pass_messages_delete" ON public.pass_messages;
-CREATE POLICY "pass_messages_select" ON public.pass_messages FOR SELECT
-  USING (
-    public.is_responsible_for(pass_id)
-    OR EXISTS (
-      SELECT 1 FROM public.passes p
-      WHERE p.id = pass_messages.pass_id
-        AND public.can_admin_church(p.church_id)
-    )
-    OR EXISTS (
-      SELECT 1 FROM public.bookings b
-      WHERE b.pass_id = pass_messages.pass_id
-        AND b.profile_id = auth.uid()
-    )
-  );
-CREATE POLICY "pass_messages_insert" ON public.pass_messages FOR INSERT
-  WITH CHECK (
-    author_id = auth.uid()
-    AND (
-      public.is_responsible_for(pass_id)
-      OR EXISTS (
-        SELECT 1 FROM public.passes p
-        WHERE p.id = pass_messages.pass_id
-          AND public.can_admin_church(p.church_id)
-      )
-      OR EXISTS (
-        SELECT 1 FROM public.bookings b
-        WHERE b.pass_id = pass_messages.pass_id
-          AND b.profile_id = auth.uid()
-      )
-    )
-  );
-CREATE POLICY "pass_messages_delete" ON public.pass_messages FOR DELETE
-  USING (
-    author_id = auth.uid()
-    OR EXISTS (
-      SELECT 1 FROM public.passes p
-      WHERE p.id = pass_messages.pass_id
-        AND public.can_admin_church(p.church_id)
-    )
-  );
+-- PASS_MESSAGES: reglerna från 018 gäller och ändras inte här.
 
 -- APPLICATIONS
 DROP POLICY IF EXISTS "applications_select_admin" ON public.applications;
@@ -680,3 +646,108 @@ GRANT EXECUTE ON FUNCTION public.can_admin_church(INT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.can_manage_church_settings(INT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.has_staff_permission_for_church(INT, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.can_view_people_in_church(INT) TO authenticated;
+
+-- =====================================================================
+-- Tillägg: säkerhetsregler från 016_behorighetsharding, 017 och 018
+-- flyttade till medlemskapsmodellen.
+-- =====================================================================
+
+-- Pastorat där inloggad användare är pastoratsadmin (aktivt medlemskap).
+CREATE OR REPLACE FUNCTION public.admin_pastorat_ids()
+RETURNS SETOF INT AS $$
+  SELECT DISTINCT c.pastorat_id
+  FROM public.profile_churches pc
+  JOIN public.churches c ON c.id = pc.church_id
+  WHERE pc.profile_id = auth.uid() AND pc.active
+    AND pc.admin_level = 'pastorat' AND c.pastorat_id IS NOT NULL;
+$$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
+
+DROP POLICY IF EXISTS "churches_modify_admin" ON public.churches;
+DROP POLICY IF EXISTS "churches_modify_super" ON public.churches;
+DROP POLICY IF EXISTS "churches_update_pastorat" ON public.churches;
+DROP POLICY IF EXISTS "churches_insert_pastorat" ON public.churches;
+DROP POLICY IF EXISTS "churches_delete_pastorat" ON public.churches;
+
+CREATE POLICY "churches_modify_super" ON public.churches FOR ALL
+  USING (public.is_system_super_admin())
+  WITH CHECK (public.is_system_super_admin());
+
+CREATE POLICY "churches_update_pastorat" ON public.churches FOR UPDATE
+  USING (pastorat_id IN (SELECT public.admin_pastorat_ids()))
+  WITH CHECK (pastorat_id IN (SELECT public.admin_pastorat_ids()));
+
+CREATE POLICY "churches_insert_pastorat" ON public.churches FOR INSERT
+  WITH CHECK (pastorat_id IN (SELECT public.admin_pastorat_ids()));
+
+CREATE POLICY "churches_delete_pastorat" ON public.churches FOR DELETE
+  USING (pastorat_id IN (SELECT public.admin_pastorat_ids()));
+
+-- Högsta nivå en person har (medlemskap eller gammal kolumn).
+CREATE OR REPLACE FUNCTION public.profile_max_level(uid UUID)
+RETURNS TEXT AS $$
+  SELECT CASE GREATEST(
+      COALESCE((SELECT public.level_rank(p.admin_level) FROM public.profiles p WHERE p.id = uid), 0),
+      COALESCE((SELECT max(public.level_rank(pc.admin_level)) FROM public.profile_churches pc WHERE pc.profile_id = uid AND pc.active), 0))
+    WHEN 3 THEN 'super' WHEN 2 THEN 'pastorat' WHEN 1 THEN 'forsamling' ELSE 'none' END;
+$$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
+
+-- Får inloggad användare administrera personen? Personen ska vara aktiv medlem
+-- i en församling man administrerar och inte ha högre nivå än man själv.
+CREATE OR REPLACE FUNCTION public.can_admin_profile(target UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profile_churches pc
+    WHERE pc.profile_id = target AND pc.active
+      AND public.can_admin_church(pc.church_id)
+  )
+  AND public.level_rank(public.profile_max_level(target)) <= public.level_rank(public.current_admin_level());
+$$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
+
+-- Samma regel som can_admin_church, men för en given person (används för
+-- att avgöra vem som har åtkomst till ett pass kommentarer).
+CREATE OR REPLACE FUNCTION public.can_admin_church_for(target_church INT, uid UUID)
+RETURNS BOOLEAN AS $$
+  SELECT uid IS NOT NULL AND (
+    EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = uid AND p.admin_level = 'super')
+    OR EXISTS (
+      SELECT 1 FROM public.profile_churches pc
+      WHERE pc.profile_id = uid AND pc.active AND pc.admin_level = 'super'
+    )
+    OR EXISTS (
+      SELECT 1 FROM public.profile_churches pc
+      WHERE pc.profile_id = uid AND pc.active AND pc.admin_level = 'forsamling'
+        AND pc.church_id = target_church
+    )
+    OR EXISTS (
+      SELECT 1 FROM public.profile_churches pc
+      JOIN public.churches mine ON mine.id = pc.church_id
+      JOIN public.churches t ON t.id = target_church
+      WHERE pc.profile_id = uid AND pc.active AND pc.admin_level = 'pastorat'
+        AND mine.pastorat_id IS NOT NULL AND mine.pastorat_id = t.pastorat_id
+    )
+  );
+$$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
+
+-- Kommentarer: kiosk (globalt eller i passets församling) har aldrig åtkomst.
+CREATE OR REPLACE FUNCTION public.pass_thread_access_for(pass_id_arg INT, uid UUID)
+RETURNS BOOLEAN AS $$
+  SELECT uid IS NOT NULL
+    AND EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = uid AND p.role <> 'kiosk')
+    AND NOT EXISTS (
+      SELECT 1 FROM public.profile_churches pc
+      JOIN public.passes ps ON ps.church_id = pc.church_id
+      WHERE ps.id = pass_id_arg AND pc.profile_id = uid AND pc.active AND pc.role = 'kiosk'
+    )
+    AND (
+      EXISTS (SELECT 1 FROM public.bookings b WHERE b.pass_id = pass_id_arg AND b.profile_id = uid)
+      OR EXISTS (SELECT 1 FROM public.pass_responsible r WHERE r.pass_id = pass_id_arg AND r.profile_id = uid)
+      OR EXISTS (SELECT 1 FROM public.passes ps WHERE ps.id = pass_id_arg AND ps.vk_profile_id = uid)
+      OR public.can_admin_pass_for(pass_id_arg, uid)
+    );
+$$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
+
+REVOKE EXECUTE ON FUNCTION public.admin_pastorat_ids()             FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.profile_max_level(UUID)          FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.can_admin_church_for(INT, UUID)  FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.pass_thread_access_for(INT, UUID) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.admin_pastorat_ids()             TO authenticated;

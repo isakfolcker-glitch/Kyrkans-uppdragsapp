@@ -1,4 +1,4 @@
--- Behörighetstester för migration 017. Kör ENBART mot testdatabasen, EFTER behorighet.sql
+-- Behörighetstester för migration 017 och 019 (församlingar och utskick). Kör ENBART mot testdatabasen, EFTER behorighet.sql
 -- (som skapar testkontona). Resultatet ska ha status OK på varje rad.
 
 DO $$
@@ -14,9 +14,11 @@ INSERT INTO bookings (pass_id, profile_id, name)
 SELECT p.id, '00000000-0000-0000-0000-00000000a005', 'Säk IdeellA' FROM passes p
 WHERE p.title = 'Säk-pass Test Församling A'
   AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.pass_id = p.id AND b.profile_id = '00000000-0000-0000-0000-00000000a005');
-INSERT INTO message_logs (from_user_id, from_name, to_label, subject, body)
-SELECT '00000000-0000-0000-0000-00000000a004', 'Säk FadminB', 'Test', 'Säk-logg B', 'x'
-WHERE NOT EXISTS (SELECT 1 FROM message_logs WHERE subject = 'Säk-logg B');
+-- Från 019 hör utskick till en församling (church_id)
+DELETE FROM message_logs WHERE subject = 'Säk-logg B';
+INSERT INTO message_logs (from_user_id, from_name, to_label, subject, body, church_id)
+SELECT '00000000-0000-0000-0000-00000000a004', 'Säk FadminB', 'Test', 'Säk-logg B', 'x', id
+FROM churches WHERE name = 'Test Församling B';
 
 CREATE SCHEMA IF NOT EXISTS sec_test;
 CREATE TABLE IF NOT EXISTS sec_test.results17 (n int, test text, expected text, got text);
@@ -47,7 +49,7 @@ BEGIN
    (108,'Församlingsadmin A läser utskick från B',fadA,format($q$SELECT count(*)::text FROM message_logs WHERE from_user_id=%L$q$,fadB),'0'),
    (109,'Församlingsadmin B läser eget utskick',fadB,format($q$SELECT count(*)::text FROM message_logs WHERE from_user_id=%L$q$,fadB),'1'),
    (110,'Superadmin läser utskick från B',sup,format($q$SELECT count(*)::text FROM message_logs WHERE from_user_id=%L$q$,fadB),'1'),
-   (111,'Församlingsadmin loggar utskick i annans namn',fadA,format($q$WITH u AS (INSERT INTO message_logs (from_user_id, from_name, to_label, subject, body) VALUES (%L,'x','x','x','x') RETURNING 1) SELECT count(*)::text FROM u$q$,fadB),'ERROR')
+   (111,'Församlingsadmin A loggar utskick i församling B',fadA,format($q$WITH u AS (INSERT INTO message_logs (from_user_id, from_name, to_label, subject, body, church_id) VALUES (%L,'x','x','x','x',%s) RETURNING 1) SELECT count(*)::text FROM u$q$,fadA,b),'ERROR')
   ) AS v(n,test,uid,sql,expected) LOOP
     PERFORM set_config('request.jwt.claims', json_build_object('sub',t.uid,'role','authenticated')::text, true);
     PERFORM set_config('role','authenticated', true);
