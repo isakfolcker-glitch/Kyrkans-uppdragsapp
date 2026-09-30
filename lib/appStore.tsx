@@ -347,7 +347,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         responsibleUserIds: p.pass_responsible?.map((r: any) => r.profile_id) || [],
         bookings: p.bookings?.map((b: any) => ({
           id: b.id, personId: b.profile_id, name: b.name, ini: b.ini || '',
-          av: b.av_color || '#F1EFE8', ac: b.ac_color || '#5F5E5A',
+          av: b.av_color || '#FFEBE1', ac: b.ac_color || '#7D0037',
           source: b.source, noAccount: b.no_account, mail: b.mail, tel: b.tel,
         })) || [],
         history: p.pass_history?.map((h: any) => h.entry) || [],
@@ -386,8 +386,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           mail: rawProfile?.email || '',
           phone: rawProfile?.phone,
           ini: rawProfile?.ini || rawProfile?.name?.slice(0, 2).toUpperCase() || '??',
-          av: rawProfile?.av_color || '#EEEDFE',
-          ac: rawProfile?.ac_color || '#3C3489',
+          av: rawProfile?.av_color || '#FFEBE1',
+          ac: rawProfile?.ac_color || '#7D0037',
           church: membership.church_id,
           groups: visibleGroupIds,
           role: membership.role,
@@ -524,8 +524,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       isEmployee: effectiveMembership?.isEmployee ?? role !== 'ideell',
       adminLevel,
       ini: displayName.split(' ').map((part: string) => part[0]).join('').slice(0, 2).toUpperCase(),
-      av: profile?.av_color ?? '#EEEDFE',
-      ac: profile?.ac_color ?? '#3C3489',
+      av: profile?.av_color ?? '#FFEBE1',
+      ac: profile?.ac_color ?? '#7D0037',
       badge: role === 'ideell' ? 'rb-ideell' : role === 'anstalld' ? 'rb-anstalld' : 'rb-admin',
       badgeLbl: role === 'ideell'
         ? 'Ideell'

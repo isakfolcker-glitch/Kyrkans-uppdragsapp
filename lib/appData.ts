@@ -61,7 +61,7 @@ export const CHURCHES: Church[] = []
 
 // Inga demoanvändare – en enda tom platshållare
 export const USERS: UserDef[] = [
-  {id:0,name:'',email:'',role:'ideell',isEmployee:false,adminLevel:'none',ini:'',av:'#EEEDFE',ac:'#3C3489',badge:'rb-ideell',badgeLbl:'Ideell',groups:[],churches:[],responsibleForPasses:[],notifs:{},available:true},
+  {id:0,name:'',email:'',role:'ideell',isEmployee:false,adminLevel:'none',ini:'',av:'#FFEBE1',ac:'#7D0037',badge:'rb-ideell',badgeLbl:'Ideell',groups:[],churches:[],responsibleForPasses:[],notifs:{},available:true},
 ]
 
 // Tom initial-data – allt kommer från Supabase

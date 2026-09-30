@@ -169,8 +169,8 @@ export async function POST(req: NextRequest) {
     source: source || 'app',
     no_account: profileId === null,
     ini: ini || '',
-    av_color: av_color || '#EEEDFE',
-    ac_color: ac_color || '#3C3489',
+    av_color: av_color || '#FFEBE1',
+    ac_color: ac_color || '#7D0037',
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

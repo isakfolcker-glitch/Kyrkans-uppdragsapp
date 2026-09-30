@@ -1033,7 +1033,7 @@ a:hover { color: var(--text); }
 }
 
 .form-field input::placeholder,
-.form-field textarea::placeholder { color: rgba(0,0,0,0.5); }
+.form-field textarea::placeholder { color: rgba(0,0,0,0.62); }
 
 .form-field input:focus,
 .form-field select:focus,
@@ -1431,7 +1431,7 @@ a:hover { color: var(--text); }
   box-shadow: 0 0 0 3px var(--fokus);
 }
 
-.search-row input::placeholder { color: rgba(0,0,0,0.5); }
+.search-row input::placeholder { color: rgba(0,0,0,0.62); }
 
 /* ── Exporttabell ────────────────────────────────────────── */
 .exp-table { width: 100%; border-collapse: collapse; font-size: 14px; }

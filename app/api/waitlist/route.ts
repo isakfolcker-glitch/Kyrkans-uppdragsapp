@@ -88,7 +88,7 @@ export async function promoteFromWaitlist(passId: number) {
     name: entry.name, mail: entry.mail, tel: '',
     source: 'app', no_account: false,
     ini: entry.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase(),
-    av_color: '#EEEDFE', ac_color: '#3C3489',
+    av_color: '#FFEBE1', ac_color: '#7D0037',
   })
   if (bookErr) return
 

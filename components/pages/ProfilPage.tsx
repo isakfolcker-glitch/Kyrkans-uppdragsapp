@@ -120,24 +120,24 @@ export default function ProfilPage() {
           <h2 className="panel-title">Redigera uppgifter</h2>
           <div className="form-row">
             <div className="form-field">
-              <label>Namn</label>
-              <input value={editName} onChange={e => setEditName(e.target.value)} />
+              <label htmlFor="profilpage-f1">Namn</label>
+              <input id="profilpage-f1" value={editName} onChange={e => setEditName(e.target.value)} />
             </div>
             <div className="form-field">
-              <label>Mobilnummer</label>
-              <input value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="070-..." />
+              <label htmlFor="profilpage-f2">Mobilnummer</label>
+              <input id="profilpage-f2" value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="070-..." />
             </div>
           </div>
           <div style={{ borderTop: '1px solid rgba(125,0,55,0.18)', paddingTop: 14, marginTop: 4, marginBottom: 14 }}>
             <h3 className="section-label">Kontaktperson i nödsituation</h3>
             <div className="form-row">
               <div className="form-field">
-                <label>Namn</label>
-                <input value={editEcName} onChange={e => setEditEcName(e.target.value)} placeholder="Anna Andersson" />
+                <label htmlFor="profilpage-f3">Namn</label>
+                <input id="profilpage-f3" value={editEcName} onChange={e => setEditEcName(e.target.value)} placeholder="Anna Andersson" />
               </div>
               <div className="form-field">
-                <label>Telefonnummer</label>
-                <input value={editEcPhone} onChange={e => setEditEcPhone(e.target.value)} placeholder="070-..." />
+                <label htmlFor="profilpage-f4">Telefonnummer</label>
+                <input id="profilpage-f4" value={editEcPhone} onChange={e => setEditEcPhone(e.target.value)} placeholder="070-..." />
               </div>
             </div>
           </div>
@@ -183,12 +183,12 @@ export default function ProfilPage() {
       <div className="panel">
         <div className="form-row">
           <div className="form-field">
-            <label>Nytt lösenord</label>
-            <input type="password" placeholder="••••••••" value={pw} onChange={e => setPw(e.target.value)} autoComplete="new-password" />
+            <label htmlFor="profilpage-f5">Nytt lösenord</label>
+            <input id="profilpage-f5" type="password" placeholder="••••••••" value={pw} onChange={e => setPw(e.target.value)} autoComplete="new-password" />
           </div>
           <div className="form-field">
-            <label>Upprepa lösenord</label>
-            <input type="password" placeholder="••••••••" value={pw2} onChange={e => setPw2(e.target.value)} autoComplete="new-password" />
+            <label htmlFor="profilpage-f6">Upprepa lösenord</label>
+            <input id="profilpage-f6" type="password" placeholder="••••••••" value={pw2} onChange={e => setPw2(e.target.value)} autoComplete="new-password" />
           </div>
         </div>
         {pwMsg && (

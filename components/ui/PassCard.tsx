@@ -151,9 +151,9 @@ export default function PassCard({ pass, adminMode }: { pass: PassData; adminMod
           <span style={{ fontSize: 13, color: 'rgba(0,0,0,0.72)' }}>Bokade:</span>
           {pass.bookings.map((b, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 3, background: 'rgba(125,0,55,0.06)', borderRadius: 20, padding: '2px 8px 2px 4px' }}>
-              <div style={{ width: 18, height: 18, borderRadius: '50%', background: avBg(b.av), color: avFg(b.ac), fontSize: 9, fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{b.ini}</div>
+              <div aria-hidden="true" style={{ width: 26, height: 26, borderRadius: '50%', background: avBg(b.av), color: avFg(b.ac), fontSize: 12, fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{b.ini}</div>
               <span style={{ fontSize: 13, color: '#000' }}>{b.name.split(' ')[0]}</span>
-              {b.source === 'kiosk' && <span style={{ fontSize: 12, color: '#7D0037' }}>(kiosk)</span>}
+              {b.source === 'kiosk' && <span style={{ fontSize: 13, color: '#7D0037' }}>(kiosk)</span>}
             </div>
           ))}
         </div>
