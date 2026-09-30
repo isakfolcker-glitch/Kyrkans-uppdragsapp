@@ -18,9 +18,9 @@ export default function MinaAnsvarPage() {
         <p className="page-sub">Pass du är ansvarig för i vald församling</p>
       </div>
       {myPasses.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '3rem', color: '#888780' }}>
+        <div className="empty-state">
           Du är inte ansvarig för några pass i den här församlingen just nu.<br />
-          <span style={{ fontSize: 12 }}>Kontakta en admin för att bli tilldelad.</span>
+          Kontakta en admin för att bli tilldelad.
         </div>
       ) : (
         <div className="pass-list">

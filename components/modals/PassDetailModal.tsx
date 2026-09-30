@@ -45,7 +45,7 @@ export default function PassDetailModal({ passId }: { passId: number }) {
                   aria-label={`Ta bort ${b.name} från passet`}
                   onClick={() => showModal(
                     <ConfirmModal
-                      icon="⚠️"
+                      icon="Alert"
                       title={`Ta bort ${b.name} från passet?`}
                       sub="Personens bokning tas bort. Du kan lägga till personen igen manuellt om det behövs."
                       confirmLabel="Ta bort bokning"

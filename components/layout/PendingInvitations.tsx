@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import Icon from '@/components/ui/Icon'
 
 type Invitation = { churchId: number; churchName: string; role: string }
 
@@ -49,12 +50,14 @@ export default function PendingInvitations() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
       {invites.map(invite => (
         <div key={invite.churchId} style={{
-          background: '#F0FAF6', border: '1px solid #28A88E', borderRadius: 12,
-          padding: '12px 14px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10,
+          background: '#FFDCCB', border: '1px solid #FFC3AA', borderRadius: 20,
+          padding: '12px 16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10,
           textAlign: 'left',
         }}>
-          <div style={{ flex: 1, minWidth: 200, fontSize: 14, color: '#2C2C2A' }}>
-            Du är inbjuden till <strong>{invite.churchName}</strong>.
+          <div style={{ flex: 1, minWidth: 200, fontSize: 15, color: '#000', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Icon name="Mail" size={18} style={{ color: '#7D0037' }} />
+            <span>
+            Du är inbjuden till <strong style={{ fontWeight: 500 }}>{invite.churchName}</strong>.</span>
           </div>
           <button className="btn btn-primary btn-sm" disabled={busy !== null}
             onClick={() => respond(invite.churchId, 'accept')}>Acceptera</button>
@@ -62,7 +65,7 @@ export default function PendingInvitations() {
             onClick={() => respond(invite.churchId, 'decline')}>Avböj</button>
         </div>
       ))}
-      {error && <div style={{ color: '#7D0037', fontSize: 13 }}>⚠ {error}</div>}
+      {error && <div role="alert" style={{ color: '#7D0037', fontSize: 15, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="Alert" size={18} />{error}</div>}
     </div>
   )
 }

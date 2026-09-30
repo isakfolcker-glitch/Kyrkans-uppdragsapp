@@ -1,21 +1,23 @@
 'use client'
 import { useApp } from '@/lib/appStore'
 import PassQAModal from '@/components/modals/PassQAModal'
+import Icon from '@/components/ui/Icon'
 
 // Notistyper som öppnar passets kommentarstråd.
 const THREAD_TYPES = new Set(['message', 'comment', 'comment_reply', 'comment_mention'])
 
+// Färgklass och Tabler-ikon per notistyp.
 const typeMap: Record<string, [string, string]> = {
-  reminder:          ['ii-green',  '🔔'],
-  cancelled:         ['ii-red',    '⚠️'],
-  new_pass:          ['ii-purple', '📅'],
-  message:           ['ii-dark',   '💬'],
-  comment:           ['ii-dark',   '💬'],
-  comment_reply:     ['ii-dark',   '↩️'],
-  comment_mention:   ['ii-purple', '@'],
-  signup:            ['ii-green',  '✅'],
-  waitlist_joined:   ['ii-purple', '⏳'],
-  waitlist_promoted: ['ii-green',  '🎉'],
+  reminder:          ['ii-green',  'Bell'],
+  cancelled:         ['ii-red',    'Alert'],
+  new_pass:          ['ii-purple', 'Calendar'],
+  message:           ['ii-dark',   'Message'],
+  comment:           ['ii-dark',   'Message'],
+  comment_reply:     ['ii-dark',   'Reply'],
+  comment_mention:   ['ii-purple', 'At'],
+  signup:            ['ii-green',  'Check'],
+  waitlist_joined:   ['ii-purple', 'Hourglass'],
+  waitlist_promoted: ['ii-green',  'CircleCheck'],
 }
 
 function formatTime(value: string) {
@@ -85,17 +87,17 @@ export default function NotiserPage() {
       </div>
 
       {mine.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '3rem', color: '#888780' }}>Inga notiser ännu.</div>
+        <div className="empty-state">Inga notiser ännu.</div>
       ) : (
         mine.map(notification => {
-          const [cls, icon] = typeMap[notification.type] ?? ['ii-purple', '🔔']
+          const [cls, icon] = typeMap[notification.type] ?? ['ii-purple', 'Bell']
           const clickable = Boolean(notification.passId)
 
           return (
             <button
               key={notification.id}
               type="button"
-              className="inbox-item"
+              className={`inbox-item${notification.read ? "" : " unread"}`}
               onClick={() => openNotification(notification)}
               disabled={!clickable}
               aria-label={clickable ? `Öppna notis: ${notification.title}` : undefined}
@@ -105,13 +107,14 @@ export default function NotiserPage() {
                 border: 'none',
                 cursor: clickable ? 'pointer' : 'default',
                 fontFamily: 'inherit',
-                opacity: notification.read ? 0.86 : 1,
+
               }}
             >
-              <div className={`inbox-icon ${cls}`}>{icon}</div>
+              <div className={`inbox-icon ${cls}`}><Icon name={icon} /></div>
               <div className="inbox-body">
-                <div className="inbox-title" style={!notification.read ? { fontWeight: 700 } : {}}>
+                <div className="inbox-title">
                   {notification.title}
+                  {!notification.read && <span className="sr-only"> (oläst)</span>}
                 </div>
                 <div className="inbox-sub">{notification.body}</div>
                 <div className="inbox-time">

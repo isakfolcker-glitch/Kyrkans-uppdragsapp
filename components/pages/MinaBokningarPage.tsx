@@ -5,6 +5,7 @@ import { gLabel, gCls } from '@/lib/appData'
 import { isLockedForSelfCancel } from '@/lib/passTiming'
 import PassQAModal from '@/components/modals/PassQAModal'
 import UnbookConfirmModal from '@/components/modals/UnbookConfirmModal'
+import Icon, { PassMeta } from '@/components/ui/Icon'
 
 export default function MinaBokningarPage() {
   const { passes, selfBookings, showModal, currentChurchId } = useApp()
@@ -18,23 +19,24 @@ export default function MinaBokningarPage() {
   const cancelled = mine.filter(p => p.cancelled)
 
   const BookingRow = ({ p, past = false }: { p: typeof mine[0]; past?: boolean }) => (
-    <div key={p.id} className="pass-card" style={past ? { opacity: 0.7 } : undefined}>
+    <div key={p.id} className="pass-card" style={past ? { opacity: 0.75 } : undefined}>
+      <div className="pass-card-body">
       <div className="pass-card-top">
         <div className="pass-title">{p.title}</div>
         <div className="pass-tags">{p.groups.map(g => <span key={g} className={`tag ${gCls(g)}`}>{gLabel(g)}</span>)}</div>
       </div>
-      <div className="pass-meta">
-        <span>📅 {p.date}</span><span>🕐 {p.time}</span><span>📍 {p.plats}</span>
-      </div>
+      <PassMeta date={p.date} time={p.time} plats={p.plats} />
       <div className="pass-vk"><strong>{p.vk}</strong> &nbsp;{p.tel}</div>
       <div className="pass-footer">
         <span />
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <span className="btn btn-success btn-sm">✓ Bokad</span>
-          <button className="btn btn-secondary btn-sm" onClick={() => showModal(<PassQAModal passId={p.id} />)}>💬</button>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span className="status-pill"><Icon name="Check" size={16} />{past ? 'Du var bokad' : 'Du är bokad'}</span>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => showModal(<PassQAModal passId={p.id} />)}>
+            <Icon name="Message" size={18} />Frågor
+          </button>
           {!past && (
             isLockedForSelfCancel(p.date, p.time) ? (
-              <span className="btn btn-disabled btn-sm" title="Mindre än 24 timmar kvar, kontakta ansvarig för att avboka">🔒 Låst</span>
+              <span className="btn btn-disabled btn-sm" title="Mindre än 24 timmar kvar, kontakta ansvarig för att avboka"><Icon name="Lock" size={18} />Låst</span>
             ) : (
               <button
                 className="btn btn-warn btn-sm"
@@ -48,6 +50,7 @@ export default function MinaBokningarPage() {
           )}
         </div>
       </div>
+      </div>
     </div>
   )
 
@@ -58,7 +61,7 @@ export default function MinaBokningarPage() {
         <p className="page-sub">Pass du har bokat dig på</p>
       </div>
       {mine.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '3rem', color: '#888780' }}>Inga bokade pass ännu.</div>
+        <div className="empty-state">Inga bokade pass ännu.</div>
       ) : (
         <>
           {upcoming.length > 0 && (
@@ -70,7 +73,7 @@ export default function MinaBokningarPage() {
             </>
           )}
           {upcoming.length === 0 && old.length === 0 && cancelled.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '3rem', color: '#888780' }}>Inga kommande bokningar.</div>
+            <div className="empty-state">Inga kommande bokningar.</div>
           )}
           {cancelled.length > 0 && (
             <>
@@ -78,9 +81,11 @@ export default function MinaBokningarPage() {
               <div className="pass-list">
                 {cancelled.map(p => (
                   <div key={p.id} className="pass-card cancelled">
-                    <div className="alert alert-red" style={{ marginBottom: 8 }}>⚠️ Inställt</div>
-                    <div className="pass-title">{p.title}</div>
-                    <div className="pass-meta" style={{ marginTop: 6 }}><span>📅 {p.date}</span></div>
+                    <div className="pass-card-body">
+                      <div className="alert alert-red" style={{ marginBottom: 8 }}><Icon name="Alert" size={18} />Inställt</div>
+                      <div className="pass-title">{p.title}</div>
+                      <PassMeta date={p.date} />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -88,11 +93,8 @@ export default function MinaBokningarPage() {
           )}
           {old.length > 0 && (
             <div style={{ marginTop: 24 }}>
-              <button
-                onClick={() => setShowOld(v => !v)}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#5F5E5A', fontSize: 13, fontWeight: 600, padding: '6px 0' }}
-              >
-                <span style={{ fontSize: 16 }}>{showOld ? '▾' : '▸'}</span>
+              <button type="button" className="toggle-link" aria-expanded={showOld} onClick={() => setShowOld(v => !v)}>
+                <Icon name={showOld ? 'ChevronDown' : 'ChevronRight'} size={18} />
                 {showOld ? 'Dölj gamla bokningar' : `Gamla bokningar (${old.length})`}
               </button>
               {showOld && (

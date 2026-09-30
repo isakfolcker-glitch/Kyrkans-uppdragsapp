@@ -4,6 +4,7 @@ import { useApp } from '@/lib/appStore'
 import { gLabel, gCls } from '@/lib/appData'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import Icon from '@/components/ui/Icon'
 
 const notifDefs = [
   { key: 'passdag',    lbl: 'Påminnelse samma dag',      sub: 'E-post kl 07:00 på uppdragsdagen' },
@@ -15,7 +16,7 @@ const notifDefs = [
 ]
 
 export default function ProfilPage() {
-  const { u, updateUserNotif, toggleAvail, profile, currentUser, logout } = useApp()
+  const { u, updateUserNotif, toggleAvail, profile, currentUser, logout, groups } = useApp()
   const router = useRouter()
   const usr = u()
 
@@ -42,8 +43,8 @@ export default function ProfilPage() {
       emergency_contact_name: editEcName,
       emergency_contact_phone: editEcPhone,
     }).eq('id', currentUser?.id)
-    if (error) { setSaveMsg('❌ ' + error.message); return }
-    setSaveMsg('✓ Sparad!')
+    if (error) { setSaveMsg('Kunde inte spara: ' + error.message); return }
+    setSaveMsg('Sparat.')
     setTimeout(() => { setSaveMsg(''); setEditOpen(false) }, 1500)
   }
 
@@ -57,8 +58,8 @@ export default function ProfilPage() {
     if (pw !== pw2)    { setPwMsg('Lösenorden matchar inte.'); return }
     const supabase = createClient()
     const { error } = await supabase.auth.updateUser({ password: pw })
-    if (error) { setPwMsg('❌ ' + error.message); return }
-    setPwMsg('✓ Lösenord bytt!')
+    if (error) { setPwMsg('Kunde inte byta lösenord: ' + error.message); return }
+    setPwMsg('Lösenordet är bytt.')
     setPw(''); setPw2('')
     setTimeout(() => setPwMsg(''), 2000)
   }
@@ -71,29 +72,35 @@ export default function ProfilPage() {
       </div>
 
       {/* Profilhuvud */}
-      <div className="profile-header" style={{ color: '#fff' }}>
+      <div className="profile-header" style={{ flexWrap: 'wrap' }}>
         <div className="profile-av-lg">{displayIni}</div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 18, fontWeight: 700, color: '#fff' }}>{displayName}</div>
-          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 3 }}>{displayEmail}</div>
+          <div style={{ fontSize: 20, fontWeight: 500 }}>{displayName}</div>
+          <div style={{ fontSize: 15, marginTop: 3 }}>{displayEmail}</div>
           {profile?.phone && (
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>📱 {profile.phone}</div>
+            <div style={{ fontSize: 15, marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="Phone" size={16} />{profile.phone}</div>
           )}
           <div style={{ display: 'flex', gap: 5, marginTop: 8, flexWrap: 'wrap' }}>
             {displayGroups.map((g: string) => (
-              <span key={g} className={`tag ${gCls(g)}`}>{gLabel(g)}</span>
+              <span key={g} className={`tag ${gCls(g, groups)}`}>{gLabel(g, groups)}</span>
             ))}
           </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
           <button
-            className={`btn ${isAvailable ? 'btn-success' : 'btn-danger'}`}
+            type="button"
+            className={`btn ${isAvailable ? 'btn-success' : 'btn-accent'}`}
+            style={{ cursor: 'pointer' }}
+            aria-pressed={isAvailable}
             onClick={toggleAvail}
           >
-            {isAvailable ? '✓ Tillgänglig' : '✗ Otillgänglig'}
+            <Icon name={isAvailable ? 'Check' : 'Moon'} size={18} />
+            {isAvailable ? 'Tillgänglig' : 'Otillgänglig'}
+            <span className="sr-only">, tryck för att ändra</span>
           </button>
           <button
-            className="btn btn-secondary btn-sm"
+            type="button"
+            className="btn btn-on-dark btn-sm"
             onClick={() => {
               setEditName(profile?.name || '')
               setEditPhone(profile?.phone || '')
@@ -102,15 +109,15 @@ export default function ProfilPage() {
               setEditOpen(v => !v)
             }}
           >
-            ✏️ Redigera uppgifter
+            <Icon name="Pencil" size={18} />Redigera uppgifter
           </button>
         </div>
       </div>
 
       {/* Redigera uppgifter */}
       {editOpen && (
-        <div style={{ background: '#fff', border: '1px solid rgba(125,0,55,0.1)', borderRadius: 16, padding: 20, marginBottom: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#000', marginBottom: 16 }}>Redigera uppgifter</div>
+        <div className="panel">
+          <h2 className="panel-title">Redigera uppgifter</h2>
           <div className="form-row">
             <div className="form-field">
               <label>Namn</label>
@@ -121,10 +128,8 @@ export default function ProfilPage() {
               <input value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="070-..." />
             </div>
           </div>
-          <div style={{ borderTop: '1px solid rgba(0,0,0,0.07)', paddingTop: 14, marginTop: 4, marginBottom: 14 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#7D0037', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-              Kontaktperson i nödsituation
-            </div>
+          <div style={{ borderTop: '1px solid rgba(125,0,55,0.18)', paddingTop: 14, marginTop: 4, marginBottom: 14 }}>
+            <h3 className="section-label">Kontaktperson i nödsituation</h3>
             <div className="form-row">
               <div className="form-field">
                 <label>Namn</label>
@@ -137,13 +142,13 @@ export default function ProfilPage() {
             </div>
           </div>
           {saveMsg && (
-            <div className={`alert ${saveMsg.startsWith('✓') ? 'alert-green' : 'alert-red'}`} style={{ marginBottom: 12 }}>
+            <div role="status" className={`alert ${saveMsg === 'Sparat.' ? 'alert-green' : 'alert-red'}`} style={{ marginBottom: 12 }}>
               {saveMsg}
             </div>
           )}
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
             <button className="btn btn-secondary" onClick={() => setEditOpen(false)}>Avbryt</button>
-            <button className="btn btn-primary" onClick={saveProfile}>✓ Spara</button>
+            <button className="btn btn-primary" onClick={saveProfile}>Spara</button>
           </div>
         </div>
       )}
@@ -151,8 +156,8 @@ export default function ProfilPage() {
       {/* Notiser */}
       {notifs && Object.keys(notifs).length > 0 && (
         <>
-          <div className="section-label">Notiser</div>
-          <div style={{ background: '#fff', border: '1px solid rgba(125,0,55,0.1)', borderRadius: 16, padding: '4px 16px', marginBottom: 16 }}>
+          <h2 className="section-label">Notiser</h2>
+          <div className="panel" style={{ padding: '4px 20px' }}>
             {notifDefs.filter(n => notifs[n.key] !== undefined).map(n => (
               <div key={n.key} className="toggle-row">
                 <div className="toggle-info">
@@ -174,8 +179,8 @@ export default function ProfilPage() {
       )}
 
       {/* Byt lösenord */}
-      <div className="section-label">Byt lösenord</div>
-      <div style={{ background: '#fff', border: '1px solid rgba(125,0,55,0.1)', borderRadius: 16, padding: 20 }}>
+      <h2 className="section-label">Byt lösenord</h2>
+      <div className="panel">
         <div className="form-row">
           <div className="form-field">
             <label>Nytt lösenord</label>
@@ -187,11 +192,11 @@ export default function ProfilPage() {
           </div>
         </div>
         {pwMsg && (
-          <div className={`alert ${pwMsg.startsWith('✓') ? 'alert-green' : 'alert-red'}`} style={{ marginBottom: 12 }}>
+          <div role="status" className={`alert ${pwMsg === 'Lösenordet är bytt.' ? 'alert-green' : 'alert-red'}`} style={{ marginBottom: 12 }}>
             {pwMsg}
           </div>
         )}
-        <button className="btn btn-primary" onClick={changePassword}>🔒 Byt lösenord</button>
+        <button className="btn btn-primary" onClick={changePassword}><Icon name="Lock" size={18} />Byt lösenord</button>
       </div>
 
       {/* GDPR */}
@@ -236,54 +241,54 @@ function GdprSection({ currentUserId, onDeleted }: { currentUserId?: string; onD
 
   return (
     <>
-      <div className="section-label" style={{ marginTop: 24 }}>Integritet & GDPR</div>
-      <div style={{ background: '#fff', border: '1px solid rgba(125,0,55,0.1)', borderRadius: 16, padding: 20, marginBottom: 16 }}>
-        <p style={{ fontSize: 13, color: '#5F5E5A', marginBottom: 16, lineHeight: 1.6 }}>
+      <h2 className="section-label" style={{ marginTop: 24 }}>Integritet och GDPR</h2>
+      <div className="panel">
+        <p style={{ fontSize: 15, color: 'rgba(0,0,0,0.72)', marginBottom: 16, lineHeight: 1.6 }}>
           Enligt GDPR har du rätt att få ut dina uppgifter och att bli raderad ur systemet.
         </p>
 
         {/* Exportera data */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, borderBottom: '1px solid rgba(0,0,0,0.06)', marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, paddingBottom: 14, borderBottom: '1px solid rgba(125,0,55,0.18)', marginBottom: 14 }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#000' }}>Exportera mina uppgifter</div>
-            <div style={{ fontSize: 12, color: '#5F5E5A', marginTop: 2 }}>Ladda ned allt vi har sparat om dig (JSON)</div>
+            <div style={{ fontSize: 15, fontWeight: 500, color: '#000' }}>Exportera mina uppgifter</div>
+            <div style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)', marginTop: 2 }}>Ladda ned allt vi har sparat om dig (JSON)</div>
           </div>
           <button className="btn btn-secondary" onClick={exportData} disabled={exportLoading}>
-            {exportLoading ? 'Hämtar...' : '⬇ Exportera'}
+            <Icon name="Download" size={18} />{exportLoading ? 'Hämtar...' : 'Exportera'}
           </button>
         </div>
 
         {/* Länk till integritetspolicy */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, borderBottom: '1px solid rgba(0,0,0,0.06)', marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, paddingBottom: 14, borderBottom: '1px solid rgba(125,0,55,0.18)', marginBottom: 14 }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#000' }}>Integritetspolicy</div>
-            <div style={{ fontSize: 12, color: '#5F5E5A', marginTop: 2 }}>Läs om hur vi hanterar dina personuppgifter</div>
+            <div style={{ fontSize: 15, fontWeight: 500, color: '#000' }}>Integritetspolicy</div>
+            <div style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)', marginTop: 2 }}>Läs om hur vi hanterar dina personuppgifter</div>
           </div>
-          <a href="/integritetspolicy" target="_blank" className="btn btn-secondary" style={{ textDecoration: 'none' }}>
-            Läs →
+          <a href="/integritetspolicy" target="_blank" rel="noopener" className="btn btn-secondary">
+            Läs<span className="sr-only"> integritetspolicyn (öppnas i ny flik)</span><Icon name="ExternalLink" size={18} />
           </a>
         </div>
 
         {/* Radera konto */}
         {!delConfirm ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#7D0037' }}>Radera mitt konto</div>
-              <div style={{ fontSize: 12, color: '#5F5E5A', marginTop: 2 }}>Tar bort all din data permanent</div>
+              <div style={{ fontSize: 15, fontWeight: 500, color: '#7D0037' }}>Radera mitt konto</div>
+              <div style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)', marginTop: 2 }}>Tar bort all din data permanent</div>
             </div>
-            <button className="btn btn-danger" onClick={() => setDelConfirm(true)}>🗑 Radera</button>
+            <button className="btn btn-danger" onClick={() => setDelConfirm(true)}><Icon name="Trash" size={18} />Radera</button>
           </div>
         ) : (
-          <div style={{ background: '#FFC3AA', border: '1px solid #FF785A', borderRadius: 12, padding: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#7D0037', marginBottom: 6 }}>⚠ Är du helt säker?</div>
-            <p style={{ fontSize: 13, color: '#5F5E5A', marginBottom: 14 }}>
+          <div role="alert" style={{ background: '#FFC3AA', border: '1px solid #FF785A', borderRadius: 16, padding: 16 }}>
+            <div style={{ fontSize: 16, fontWeight: 500, color: '#7D0037', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="Alert" size={18} />Är du helt säker?</div>
+            <p style={{ fontSize: 15, color: '#000', marginBottom: 14 }}>
               Ditt konto, alla bokningar och personuppgifter raderas permanent. Det går inte att ångra.
             </p>
             {delErr && <div className="alert alert-red" style={{ marginBottom: 10 }}>{delErr}</div>}
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button className="btn btn-secondary" onClick={() => setDelConfirm(false)}>Avbryt</button>
               <button className="btn btn-danger" onClick={deleteAccount} disabled={delLoading}>
-                {delLoading ? 'Raderar...' : '🗑 Ja, radera mitt konto'}
+                <Icon name="Trash" size={18} />{delLoading ? 'Raderar...' : 'Ja, radera mitt konto'}
               </button>
             </div>
           </div>

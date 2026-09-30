@@ -664,6 +664,72 @@ a:hover { color: var(--text); }
   .start-aside { padding-top: 6px; }
 }
 
+/* ── Gemensamma småklasser ──────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-2);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.empty-state-title { font-size: 17px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
+
+/* Knapp som visar eller döljer en lista, t.ex. gamla pass */
+.toggle-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--vin);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* Enkel yta med tunn linje, för formulär och inställningar */
+.panel {
+  background: var(--yta);
+  border: 1px solid var(--linje);
+  border-radius: 20px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.panel-title { font-size: 16px; font-weight: 500; color: var(--text); margin-bottom: 14px; }
+
+.meta-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 15px;
+  color: var(--text-2);
+}
+
+.meta-row span { display: inline-flex; align-items: center; gap: 6px; }
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 18px;
+  background: var(--rosa);
+  color: #000;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.status-pill-quiet { background: transparent; box-shadow: inset 0 0 0 1.5px var(--linje-stark); color: var(--text); }
+
+.req { color: var(--vin); }
+
 /* ── Kort (generellt) ────────────────────────────────────── */
 .kuf-card {
   background: var(--yta);
@@ -839,6 +905,10 @@ a:hover { color: var(--text); }
 .btn-purple:hover { filter: brightness(.96); }
 .btn-disabled  { background: rgba(125,0,55,0.06); color: var(--text-2); border-color: var(--linje); cursor: default; }
 .btn-accent    { background: var(--orange); color: #000; border-color: var(--orange); }
+
+.btn-on-dark   { background: transparent; color: var(--beige); border-color: rgba(255,235,225,0.55); }
+.btn-on-dark:hover { background: rgba(255,235,225,0.12); filter: none; }
+.btn-on-dark:focus-visible { outline-color: var(--beige); }
 
 .btn-sm  { padding: 0 16px; font-size: 14px; }
 .btn-lg  { min-height: 56px; padding: 0 28px; font-size: 18px; }
@@ -1178,6 +1248,8 @@ a:hover { color: var(--text); }
   position: relative;
   overflow: hidden;
 }
+
+.profile-header .tag { background: var(--beige); color: var(--vin); box-shadow: none; }
 
 .profile-av-lg {
   width: 64px;
