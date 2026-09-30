@@ -1463,6 +1463,47 @@ a:hover { color: var(--text); }
   overflow: hidden;
 }
 
+/* ── Sidor utanför appen (inloggning m.fl.) ─────────────── */
+.auth-page {
+  min-height: 100vh;
+  background: var(--beige);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 0;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--beige);
+}
+
+.auth-card-wide { max-width: 560px; }
+
+.auth-head {
+  background: var(--vin);
+  color: var(--beige);
+  padding: 24px 24px 34px;
+  border-radius: 0 0 96px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-title { margin: 22px 0 0; font-size: 32px; font-weight: 500; line-height: 1.05; }
+.auth-lead  { margin-top: 8px; font-size: 16px; line-height: 1.5; }
+.auth-body  { padding: 24px; }
+
+@media (min-width: 600px) {
+  .auth-page { align-items: center; padding: 32px 20px; }
+  .auth-card { border-radius: 0 0 24px 24px; }
+}
+
+.policy-text p { margin-bottom: 10px; }
+.policy-text ul { padding-left: 22px; margin-bottom: 10px; }
+.policy-text li { margin-bottom: 4px; }
+.policy-text strong { font-weight: 500; }
+
 /* ── Responsivt ──────────────────────────────────────────── */
 @media (max-width: 900px) {
   .app-shell { flex-direction: column; }
