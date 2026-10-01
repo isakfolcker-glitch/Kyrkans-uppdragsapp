@@ -1,7 +1,12 @@
 'use client'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useApp } from '@/lib/appStore'
-import Sidebar from '@/components/layout/Sidebar'
+import Sidebar, { useSubText } from '@/components/layout/Sidebar'
+import { useNavItems, useUnreadCount } from '@/components/layout/useNavItems'
+import PendingInvitations from '@/components/layout/PendingInvitations'
 import Modal from '@/components/ui/Modal'
+import Icon from '@/components/ui/Icon'
+import Greeting from '@/components/ui/Greeting'
 import PassPage from '@/components/pages/PassPage'
 import MinaAnsvarPage from '@/components/pages/MinaAnsvarPage'
 import MinaBokningarPage from '@/components/pages/MinaBokningarPage'
@@ -16,6 +21,15 @@ import OversiktPage from '@/components/pages/OversiktPage'
 import ForsamlingarPage from '@/components/pages/ForsamlingarPage'
 import PastoratPage from '@/components/pages/PastoratPage'
 import KioskPage from '@/components/pages/KioskPage'
+
+// Flikarna i nedre menyn på mobil. Allt annat ligger under "Mer".
+const TABS = [
+  { id: 'oversikt',       icon: 'Home',     lbl: 'Start' },
+  { id: 'pass',           icon: 'Calendar', lbl: 'Pass' },
+  { id: 'mina-bokningar', icon: 'Bookmark', lbl: 'Bokningar' },
+  { id: 'notiser',        icon: 'Bell',     lbl: 'Notiser' },
+]
+const TAB_IDS = new Set(TABS.map(t => t.id))
 
 function PageContent() {
   const { page, isKiosk } = useApp()
@@ -44,9 +58,16 @@ export default function AppShell() {
     <>
       <div className="app-shell">
         <Sidebar />
-        <main className="main-content" style={{ paddingBottom: 80 }}>
-          <PageContent />
-        </main>
+        <div className="app-column">
+          <MobileHeader />
+          <main className="main-content">
+            <PendingInvitations />
+            <div className="desktop-only">
+              <ChurchSwitcher />
+            </div>
+            <PageContent />
+          </main>
+        </div>
         <Modal />
       </div>
       <BottomNav />
@@ -54,61 +75,202 @@ export default function AppShell() {
   )
 }
 
-function BottomNav() {
-  const { page, goTo, isKiosk, isAdmin, isSuperAdmin, notifications } = useApp()
-  if (isKiosk()) return null
-  const unread = notifications.filter((n: any) => !n.read).length
+/** Rolltext för vald församling, t.ex. "Församlingsadmin". */
+function useRoleLabel() {
+  const { currentMembership } = useApp()
+  const membership = currentMembership()
+  return membership?.adminLevel === 'super'
+    ? 'Systemadmin'
+    : membership?.adminLevel === 'pastorat'
+      ? 'Pastoratsadmin'
+      : membership?.adminLevel === 'forsamling'
+        ? 'Församlingsadmin'
+        : membership?.role === 'anstalld'
+          ? 'Anställd'
+          : 'Ideell'
+}
 
-  const items = [
-    { id: 'oversikt',        icon: '🏠', lbl: 'Start' },
-    { id: 'pass',            icon: '📅', lbl: 'Pass' },
-    { id: 'mina-bokningar',  icon: '🔖', lbl: 'Bokningar' },
-    { id: 'notiser',         icon: '🔔', lbl: 'Notiser', badge: unread },
-    { id: 'profil',          icon: '👤', lbl: 'Profil' },
-  ]
+/** Rullgardin för att byta församling. Visas bara om man har fler än en. */
+function ChurchSelect({ id }: { id: string }) {
+  const { availableChurches, churches, currentChurchId, setChurch } = useApp()
+  return (
+    <select
+      id={id}
+      className="church-select"
+      value={currentChurchId()}
+      onChange={event => {
+        const churchId = Number(event.target.value)
+        const index = churches.findIndex(church => church.id === churchId)
+        if (index >= 0) setChurch(index)
+      }}
+    >
+      {availableChurches.map(church => (
+        <option key={church.id} value={church.id}>{church.name}</option>
+      ))}
+    </select>
+  )
+}
+
+function ChurchSwitcher() {
+  const { currentUser, isKiosk, availableChurches } = useApp()
+  const roleLabel = useRoleLabel()
+  const selectId = useId()
+  if (!currentUser || isKiosk() || availableChurches.length <= 1) return null
 
   return (
-    <nav style={{
-      display: 'none',
-      position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
-      background: '#412B72',
-      borderTop: '1px solid rgba(255,255,255,0.15)',
-      padding: '8px 0 env(safe-area-inset-bottom)',
-    }} className="bottom-nav">
-      {items.map(item => (
-        <button
-          key={item.id}
-          onClick={() => goTo(item.id)}
-          style={{
-            flex: 1, background: 'none', border: 'none', cursor: 'pointer',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-            padding: '4px 0', position: 'relative',
-          }}
-        >
-          <span style={{ fontSize: 20, lineHeight: 1 }}>{item.icon}</span>
-          <span style={{
-            fontSize: 10, fontWeight: page === item.id ? 700 : 500,
-            color: page === item.id ? '#fff' : 'rgba(255,255,255,0.6)',
-          }}>
-            {item.lbl}
-          </span>
-          {item.badge ? (
-            <span style={{
-              position: 'absolute', top: 0, right: '50%', transform: 'translateX(8px)',
-              background: '#FF785A', color: '#fff', borderRadius: 10,
-              fontSize: 9, fontWeight: 700, padding: '1px 5px', minWidth: 16, textAlign: 'center',
-            }}>
-              {item.badge}
-            </span>
-          ) : null}
-          {page === item.id && (
-            <span style={{
-              position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)',
-              width: 4, height: 4, background: '#fff', borderRadius: '50%',
-            }} />
-          )}
-        </button>
-      ))}
+    <div className="church-switcher row-line">
+      <div style={{ minWidth: 0 }}>
+        <label htmlFor={selectId} className="church-switcher-label">Församling</label>
+        <div className="church-switcher-sub">{roleLabel} i vald församling</div>
+      </div>
+      <ChurchSelect id={selectId} />
+    </div>
+  )
+}
+
+/** Vinrött huvud på mobil med appnamn, församling, hälsning och knappen Mer. */
+function MobileHeader() {
+  const { page, isKiosk, u, profile } = useApp()
+  const subText = useSubText()
+  const [open, setOpen] = useState(false)
+  const merBtn = useRef<HTMLButtonElement>(null)
+  const panelId = useId()
+
+  if (isKiosk()) return null
+  const name = profile?.name || u().name
+
+  const close = () => {
+    setOpen(false)
+    merBtn.current?.focus()
+  }
+
+  return (
+    <>
+      <header className="mobile-header">
+        <div className="mobile-header-top">
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <span style={{ fontSize: 16, fontWeight: 500 }}>Kyrkouppdrag</span>
+            {subText && <span className="serif" style={{ fontSize: 14 }}>{subText}</span>}
+          </div>
+          <button
+            ref={merBtn}
+            type="button"
+            className="mer-btn"
+            aria-expanded={open}
+            aria-controls={panelId}
+            aria-haspopup="dialog"
+            onClick={() => setOpen(true)}
+          >
+            <Icon name="Dots" />
+            Mer
+          </button>
+        </div>
+        {page === 'oversikt' && (
+          <h1 className="mobile-greeting"><Greeting name={name} /></h1>
+        )}
+      </header>
+      {open && <MorePanel id={panelId} onClose={close} />}
+    </>
+  )
+}
+
+/** Panelen bakom "Mer": Min profil, övriga sidor, församlingsbyte och utloggning. */
+function MorePanel({ id, onClose }: { id: string; onClose: () => void }) {
+  const { page, goTo, currentUser, logout, cycleUser, u, isKiosk, availableChurches } = useApp()
+  const items = useNavItems().filter(item => !TAB_IDS.has(item.id))
+  const closeBtn = useRef<HTMLButtonElement>(null)
+  const titleId = useId()
+  const selectId = useId()
+  const roleLabel = useRoleLabel()
+
+  // Senaste onClose i en ref, så att fokus bara flyttas när panelen öppnas
+  // och inte varje gång appen ritas om.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose })
+
+  useEffect(() => {
+    closeBtn.current?.focus()
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onCloseRef.current() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+
+  const open = (target: string) => { goTo(target); onClose() }
+
+  return (
+    <div className="mer-overlay" onClick={event => { if (event.target === event.currentTarget) onClose() }}>
+      <div id={id} className="mer-panel" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+        <div className="mer-panel-head">
+          <h2 id={titleId} style={{ fontSize: 22, fontWeight: 500 }}>Mer</h2>
+          <button ref={closeBtn} type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
+            <Icon name="X" />
+            Stäng
+          </button>
+        </div>
+
+        <nav aria-label="Fler sidor">
+          {items.map(item => (
+            <button
+              key={item.id}
+              type="button"
+              className={`mer-item${page === item.id ? ' active' : ''}`}
+              aria-current={page === item.id ? 'page' : undefined}
+              onClick={() => open(item.id)}
+            >
+              <Icon name={item.icon} />
+              {item.lbl}
+            </button>
+          ))}
+        </nav>
+
+        {currentUser && !isKiosk() && availableChurches.length > 1 && (
+          <div className="mer-church">
+            <label htmlFor={selectId} className="church-switcher-label">Byt församling</label>
+            <div className="church-switcher-sub">Du är {roleLabel.toLowerCase()} i vald församling</div>
+            <ChurchSelect id={selectId} />
+          </div>
+        )}
+
+        {currentUser ? (
+          <button type="button" className="mer-item" onClick={logout}>
+            <Icon name="Logout" />
+            Logga ut
+          </button>
+        ) : (
+          <button type="button" className="mer-item" onClick={() => { cycleUser(); onClose() }}>
+            <Icon name="Switch" />
+            Byt testanvändare (nu {u().name})
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Nedre menyn på mobil: exakt fyra flikar. */
+function BottomNav() {
+  const { page, goTo, isKiosk } = useApp()
+  const unread = useUnreadCount()
+  if (isKiosk()) return null
+
+  return (
+    <nav className="bottom-nav" aria-label="Huvudmeny">
+      {TABS.map(tab => {
+        const active = page === tab.id
+        const label = tab.id === 'notiser' && unread > 0 ? `${tab.lbl} (${unread})` : tab.lbl
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            className={`tab${active ? ' active' : ''}`}
+            aria-current={active ? 'page' : undefined}
+            onClick={() => goTo(tab.id)}
+          >
+            <span className="tab-pill"><Icon name={tab.icon} /></span>
+            {label}
+          </button>
+        )
+      })}
     </nav>
   )
 }

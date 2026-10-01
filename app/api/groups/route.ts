@@ -1,22 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getCaller, canAdminOrStaff, unauthorized, forbidden } from '@/lib/authz'
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
-
-  const { data: profile } = await supabase.from('profiles').select('admin_level').eq('id', user.id).single()
-  if (!['forsamling','pastorat','super'].includes(profile?.admin_level ?? '')) {
-    return NextResponse.json({ error: 'Saknar behörighet' }, { status: 403 })
-  }
+  const { caller } = await getCaller()
+  if (!caller) return unauthorized()
 
   const body = await req.json()
-  const id = body.label.toLowerCase().replace(/[åä]/g, 'a').replace(/ö/g, 'o').replace(/\s+/g, '_') + '_' + Date.now()
-  const { data, error } = await supabase
+  const label = typeof body.label === 'string' ? body.label.trim() : ''
+  if (!label || label.length > 100) {
+    return NextResponse.json({ error: 'Gruppnamn krävs (högst 100 tecken)' }, { status: 400 })
+  }
+  const cls = typeof body.cls === 'string' && body.cls.trim() ? body.cls.trim().slice(0, 50) : undefined
+
+  // church_id: null (uttryckligen) betyder gemensam grupp. Bara superadmin.
+  let churchId: number | null
+  if (body.church_id === null) {
+    if (!caller.isSuper) return forbidden('Bara superadmin kan skapa gemensamma grupper.')
+    churchId = null
+  } else {
+    churchId = Number(body.church_id)
+    if (!churchId || Number.isNaN(churchId)) {
+      return NextResponse.json({ error: 'Gruppnamn och församling krävs' }, { status: 400 })
+    }
+    // Admin för församlingen eller anställd med kan_hantera_grupper i just den församlingen.
+    if (!(await canAdminOrStaff(caller, 'kan_hantera_grupper', churchId))) {
+      return forbidden('Saknar behörighet i församlingen')
+    }
+  }
+
+  const id = label.toLowerCase().replace(/[åä]/g, 'a').replace(/ö/g, 'o').replace(/\s+/g, '_') + '_' + Date.now()
+  const admin = createAdminClient()
+  const { data, error } = await admin
     .from('groups')
-    .insert({ id, label: body.label, cls: body.cls, church_id: body.church_id || null })
-    .select().single()
+    .insert({ id, label, church_id: churchId, ...(cls ? { cls } : {}) })
+    .select()
+    .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)

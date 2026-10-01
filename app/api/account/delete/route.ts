@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { deletePersonData } from '@/lib/gdpr'
 
 export async function DELETE() {
   const supabase = await createClient()
@@ -8,18 +9,10 @@ export async function DELETE() {
   if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
 
   const admin = createAdminClient()
-  const id = user.id
+  await deletePersonData(admin, user.id)
 
-  // Ta bort all användardata i rätt ordning
-  await admin.from('pass_responsible').delete().eq('profile_id', id)
-  await admin.from('profile_groups').delete().eq('profile_id', id)
-  await admin.from('notif_settings').delete().eq('profile_id', id)
-  await admin.from('notifications').delete().eq('user_id', id)
-  await admin.from('bookings').delete().eq('profile_id', id)
-  await admin.from('profiles').delete().eq('id', id)
-
-  // Ta bort auth-användaren sist
-  const { error } = await admin.auth.admin.deleteUser(id, true)
+  // Ta bort inloggningen sist, permanent (ingen soft delete)
+  const { error } = await admin.auth.admin.deleteUser(user.id, false)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ ok: true })

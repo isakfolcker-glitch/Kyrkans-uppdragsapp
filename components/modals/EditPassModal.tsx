@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useApp } from '@/lib/appStore'
+import Icon, { PassMeta } from '@/components/ui/Icon'
 import ConfirmModal from './ConfirmModal'
 
 export default function EditPassModal({ passId }: { passId: number }) {
@@ -46,61 +47,61 @@ export default function EditPassModal({ passId }: { passId: number }) {
 
   return (
     <>
-      <div className="modal-title">✏️ Redigera pass</div>
+      <h2 className="modal-title">Redigera pass</h2>
       {p.bookings.length > 0 && (
-        <div className="alert alert-amber">🔔 {p.bookings.length} bokade – de får e-post om datum, tid eller plats ändras.</div>
+        <div className="alert alert-amber"><Icon name="Bell" size={18} />{p.bookings.length} bokade. De får e-post om datum, tid eller plats ändras.</div>
       )}
-      <div className="form-field"><label>Titel</label><input value={title} onChange={e => setTitle(e.target.value)} /></div>
+      <div className="form-field"><label htmlFor="editpassmoda-f2">Titel</label><input id="editpassmoda-f2" value={title} onChange={e => setTitle(e.target.value)} /></div>
       <div className="form-row">
-        <div className="form-field"><label>Datum</label><input value={date} onChange={e => setDate(e.target.value)} /></div>
-        <div className="form-field"><label>Tid</label><input value={time} onChange={e => setTime(e.target.value)} /></div>
+        <div className="form-field"><label htmlFor="editpassmoda-f3">Datum</label><input id="editpassmoda-f3" value={date} onChange={e => setDate(e.target.value)} /></div>
+        <div className="form-field"><label htmlFor="editpassmoda-f4">Tid</label><input id="editpassmoda-f4" value={time} onChange={e => setTime(e.target.value)} /></div>
       </div>
-      <div className="form-field"><label>Plats</label><input value={plats} onChange={e => setPlats(e.target.value)} /></div>
+      <div className="form-field"><label htmlFor="editpassmoda-f5">Plats</label><input id="editpassmoda-f5" value={plats} onChange={e => setPlats(e.target.value)} /></div>
       <div className="form-row">
-        <div className="form-field"><label>Antal platser</label><input type="number" value={spots} min={1} onChange={e => setSpots(parseInt(e.target.value)||1)} /></div>
+        <div className="form-field"><label htmlFor="editpassmoda-f6">Antal platser</label><input id="editpassmoda-f6" type="number" value={spots} min={1} onChange={e => setSpots(parseInt(e.target.value)||1)} /></div>
         <div className="form-field">
-          <label>Vaktmästare</label>
-          <select value={vkProfileId} onChange={e => setVkProfileId(e.target.value)}>
+          <label htmlFor="editpassmoda-f7">Vaktmästare</label>
+          <select id="editpassmoda-f7" value={vkProfileId} onChange={e => setVkProfileId(e.target.value)}>
             <option value="">Ingen vaktmästare</option>
             {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
           </select>
         </div>
       </div>
       <div className="form-field">
-        <label>Grupper</label>
-        <div className="group-grid">
+        <div className="field-label" id="editpassmoda-g1">Grupper</div>
+        <div className="group-grid" role="group" aria-labelledby="editpassmoda-g1">
           {groups.map(g => (
-            <button key={g.id} className={`group-toggle${selGroups.includes(g.id) ? ' on' : ''}`} onClick={() => toggleGroup(g.id)}>
-              {selGroups.includes(g.id) ? '✓ ' : ''}{g.label}
+            <button key={g.id} type="button" aria-pressed={selGroups.includes(g.id)} className={`group-toggle${selGroups.includes(g.id) ? ' on' : ''}`} onClick={() => toggleGroup(g.id)}>
+              {selGroups.includes(g.id) && <Icon name="Check" size={16} style={{ verticalAlign: '-3px', marginRight: 4 }} />}{g.label}
             </button>
           ))}
         </div>
       </div>
       <div className="form-field">
-        <label>Ansvarig anställd</label>
-        <select value={respId} onChange={e => setRespId(e.target.value)}>
+        <label htmlFor="editpassmoda-f8">Ansvarig anställd</label>
+        <select id="editpassmoda-f8" value={respId} onChange={e => setRespId(e.target.value)}>
           <option value="">Ingen ansvarig</option>
           {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
         </select>
       </div>
-      <div className="form-field"><label>Beskrivning</label><textarea value={desc} onChange={e => setDesc(e.target.value)} /></div>
-      <div className="form-field"><label>Publiceringsdatum (tomt = live direkt)</label><input placeholder="ex. Mån 15 sep" value={pubDate} onChange={e => setPubDate(e.target.value)} /></div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: '#F1EFE8', borderRadius: 8, marginBottom: 12 }}>
-        <button className={`toggle-switch${kioskVisible ? ' on' : ''}`} onClick={() => setKioskVisible(v => !v)} />
+      <div className="form-field"><label htmlFor="editpassmoda-f9">Beskrivning</label><textarea id="editpassmoda-f9" value={desc} onChange={e => setDesc(e.target.value)} /></div>
+      <div className="form-field"><label htmlFor="editpassmoda-f10">Publiceringsdatum (tomt = live direkt)</label><input id="editpassmoda-f10" placeholder="ex. Mån 15 sep" value={pubDate} onChange={e => setPubDate(e.target.value)} /></div>
+      <div className="panel" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, marginBottom: 12 }}>
+        <button type="button" role="switch" aria-checked={kioskVisible} aria-label="Visa passet i kiosk" className={`toggle-switch${kioskVisible ? ' on' : ''}`} onClick={() => setKioskVisible(v => !v)} />
         <div>
-          <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2A' }}>Visa i kiosk</div>
-          <div style={{ fontSize: 11, color: '#888780' }}>Synlig på anmälningsstationen</div>
+          <div style={{ fontSize: 15, fontWeight: 500, color: '#000' }}>Visa i kiosk</div>
+          <div style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)' }}>Synlig på anmälningsstationen</div>
         </div>
       </div>
       <div className="modal-footer-split">
         {canDeletePass() ? (
           <button className="btn btn-danger" onClick={() => showModal(
             <ConfirmModal title={`Ta bort "${p.title}"?`} sub="Det går inte att ångra." confirmLabel="Ta bort" onConfirm={() => deletePass(p.id)} />
-          )}>🗑 Ta bort</button>
+          )}><Icon name="Trash" size={18} />Ta bort</button>
         ) : <div />}
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
-          <button className="btn btn-primary" onClick={save}>✓ Spara</button>
+          <button className="btn btn-primary" onClick={save}>Spara</button>
         </div>
       </div>
     </>

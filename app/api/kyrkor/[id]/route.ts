@@ -1,18 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getCaller, canAdminChurch, churchLevel, levelRank, unauthorized, forbidden } from '@/lib/authz'
 
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
+  const { caller } = await getCaller()
+  if (!caller) return unauthorized()
 
-  const { data: profile } = await supabase.from('profiles').select('admin_level').eq('id', user.id).single()
-  if (!['pastorat','super'].includes(profile?.admin_level ?? '')) {
-    return NextResponse.json({ error: 'Saknar behörighet' }, { status: 403 })
-  }
+  const kyrkaId = Number(id)
+  if (!kyrkaId || Number.isNaN(kyrkaId)) return NextResponse.json({ error: 'Ogiltig kyrka' }, { status: 400 })
 
-  const { error } = await supabase.from('kyrkor').delete().eq('id', parseInt(id))
+  const admin = createAdminClient()
+  const { data: kyrka } = await admin.from('kyrkor').select('forsamling_id').eq('id', kyrkaId).maybeSingle()
+  if (!kyrka) return NextResponse.json({ error: 'Kyrkan finns inte' }, { status: 404 })
+
+  // Admin för kyrkans församling, med pastoratsnivå som tidigare. Kyrkor utan församling: bara superadmin.
+  const churchId = kyrka.forsamling_id as number | null
+  const allowed = churchId == null
+    ? caller.isSuper
+    : (await canAdminChurch(caller, churchId)) && levelRank(await churchLevel(caller, churchId)) >= 2
+  if (!allowed) return forbidden('Saknar behörighet för församlingen')
+
+  const { error } = await admin.from('kyrkor').delete().eq('id', kyrkaId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

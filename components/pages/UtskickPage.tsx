@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useApp } from '@/lib/appStore'
+import Icon from '@/components/ui/Icon'
 
 function SendMessageModal() {
   const { groups, people, closeModal, addMessage, profile, currentChurchId } = useApp()
@@ -11,6 +12,7 @@ function SendMessageModal() {
   const [loading, setLoading]         = useState(false)
   const [error, setError]             = useState('')
   const cid = currentChurchId()
+  const visibleGroups = groups.filter(group => group.churchId === cid || group.churchId === null)
 
   const toggleGroup = (id: string) =>
     setSelGroups(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -24,7 +26,7 @@ function SendMessageModal() {
   } else {
     const ids = new Set<string>()
     selGroups.forEach(g => {
-      people.filter(p => p.groups.includes(g) && p.mail).forEach(p => ids.add(p.mail!))
+      people.filter(p => p.church === cid && p.groups.includes(g) && p.mail).forEach(p => ids.add(p.mail!))
     })
     recipients = Array.from(ids)
     toLabel = selGroups.length ? 'Grupp: ' + selGroups.join(', ') : ''
@@ -41,6 +43,7 @@ function SendMessageModal() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        church_id: cid,
         to: recipients,
         to_label: toLabel,
         subject,
@@ -58,6 +61,7 @@ function SendMessageModal() {
       subject,
       body,
       sentAt: new Date().toLocaleDateString('sv'),
+      church: cid,
     })
     setLoading(false)
     closeModal()
@@ -65,45 +69,45 @@ function SendMessageModal() {
 
   return (
     <>
-      <div className="modal-title">✉ Skicka meddelande</div>
+      <h2 className="modal-title">Skicka meddelande</h2>
 
-      <div className="form-field">
-        <label>Skicka till</label>
-        <div style={{ background: '#FFEBE1', borderRadius: 10, padding: '10px 14px' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', cursor: 'pointer' }}>
-            <input type="checkbox" checked={allChecked} onChange={e => { setAllChecked(e.target.checked); setSelGroups([]) }} style={{ accentColor: '#7D0037', width: 16, height: 16 }} />
-            <span style={{ fontSize: 13, fontWeight: 500 }}>Alla i kyrkan – {people.filter(p => p.church === cid).length} pers</span>
+      <fieldset className="form-field" style={{ border: 'none' }}>
+        <legend style={{ fontSize: 14, fontWeight: 500, marginBottom: 6 }}>Skicka till</legend>
+        <div className="panel" style={{ padding: '6px 14px', marginBottom: 0 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, margin: 0, cursor: 'pointer' }}>
+            <input type="checkbox" checked={allChecked} onChange={e => { setAllChecked(e.target.checked); setSelGroups([]) }} style={{ accentColor: '#7D0037', width: 20, height: 20, minHeight: 0 }} />
+            <span style={{ fontSize: 15, fontWeight: 500 }}>Alla i församlingen, {people.filter(p => p.church === cid).length} personer</span>
           </label>
-          {!allChecked && groups.map(g => (
-            <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', cursor: 'pointer' }}>
-              <input type="checkbox" checked={selGroups.includes(g.id)} onChange={() => toggleGroup(g.id)} style={{ accentColor: '#7D0037', width: 16, height: 16 }} />
-              <span style={{ fontSize: 13 }}>{g.label} – {people.filter(p => p.groups.includes(g.id)).length} pers</span>
+          {!allChecked && visibleGroups.map(g => (
+            <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, margin: 0, fontWeight: 400, cursor: 'pointer' }}>
+              <input type="checkbox" checked={selGroups.includes(g.id)} onChange={() => toggleGroup(g.id)} style={{ accentColor: '#7D0037', width: 20, height: 20, minHeight: 0 }} />
+              <span style={{ fontSize: 15 }}>{g.label}, {people.filter(p => p.church === cid && p.groups.includes(g.id)).length} personer</span>
             </label>
           ))}
         </div>
-      </div>
+      </fieldset>
 
       {recipients.length > 0 && (
-        <div className="alert alert-green" style={{ marginBottom: 14 }}>
-          ✓ {recipients.length} mottagare valda
+        <div role="status" className="alert alert-green" style={{ marginBottom: 14 }}>
+          <Icon name="Check" size={18} />{recipients.length} mottagare valda
         </div>
       )}
 
       <div className="form-field">
-        <label>Ämne</label>
-        <input placeholder="ex. Viktig information inför söndagen" value={subject} onChange={e => setSubject(e.target.value)} />
+        <label htmlFor="utskick-amne">Ämne</label>
+        <input id="utskick-amne" placeholder="ex. Viktig information inför söndagen" value={subject} onChange={e => setSubject(e.target.value)} />
       </div>
       <div className="form-field">
-        <label>Meddelande</label>
-        <textarea style={{ height: 120 }} placeholder="Skriv ditt meddelande här..." value={body} onChange={e => setBody(e.target.value)} />
+        <label htmlFor="utskick-text">Meddelande</label>
+        <textarea id="utskick-text" style={{ height: 120 }} placeholder="Skriv ditt meddelande här..." value={body} onChange={e => setBody(e.target.value)} />
       </div>
 
-      {error && <div className="alert alert-red">{error}</div>}
+      {error && <div role="alert" className="alert alert-red">{error}</div>}
 
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
         <button className="btn btn-primary" onClick={send} disabled={loading}>
-          {loading ? 'Skickar...' : `✉ Skicka till ${recipients.length || '?'} pers`}
+          <Icon name="Send" size={18} />{loading ? 'Skickar...' : `Skicka till ${recipients.length || 'inga'} personer`}
         </button>
       </div>
     </>
@@ -111,40 +115,42 @@ function SendMessageModal() {
 }
 
 export default function UtskickPage() {
-  const { messages, showModal } = useApp()
+  const { messages, showModal, currentChurchId, churches } = useApp()
+  const cid = currentChurchId()
+  const visibleMessages = messages.filter(message => message.church === cid)
+  const churchName = churches.find(church => church.id === cid)?.name ?? 'vald församling'
   return (
     <div>
       <div className="page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h1 className="page-title">Utskick</h1>
-          <p className="page-sub">Skicka meddelanden till ideella och anställda</p>
+          <p className="page-sub">Skicka meddelanden i {churchName}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => showModal(<SendMessageModal />)}>✉ Nytt utskick</button>
+        <button className="btn btn-primary" onClick={() => showModal(<SendMessageModal />)}><Icon name="Plus" size={18} />Nytt utskick</button>
       </div>
 
-      <div className="section-label">Tidigare utskick</div>
+      <h2 className="section-label">Tidigare utskick</h2>
 
-      {messages.length === 0 ? (
-        <div style={{ background: '#fff', borderRadius: 16, padding: '32px 24px', textAlign: 'center', border: '1px solid rgba(125,0,55,0.08)' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>✉</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#000', marginBottom: 6 }}>Inga utskick ännu</div>
-          <div style={{ fontSize: 13, color: '#5F5E5A' }}>Klicka på "Nytt utskick" för att skicka ett meddelande.</div>
+      {visibleMessages.length === 0 ? (
+        <div className="empty-state panel">
+          <div className="empty-state-title">Inga utskick ännu</div>
+          <div>Klicka på Nytt utskick för att skicka ett meddelande.</div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {messages.map(m => (
-            <div key={m.id} style={{ background: '#fff', borderRadius: 14, padding: '14px 16px', border: '1px solid rgba(125,0,55,0.08)', display: 'flex', gap: 14 }}>
-              <div style={{ width: 40, height: 40, background: '#CDC3FF', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>✉</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#000' }}>{m.subject}</div>
-                <div style={{ fontSize: 13, color: '#5F5E5A', marginTop: 2, lineHeight: 1.5 }}>{m.body}</div>
-                <div style={{ fontSize: 12, color: '#BC8E4C', marginTop: 6, fontWeight: 500 }}>
+        <ul style={{ listStyle: 'none' }}>
+          {visibleMessages.map(m => (
+            <li key={m.id} className="row-line" style={{ padding: '14px 0', display: 'flex', gap: 12 }}>
+              <Icon name="Mail" style={{ color: '#7D0037', marginTop: 2 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 16, fontWeight: 500, color: '#000' }}>{m.subject}</div>
+                <div style={{ fontSize: 15, color: 'rgba(0,0,0,0.72)', marginTop: 2, lineHeight: 1.5 }}>{m.body}</div>
+                <div style={{ fontSize: 14, color: '#7D0037', marginTop: 6 }}>
                   {m.sentAt} · {m.toCount} mottagare · Till: {m.to} · Från: {m.from}
                 </div>
               </div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   )

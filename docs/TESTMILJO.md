@@ -49,9 +49,9 @@ Vercel > Settings > Domains > Add: `test.kyrkouppdrag.se`, koppla till Git-grene
 ## Kända saker att åtgärda (backlog)
 
 - 133 gamla lintfel. Lint visas i GitHub men stoppar inte ännu.
-- `next.config.ts` har `ignoreBuildErrors: true`. Typkontrollen går nu igenom utan fel, så den kan tas bort.
-- Integritetspolicyn säger att data lagras i Frankfurt (eu-central-1), men databasen ligger i Irland (eu-west-1). Texten behöver rättas.
-- Skydd mot läckta lösenord är avstängt i Supabase Auth (produktion).
-- Behörighetsfunktionerna går att anropa utan inloggning (låg risk, de returnerar inget för oinloggade). Rättas med en migration som testas noga först.
+- `next.config.ts` har `ignoreBuildErrors: true`. Typkontrollen går igenom, så den kan tas bort.
+- Två församlingar i produktionen saknar pastorat. Behöver rättas innan pastoratsadmins läggs in.
+- Namn och telefon i passens vaktmästarfält och texter i passhistoriken rensas inte vid radering av konto.
+- Gallring efter 12 månader enligt integritetspolicyn görs inte automatiskt.
 - Repot är publikt på GitHub. Överväg att göra det privat.
-- Många gamla grenar (`claude/*`, `fix/*`) kan städas bort efter genomgång.
+- Många gamla grenar (`claude/*`, `fix/*`) kan städas bort.

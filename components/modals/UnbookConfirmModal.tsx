@@ -14,7 +14,7 @@ export default function UnbookConfirmModal({ passId, title, date, time }: Props)
 
   return (
     <ConfirmModal
-      icon="⚠️"
+      icon="Alert"
       title={`Avboka "${title}"?`}
       sub={`${date} kl. ${time}. Din plats blir ledig för någon annan.`}
       confirmLabel="Ja, avboka"

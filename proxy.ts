@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { demoToken } from '@/lib/demoToken'
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
@@ -24,29 +25,83 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
-  // Demo-lösenordsskydd: /demo kräver cookie, /demo-login och /api/demo är öppna
+  // Demo-lösenordsskydd
   if (pathname.startsWith('/demo') && !pathname.startsWith('/demo-login') && !pathname.startsWith('/api/demo')) {
     const demoPassword = process.env.DEMO_PASSWORD
     const demoCookie = request.cookies.get('demo_auth')?.value
-    if (demoPassword && demoCookie !== demoPassword) {
+    if (demoPassword && demoCookie !== await demoToken(demoPassword)) {
       return NextResponse.redirect(new URL('/demo-login', request.url))
     }
     return response
   }
 
-  // /demo-login och /api/demo behöver ingen Supabase-auth
   if (pathname.startsWith('/demo-login') || pathname.startsWith('/api/demo')) {
     return response
   }
 
-  // Skicka oinloggade till /login (utom /login, /kiosk, /auth/* — /auth/confirm hanterar inbjudningslänkens token i hashen)
-  if (!user && pathname !== '/login' && !pathname.startsWith('/kiosk') && !pathname.startsWith('/api') && !pathname.startsWith('/auth')) {
+  // Integritetspolicyn ska alltid gå att läsa, även utloggad och utan församling.
+  if (pathname === '/integritetspolicy' || pathname.startsWith('/integritetspolicy/')) {
+    return response
+  }
+
+  const isPublicAuthRoute = pathname === '/login' || pathname.startsWith('/auth')
+  const isApiRoute = pathname.startsWith('/api')
+  const isPublicRoute = pathname.startsWith('/kiosk') || isPublicAuthRoute || isApiRoute
+
+  if (!user && !isPublicRoute) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Skicka inloggade bort från /login
-  if (user && pathname === '/login') {
-    return NextResponse.redirect(new URL('/', request.url))
+  // Onboarding-adressen behåller ?church så att rätt församling godkänns.
+  const confirmUrl = () => {
+    const url = new URL('/auth/confirm', request.url)
+    const church = request.nextUrl.searchParams.get('church')
+    if (church && /^\d+$/.test(church)) url.searchParams.set('church', church)
+    return url
+  }
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('church_id, admin_level, onboarding_done')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    // Bara aktiva OCH accepterade medlemskap ger tillgång. Väntande inbjudningar
+    // räknas bara för att skicka nya användare till onboarding.
+    const { data: memberships, error: membershipError } = await supabase
+      .from('profile_churches')
+      .select('church_id, accepted_at')
+      .eq('profile_id', user.id)
+      .eq('active', true)
+
+    // Om medlemskapstabellen inte går att läsa används legacy church_id tillfälligt.
+    const hasMembership = membershipError
+      ? Boolean(profile?.church_id)
+      : Boolean(memberships?.some(m => m.accepted_at != null))
+    const hasPending = !membershipError && Boolean(memberships?.some(m => m.accepted_at == null))
+    const hasAccess = hasMembership || profile?.admin_level === 'super'
+
+    // Ny användare med väntande inbjudan: till onboarding, där inbjudan accepteras.
+    if (!profile?.onboarding_done && !hasAccess && hasPending && !pathname.startsWith('/auth') && !isApiRoute) {
+      return NextResponse.redirect(confirmUrl())
+    }
+
+    if (!hasAccess && pathname !== '/no-access' && !pathname.startsWith('/auth') && !isApiRoute) {
+      return NextResponse.redirect(new URL('/no-access', request.url))
+    }
+
+    if (hasAccess && pathname === '/no-access') {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
+
+    if (!profile?.onboarding_done && hasAccess && !pathname.startsWith('/auth/confirm') && !isApiRoute) {
+      return NextResponse.redirect(confirmUrl())
+    }
+
+    if (pathname === '/login') {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
   }
 
   return response

@@ -1,10 +1,32 @@
 'use client'
-import { useState, ReactNode } from 'react'
+import { useState, ReactNode, createContext, useContext } from 'react'
 import { Ctx, ALL_PERMS, NO_PERMS, StaffPerms } from '@/lib/appStore'
-import { Group, Church, PersonData, PassData, MessageData, NotifData, PastoratData, UserDef, NAV_ITEMS } from '@/lib/appData'
-import { DEMO_GROUPS, DEMO_CHURCHES, DEMO_PASTORAT, DEMO_USERS, DEMO_PEOPLE, DEMO_PASSES, DEMO_MESSAGES, DEMO_NOTIFICATIONS } from '@/lib/demoData'
+import type { PassMessage } from '@/types'
+import { Group, Church, PersonData, PassData, MessageData, NotifData, ChurchMembershipData, NAV_ITEMS } from '@/lib/appData'
+import { DEMO_GROUPS, DEMO_CHURCHES, DEMO_PASTORAT, DEMO_USERS, DEMO_PEOPLE, DEMO_PASSES, DEMO_MESSAGES, DEMO_NOTIFICATIONS, DEMO_COMMENTS } from '@/lib/demoData'
 
 let _nextId = 200
+let _nextCommentId = 1000
+
+// ─── Kommentarer på pass (demoläge) ────────────────────
+// Eget kontext så att appStore inte behöver ändras. Skarpt läge går via
+// /api/passes/{id}/messages, se lib/usePassComments.ts. Allt här sparas bara lokalt.
+export interface DemoCommentInput {
+  passId: number
+  body: string
+  parentId: number | null
+  author: { id: string; name: string; isStaff: boolean }
+  mentions: { profileId: string; name: string }[]
+}
+export interface DemoComments {
+  comments: PassMessage[]
+  addComment: (input: DemoCommentInput) => PassMessage
+  editComment: (id: number, body: string) => void
+  deleteComment: (id: number) => void
+}
+const DemoCommentsCtx = createContext<DemoComments | null>(null)
+/** null utanför demoläget. */
+export const useDemoComments = () => useContext(DemoCommentsCtx)
 
 function initSelfBookings(idx: number, passes: PassData[]) {
   const uid = DEMO_USERS[idx].id
@@ -29,6 +51,7 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
   const [modal, setModal]             = useState<ReactNode | null>(null)
   const [groups, setGroups]           = useState<Group[]>(DEMO_GROUPS)
   const [churches, setChurches]       = useState<Church[]>(DEMO_CHURCHES)
+  const [comments, setComments]       = useState<PassMessage[]>(DEMO_COMMENTS)
 
   const usr          = DEMO_USERS[userIndex]
   const adminLevel   = usr.adminLevel
@@ -59,12 +82,24 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
   const currentChurchId = () => (isPAdmin() || isSuperAdmin())
     ? (churches[activeChurch]?.id ?? churches[0]?.id ?? 1)
     : (usr.churches[0] ?? 1)
+  const memberships: ChurchMembershipData[] = usr.churches.map(churchId => ({
+    profileId: String(usr.id),
+    churchId,
+    role: usr.role,
+    adminLevel: usr.adminLevel,
+    isEmployee: usr.isEmployee,
+    active: true,
+  }))
+  const availableChurches = churches.filter(church => church.id !== undefined && usr.churches.includes(church.id))
+  const currentMembership = () => memberships.find(membership => membership.churchId === currentChurchId()) ?? null
+  const currentGroups = () => usr.groups
 
   const u = () => DEMO_USERS[userIndex]
 
   const addNotif = (type: string, title: string, body: string) => {
     setNotifs(prev => [{ id: Date.now(), userId: usr.id, type, title, body, time: new Date().toISOString(), read: false }, ...prev])
   }
+  const markNotifRead = (id: number) => setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
   const markAllNotifsRead = () => setNotifs(prev => prev.map(n => n.userId === usr.id ? { ...n, read: true } : n))
 
   // Simulerar väntelista-uppflyttning: om aktuell demo-användare står först i kön
@@ -159,6 +194,21 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
   const getResponsibleNames = (pass: PassData) =>
     (pass.responsibleUserIds || []).map(id => people.find(p => p.id === id)?.name).filter(Boolean).join(', ')
 
+  const addComment = (input: DemoCommentInput): PassMessage => {
+    const m: PassMessage = {
+      id: _nextCommentId++, passId: input.passId, parentId: input.parentId,
+      authorId: input.author.id, authorName: input.author.name, body: input.body,
+      createdAt: new Date().toISOString(), editedAt: null, deletedAt: null,
+      authorIsStaff: input.author.isStaff, mentions: input.mentions,
+    }
+    setComments(prev => [...prev, m])
+    return m
+  }
+  const editComment = (id: number, body: string) =>
+    setComments(prev => prev.map(m => m.id === id ? { ...m, body, editedAt: new Date().toISOString() } : m))
+  const deleteComment = (id: number) =>
+    setComments(prev => prev.map(m => m.id === id ? { ...m, body: '', mentions: [], deletedAt: new Date().toISOString() } : m))
+
   const logout      = () => {}
   const inviteUser  = async () => {}
   const updateStaffPerms = async () => {}
@@ -168,21 +218,24 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
       userIndex, page, passes, people, messages, notifications,
       selfBookings, selfWaitlist, activeChurch, groupFilter, modal,
       groups, churches, pastorat: DEMO_PASTORAT, users: DEMO_USERS,
+      memberships, availableChurches,
       currentUser: null, profile: null, loadingAuth: false, staffPerms,
       u, isIdeell, isAnstalld, isFAdmin, isPAdmin, isSuperAdmin, isAdmin, isKiosk,
       isResponsible, canBook, canViewBkgs, canAddBkg, canRemoveBkg, canMsgBooked,
       canEditPass, canCancelPass, canDeletePass, canCreatePass, canManage,
       canMakePAdmin, canMakeFAdmin, perm,
       cycleUser, goTo, setChurch, setFilter, showModal, closeModal,
-      doBook, doUnbook, joinWaitlist, leaveWaitlist, publishNow, toggleAvail, updateUserNotif, markAllNotifsRead,
+      doBook, doUnbook, joinWaitlist, leaveWaitlist, publishNow, toggleAvail, updateUserNotif, markNotifRead, markAllNotifsRead,
       addPass, updatePass, deletePass, cancelPass, reloadPasses, addBooking, removeBooking,
       addPerson, updatePerson, deletePerson, addMessage,
       addChurch, updateChurch, deleteChurch,
       addPastorat, updatePastorat, deletePastorat, addGroup, deleteGroup,
       nextPersonId, nextPassId, nextPastoratId, updateStaffPerms,
-      getResponsibleNames, currentChurchId, logout, inviteUser,
+      getResponsibleNames, currentChurchId, currentMembership, currentGroups, logout, inviteUser,
     }}>
-      {children}
+      <DemoCommentsCtx.Provider value={{ comments, addComment, editComment, deleteComment }}>
+        {children}
+      </DemoCommentsCtx.Provider>
     </Ctx.Provider>
   )
 }

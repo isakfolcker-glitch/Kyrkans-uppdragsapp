@@ -1,9 +1,9 @@
 'use client'
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   GROUPS, CHURCHES, NAV_ITEMS, INITIAL_PEOPLE, INITIAL_PASSES, INITIAL_MESSAGES, INITIAL_NOTIFICATIONS,
-  Group, Church, PersonData, PassData, MessageData, NotifData, PastoratData, UserDef, USERS,
+  Group, Church, PersonData, PassData, MessageData, NotifData, PastoratData, UserDef, ChurchMembershipData, USERS,
   ini2, gLabel, gCls, roleLabel,
 } from './appData'
 
@@ -38,6 +38,7 @@ interface AppCtx {
   messages: MessageData[]; notifications: NotifData[]; selfBookings: Record<number, boolean>; selfWaitlist: Record<number, number>
   activeChurch: number; groupFilter: string; modal: ReactNode | null
   groups: Group[]; churches: Church[]; pastorat: PastoratData[]; users: UserDef[]
+  memberships: ChurchMembershipData[]; availableChurches: Church[]
   currentUser: any; profile: any; loadingAuth: boolean; staffPerms: StaffPerms
 
   u: () => UserDef
@@ -58,6 +59,7 @@ interface AppCtx {
   joinWaitlist: (id: number) => void; leaveWaitlist: (id: number) => void
   publishNow: (id: number) => void; toggleAvail: () => void
   updateUserNotif: (key: string, val: boolean) => void
+  markNotifRead: (id: number) => void
   markAllNotifsRead: () => void
   addPass: (p: PassData) => Promise<void>; updatePass: (p: PassData) => void
   deletePass: (id: number) => void; cancelPass: (id: number) => void
@@ -72,6 +74,7 @@ interface AppCtx {
   deletePastorat: (id: number) => Promise<void>; addGroup: (g: Group) => void; deleteGroup: (id: string) => void
   nextPersonId: () => number; nextPassId: () => number; nextPastoratId: () => number
   getResponsibleNames: (pass: PassData) => string; currentChurchId: () => number
+  currentMembership: () => ChurchMembershipData | null; currentGroups: () => string[]
   logout: () => void; inviteUser: (email: string, name: string, role: string, churchId: number) => Promise<void>
   updateStaffPerms: (profileId: string, perms: StaffPerms) => Promise<void>
 }
@@ -90,7 +93,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // State — börjar tomt, fylls på från Supabase när inloggad
   const [userIndex, setUserIndex] = useState(0)
-  const [page, setPage] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('lastPage') || 'pass' : 'pass'))
+  const [page, setPage] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('lastPage') || 'oversikt' : 'oversikt'))
   const [passes, setPasses] = useState<PassData[]>([])
   const [people, setPeople] = useState<PersonData[]>([])
   const [messages, setMessages] = useState<MessageData[]>([])
@@ -103,7 +106,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [groups, setGroups] = useState<Group[]>(GROUPS)
   const [churches, setChurches] = useState<Church[]>(CHURCHES)
   const [pastorat, setPastorat] = useState<PastoratData[]>([])
-  const [staffPerms, setStaffPerms] = useState<StaffPerms>(NO_PERMS)
+  const [memberships, setMemberships] = useState<ChurchMembershipData[]>([])
+  const [staffPermsByChurch, setStaffPermsByChurch] = useState<Record<number, StaffPerms>>({})
   const [users] = useState<UserDef[]>(USERS)
 
   // ─── Auth listener ────────────────────────────────
@@ -131,32 +135,87 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .select('*, profile_groups(group_id), notif_settings(*)')
       .eq('id', userId)
       .single()
+
+    const { data: membershipRows, error: membershipError } = await supabase
+      .from('profile_churches')
+      .select('profile_id, church_id, role, admin_level, is_employee, active, accepted_at')
+      .eq('profile_id', userId)
+      .eq('active', true)
+      .not('accepted_at', 'is', null) // väntande inbjudningar ger ingen tillgång
+
+    let mappedMemberships: ChurchMembershipData[] = (membershipRows ?? []).map((m: any) => ({
+      profileId: m.profile_id,
+      churchId: m.church_id,
+      role: m.role,
+      adminLevel: m.admin_level,
+      isEmployee: m.is_employee,
+      active: m.active,
+      acceptedAt: m.accepted_at,
+    }))
+
+    // Bakåtkompatibilitet tills migration 016 är körd i alla miljöer.
+    if ((!mappedMemberships.length || membershipError) && data?.church_id) {
+      mappedMemberships = [{
+        profileId: userId,
+        churchId: data.church_id,
+        role: data.role,
+        adminLevel: data.admin_level,
+        isEmployee: data.is_employee,
+        active: true,
+        acceptedAt: data.onboarding_done ? data.updated_at : null,
+      }]
+    }
+
     setProfile(data)
+    setMemberships(mappedMemberships)
     setLoadingAuth(false)
+
     if (data) {
-      fetchAppData(data)
-      // Hämta behörigheter för anställda (admin/superadmin får ALL_PERMS direkt)
-      if (['forsamling','pastorat','super'].includes(data.admin_level)) {
-        setStaffPerms(ALL_PERMS)
-      } else if (data.role === 'anstalld') {
-        const { data: permsData } = await supabase
+      await fetchAppData(data, mappedMemberships)
+
+      const { data: permsRows, error: permsError } = await supabase
+        .from('profile_church_permissions')
+        .select('*')
+        .eq('profile_id', userId)
+
+      if (!permsError) {
+        const byChurch: Record<number, StaffPerms> = {}
+        for (const row of (permsRows ?? [])) {
+          byChurch[row.church_id] = {
+            kan_skapa_pass:         row.kan_skapa_pass,
+            kan_redigera_pass:      row.kan_redigera_pass,
+            kan_se_bokningar:       row.kan_se_bokningar,
+            kan_hantera_bokningar:  row.kan_hantera_bokningar,
+            kan_se_personal:        row.kan_se_personal,
+            kan_lagg_till_personal: row.kan_lagg_till_personal,
+            kan_hantera_grupper:    row.kan_hantera_grupper,
+            kan_skicka_utskick:     row.kan_skicka_utskick,
+          }
+        }
+        setStaffPermsByChurch(byChurch)
+      } else {
+        // Legacy-fallback före migration 016.
+        const { data: legacyPerms } = await supabase
           .from('staff_permissions')
           .select('*')
           .eq('profile_id', userId)
-          .single()
-        setStaffPerms(permsData ? {
-          kan_skapa_pass:         permsData.kan_skapa_pass,
-          kan_redigera_pass:      permsData.kan_redigera_pass,
-          kan_se_bokningar:       permsData.kan_se_bokningar,
-          kan_hantera_bokningar:  permsData.kan_hantera_bokningar,
-          kan_se_personal:        permsData.kan_se_personal,
-          kan_lagg_till_personal: permsData.kan_lagg_till_personal,
-          kan_hantera_grupper:    permsData.kan_hantera_grupper,
-          kan_skicka_utskick:     permsData.kan_skicka_utskick,
-        } : NO_PERMS)
-      } else {
-        setStaffPerms(NO_PERMS)
+          .maybeSingle()
+        if (legacyPerms && mappedMemberships[0]) {
+          setStaffPermsByChurch({
+            [mappedMemberships[0].churchId]: {
+              kan_skapa_pass:         legacyPerms.kan_skapa_pass,
+              kan_redigera_pass:      legacyPerms.kan_redigera_pass,
+              kan_se_bokningar:       legacyPerms.kan_se_bokningar,
+              kan_hantera_bokningar:  legacyPerms.kan_hantera_bokningar,
+              kan_se_personal:        legacyPerms.kan_se_personal,
+              kan_lagg_till_personal: legacyPerms.kan_lagg_till_personal,
+              kan_hantera_grupper:    legacyPerms.kan_hantera_grupper,
+              kan_skicka_utskick:     legacyPerms.kan_skicka_utskick,
+            },
+          })
+        }
       }
+
       // Hämta kö-anmälningar och position
       const { data: myWaitlist } = await supabase.from('waitlist').select('pass_id, created_at').eq('profile_id', userId)
       if (myWaitlist?.length) {
@@ -172,7 +231,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         setSelfWaitlist(positions)
       }
-      // Hämta notiser
+
       const { data: notifData } = await supabase
         .from('notifications')
         .select('*')
@@ -182,8 +241,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (notifData) setNotifications(notifData.map((n: any) => ({
         id: n.id, userId: n.user_id, type: n.type,
         title: n.title, body: n.body, time: n.created_at, read: n.read,
+        passId: n.pass_id ?? null, commentId: n.comment_id ?? null,
       })))
-      // Realtid – nya notiser
+
       supabase.channel('notif-' + userId)
         .on('postgres_changes', {
           event: 'INSERT', schema: 'public', table: 'notifications',
@@ -193,22 +253,67 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setNotifications(prev => [{
             id: n.id, userId: n.user_id, type: n.type,
             title: n.title, body: n.body, time: n.created_at, read: false,
+            passId: n.pass_id ?? null, commentId: n.comment_id ?? null,
           }, ...prev])
         })
         .subscribe()
     }
   }
 
-  const fetchAppData = async (prof: any) => {
-    // Hämta kyrkor
+  const fetchAppData = async (prof: any, membershipRows: ChurchMembershipData[]) => {
     const { data: churchData } = await supabase.from('churches').select('*').order('id')
-    if (churchData?.length) setChurches(churchData.map((c: any) => ({ id: c.id, name: c.name, admin: c.admin_name || '', tel: c.tel || '', address: c.address })))
+    const mappedChurches: Church[] = (churchData ?? []).map((church: any) => ({
+      id: church.id,
+      name: church.name,
+      admin: church.admin_name || '',
+      tel: church.tel || '',
+      address: church.address,
+      pastoratId: church.pastorat_id ?? null,
+    }))
+    setChurches(mappedChurches)
 
-    // Hämta grupper
+    const directChurchIds = new Set(membershipRows.filter(m => m.active).map(m => m.churchId))
+    const isSystemSuper = prof.admin_level === 'super' || membershipRows.some(m => m.active && m.adminLevel === 'super')
+    const pastoratAdminIds = new Set(
+      membershipRows
+        .filter(m => m.active && m.adminLevel === 'pastorat')
+        .map(m => mappedChurches.find(church => church.id === m.churchId)?.pastoratId)
+        .filter((id): id is number => typeof id === 'number')
+    )
+    const selectable = isSystemSuper
+      ? mappedChurches
+      : mappedChurches.filter(church =>
+          (church.id !== undefined && directChurchIds.has(church.id))
+          || (church.pastoratId !== undefined && church.pastoratId !== null && pastoratAdminIds.has(church.pastoratId))
+        )
+
+    if (selectable.length) {
+      const queryChurch = typeof window !== 'undefined'
+        ? Number(new URLSearchParams(window.location.search).get('church'))
+        : NaN
+      const storedChurch = typeof window !== 'undefined'
+        ? Number(localStorage.getItem('activeChurchId'))
+        : NaN
+      const preferredId = [queryChurch, storedChurch].find(id => selectable.some(church => church.id === id))
+        ?? selectable[0].id
+      const preferredIndex = mappedChurches.findIndex(church => church.id === preferredId)
+      if (preferredIndex >= 0) {
+        setActiveChurch(preferredIndex)
+        if (typeof window !== 'undefined' && preferredId !== undefined) {
+          localStorage.setItem('activeChurchId', String(preferredId))
+        }
+      }
+    }
+
     const { data: groupData } = await supabase.from('groups').select('*')
-    if (groupData?.length) setGroups(groupData.map((g: any) => ({ id: g.id, label: g.label, cls: g.cls, churchId: g.church_id ?? null })))
+    const mappedGroups: Group[] = (groupData ?? []).map((group: any) => ({
+      id: group.id,
+      label: group.label,
+      cls: group.cls,
+      churchId: group.church_id ?? null,
+    }))
+    setGroups(mappedGroups)
 
-    // Hämta pastorat med admin-profil och kopplade kyrkor
     const { data: pastData } = await supabase
       .from('pastorat')
       .select('id, name, churches(id)')
@@ -219,71 +324,228 @@ export function AppProvider({ children }: { children: ReactNode }) {
         name: p.name,
         admin: '',
         adminEmail: '',
-        churches: (p.churches ?? []).map((c: any) => c.id),
+        churches: (p.churches ?? []).map((church: any) => church.id),
       })))
     }
 
-    // Hämta pass — superadmin/padmin hämtar alla, fadmin/övriga bara sin kyrka
-    const churchId = prof.church_id
-    const isGlobalAdmin = ['pastorat', 'super'].includes(prof.admin_level)
-    if (churchId || isGlobalAdmin) {
-      let passQuery = supabase
-        .from('passes')
-        .select('*, pass_groups(group_id), pass_responsible(profile_id), bookings(id, name, ini, av_color, ac_color, mail, tel, source, no_account, profile_id), pass_history(entry), waitlist(id)')
-        .order('created_at', { ascending: false })
-      if (!isGlobalAdmin && churchId) passQuery = passQuery.eq('church_id', churchId)
-      const { data: passData } = await passQuery
-      if (passData) {
-        setPasses(passData.map((p: any) => ({
-          id: p.id, church: p.church_id, title: p.title,
-          groups: p.pass_groups?.map((g: any) => g.group_id) || [],
-          date: p.date_str, time: p.time_str, plats: p.plats,
-          spots: p.spots, filled: p.filled, vk: p.vk || '', tel: p.tel || '',
-          vkProfileId: p.vk_profile_id ?? null,
-          desc: p.description || '', cancelled: p.cancelled,
-          pubStatus: p.pub_status, pubDate: p.pub_date || '',
-          kioskVisible: p.kiosk_visible,
-          responsibleUserIds: p.pass_responsible?.map((r: any) => r.profile_id) || [],
-          bookings: p.bookings?.map((b: any) => ({
-            id: b.id, personId: b.profile_id, name: b.name, ini: b.ini || '',
-            av: b.av_color || '#F1EFE8', ac: b.ac_color || '#5F5E5A',
-            source: b.source, noAccount: b.no_account, mail: b.mail, tel: b.tel,
-          })) || [],
-          history: p.pass_history?.map((h: any) => h.entry) || [],
-          waitlistCount: p.waitlist?.length ?? 0,
-        })))
+    // RLS returnerar bara pass från församlingar användaren har tillgång till.
+    const { data: passData } = await supabase
+      .from('passes')
+      .select('*, pass_groups(group_id), pass_responsible(profile_id), bookings(id, name, ini, av_color, ac_color, mail, tel, source, no_account, profile_id), pass_history(entry), waitlist(id)')
+      .order('created_at', { ascending: false })
+
+    if (passData) {
+      const mappedPasses: PassData[] = passData.map((p: any) => ({
+        id: p.id, church: p.church_id, title: p.title,
+        groups: p.pass_groups?.map((g: any) => g.group_id) || [],
+        date: p.date_str, time: p.time_str, plats: p.plats,
+        spots: p.spots, filled: p.filled, vk: p.vk || '', tel: p.tel || '',
+        vkProfileId: p.vk_profile_id ?? null,
+        desc: p.description || '', cancelled: p.cancelled,
+        pubStatus: p.pub_status, pubDate: p.pub_date || '',
+        kioskVisible: p.kiosk_visible,
+        responsibleUserIds: p.pass_responsible?.map((r: any) => r.profile_id) || [],
+        bookings: p.bookings?.map((b: any) => ({
+          id: b.id, personId: b.profile_id, name: b.name, ini: b.ini || '',
+          av: b.av_color || '#FFEBE1', ac: b.ac_color || '#7D0037',
+          source: b.source, noAccount: b.no_account, mail: b.mail, tel: b.tel,
+        })) || [],
+        history: p.pass_history?.map((h: any) => h.entry) || [],
+        waitlistCount: p.waitlist?.length ?? 0,
+      }))
+      setPasses(mappedPasses)
+
+      // Bygg från den laddade profilen: currentUser är null i första renderingen.
+      if (prof?.id) {
+        const mine: Record<number, boolean> = {}
+        mappedPasses.forEach(pass => {
+          if (pass.bookings.some(booking => booking.personId === prof.id)) mine[pass.id] = true
+        })
+        setSelfBookings(mine)
       }
     }
 
-    // Hämta personal (bara admin ser alla)
-    if (['forsamling','pastorat','super'].includes(prof.admin_level)) {
-      let query = supabase.from('profiles').select('*, profile_groups(group_id)')
-      // Församlingsadmin ser bara sin kyrka; pastorat/super ser alla
-      if (prof.admin_level === 'forsamling') query = query.eq('church_id', prof.church_id)
-      const { data: peopleData } = await query
-      if (peopleData) {
-        setPeople(peopleData.map((p: any) => ({
-          id: p.id, name: p.name, mail: p.email || '', phone: p.phone,
-          ini: p.ini || p.name?.slice(0,2).toUpperCase() || '??',
-          av: p.av_color || '#EEEDFE', ac: p.ac_color || '#3C3489',
-          church: p.church_id, groups: p.profile_groups?.map((g: any) => g.group_id) || [],
-          role: p.role, isEmployee: p.is_employee, adminLevel: p.admin_level, available: p.available,
-        })))
-      }
+    // En profil kan förekomma en gång per aktivt församlingsmedlemskap.
+    const { data: peopleMemberships } = await supabase
+      .from('profile_churches')
+      .select('church_id, role, admin_level, is_employee, active, profiles!inner(id, name, email, phone, ini, av_color, ac_color, available, profile_groups(group_id))')
+      .eq('active', true)
+      .not('accepted_at', 'is', null) // väntande inbjudningar visas inte som personer
+
+    if (peopleMemberships) {
+      const peopleRows: PersonData[] = peopleMemberships.map((membership: any) => {
+        const rawProfile = Array.isArray(membership.profiles) ? membership.profiles[0] : membership.profiles
+        const profileGroups = rawProfile?.profile_groups?.map((g: any) => g.group_id) || []
+        const visibleGroupIds = profileGroups.filter((groupId: string) => {
+          const group = mappedGroups.find(item => item.id === groupId)
+          return !group || group.churchId === null || group.churchId === membership.church_id
+        })
+        return {
+          id: rawProfile?.id,
+          name: rawProfile?.name || '',
+          mail: rawProfile?.email || '',
+          phone: rawProfile?.phone,
+          ini: rawProfile?.ini || rawProfile?.name?.slice(0, 2).toUpperCase() || '??',
+          av: rawProfile?.av_color || '#FFEBE1',
+          ac: rawProfile?.ac_color || '#7D0037',
+          church: membership.church_id,
+          groups: visibleGroupIds,
+          role: membership.role,
+          isEmployee: membership.is_employee,
+          adminLevel: membership.admin_level,
+          available: rawProfile?.available ?? true,
+        }
+      }).filter((person: PersonData) => Boolean(person.id))
+      setPeople(peopleRows)
     }
 
-    // Hämta utskick
-    const { data: msgData } = await supabase.from('message_logs').select('*').order('sent_at', { ascending: false }).limit(20)
-    if (msgData) setMessages(msgData.map((m: any) => ({ id: m.id, from: m.from_name, to: m.to_label, toCount: m.to_count, subject: m.subject, body: m.body, sentAt: m.sent_at })))
+    const { data: msgData } = await supabase
+      .from('message_logs')
+      .select('*')
+      .order('sent_at', { ascending: false })
+      .limit(100)
+    if (msgData) {
+      setMessages(msgData.map((m: any) => ({
+        id: m.id,
+        from: m.from_name,
+        to: m.to_label,
+        toCount: m.to_count,
+        subject: m.subject,
+        body: m.body,
+        sentAt: m.sent_at,
+        church: m.church_id ?? null,
+      })))
+    }
   }
 
   // ─── Behörighetssystem ────────────────────────────
-  // Använd riktig profil om inloggad, annars demo-användare
-  const effectiveAdminLevel = profile?.admin_level ?? users[userIndex]?.adminLevel ?? 'none'
-  const effectiveRole = profile?.role ?? users[userIndex]?.role ?? 'ideell'
-  const effectiveChurchId = profile?.church_id ?? users[userIndex]?.churches?.[0] ?? churches[0]?.id ?? 0
+  const systemSuper = profile?.admin_level === 'super'
+    || memberships.some(membership => membership.active && membership.adminLevel === 'super')
 
-  const u = useCallback(() => users[userIndex], [users, userIndex])
+  const directChurchIds = new Set(
+    memberships.filter(membership => membership.active).map(membership => membership.churchId)
+  )
+  const pastoratAdminIds = new Set(
+    memberships
+      .filter(membership => membership.active && membership.adminLevel === 'pastorat')
+      .map(membership => churches.find(church => church.id === membership.churchId)?.pastoratId)
+      .filter((id): id is number => typeof id === 'number')
+  )
+
+  const availableChurches = currentUser
+    ? (systemSuper
+        ? churches
+        : churches.filter(church =>
+            (church.id !== undefined && directChurchIds.has(church.id))
+            || (church.pastoratId !== undefined && church.pastoratId !== null && pastoratAdminIds.has(church.pastoratId))
+          ))
+    : churches
+
+  const currentChurchId = () => {
+    if (!currentUser) {
+      return users[userIndex]?.churches?.[0] ?? churches[activeChurch]?.id ?? churches[0]?.id ?? 0
+    }
+    const selected = churches[activeChurch]
+    if (selected?.id !== undefined && availableChurches.some(church => church.id === selected.id)) {
+      return selected.id
+    }
+    return availableChurches[0]?.id ?? profile?.church_id ?? 0
+  }
+
+  const membershipForChurchId = (churchId: number): ChurchMembershipData | null => {
+    const direct = memberships.find(membership => membership.active && membership.churchId === churchId)
+    if (direct) return direct
+
+    if (systemSuper && currentUser) {
+      return {
+        profileId: currentUser.id,
+        churchId,
+        role: 'superadmin',
+        adminLevel: 'super',
+        isEmployee: true,
+        active: true,
+      }
+    }
+
+    const targetPastoratId = churches.find(church => church.id === churchId)?.pastoratId
+    if (targetPastoratId !== undefined && targetPastoratId !== null && currentUser) {
+      const inherited = memberships.find(membership => {
+        if (!membership.active || membership.adminLevel !== 'pastorat') return false
+        return churches.find(church => church.id === membership.churchId)?.pastoratId === targetPastoratId
+      })
+      if (inherited) {
+        return {
+          profileId: currentUser.id,
+          churchId,
+          role: 'padmin',
+          adminLevel: 'pastorat',
+          isEmployee: true,
+          active: true,
+        }
+      }
+    }
+
+    return null
+  }
+
+  const currentMembership = (): ChurchMembershipData | null => {
+    const churchId = currentChurchId()
+    return churchId ? membershipForChurchId(churchId) : null
+  }
+
+  const effectiveMembership = currentMembership()
+  const effectiveAdminLevel = currentUser
+    ? (effectiveMembership?.adminLevel ?? 'none')
+    : (users[userIndex]?.adminLevel ?? 'none')
+  const effectiveRole = currentUser
+    ? (effectiveMembership?.role ?? 'ideell')
+    : (users[userIndex]?.role ?? 'ideell')
+
+  const currentGroups = () => {
+    if (!currentUser) return users[userIndex]?.groups ?? []
+    const churchId = currentChurchId()
+    const profileGroupIds = profile?.profile_groups?.map((group: any) => group.group_id) ?? []
+    return profileGroupIds.filter((groupId: string) => {
+      const group = groups.find(item => item.id === groupId)
+      return !group || group.churchId === null || group.churchId === churchId
+    })
+  }
+
+  const u = (): UserDef => {
+    if (!currentUser) return users[userIndex]
+    const role = effectiveRole
+    const adminLevel = effectiveAdminLevel
+    const displayName = profile?.name ?? ''
+    return {
+      id: 0,
+      name: displayName,
+      email: currentUser.email ?? '',
+      role,
+      isEmployee: effectiveMembership?.isEmployee ?? role !== 'ideell',
+      adminLevel,
+      ini: displayName.split(' ').map((part: string) => part[0]).join('').slice(0, 2).toUpperCase(),
+      av: profile?.av_color ?? '#FFEBE1',
+      ac: profile?.ac_color ?? '#7D0037',
+      badge: role === 'ideell' ? 'rb-ideell' : role === 'anstalld' ? 'rb-anstalld' : 'rb-admin',
+      badgeLbl: role === 'ideell'
+        ? 'Ideell'
+        : role === 'anstalld'
+          ? 'Anställd'
+          : role === 'fadmin'
+            ? 'Församlingsadmin'
+            : role === 'padmin'
+              ? 'Pastoratsadmin'
+              : 'Systemadmin',
+      groups: currentGroups(),
+      churches: availableChurches.flatMap(church => church.id !== undefined ? [church.id] : []),
+      responsibleForPasses: passes.filter(pass => pass.responsibleUserIds?.includes(currentUser.id)).map(pass => pass.id),
+      notifs: profile?.notif_settings?.[0] ?? {},
+      available: profile?.available ?? true,
+    }
+  }
+
+  const staffPerms = staffPermsByChurch[currentChurchId()] ?? NO_PERMS
+
   const isIdeell     = () => effectiveRole === 'ideell'
   const isAnstalld   = () => effectiveRole === 'anstalld'
   const isFAdmin     = () => effectiveAdminLevel === 'forsamling'
@@ -291,26 +553,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const isSuperAdmin = () => effectiveAdminLevel === 'super'
   const isAdmin      = () => ['forsamling','pastorat','super'].includes(effectiveAdminLevel)
   const isKiosk      = () => effectiveRole === 'kiosk'
-  // Kollar granulerad behörighet – admin har alltid allt, anställda bara det som är tillåtet
-  const perm = (key: keyof StaffPerms) => isAdmin() ? true : staffPerms[key]
+  const perm = (key: keyof StaffPerms) => isAdmin() ? true : (isAnstalld() ? staffPerms[key] : false)
+
   const isResponsible = (pass: PassData) => {
     if (currentUser) return pass.responsibleUserIds?.includes(currentUser.id) ?? false
     return users[userIndex]?.responsibleForPasses?.includes(pass.id) ?? false
   }
   const canBook       = () => !isAdmin() && !isKiosk()
-  const canViewBkgs   = (p: PassData) => isAdmin() || isResponsible(p)
-  const canAddBkg     = (p: PassData) => isAdmin() || isResponsible(p)
-  const canRemoveBkg  = (p: PassData) => isAdmin() || isResponsible(p)
-  const canMsgBooked  = (p: PassData) => isAdmin() || isResponsible(p)
-  const canEditPass   = (p: PassData) => isAdmin() || isResponsible(p)
-  const canCancelPass = (p: PassData) => isAdmin() || isResponsible(p)
+  const canViewBkgs   = (p: PassData) => isAdmin() || isResponsible(p) || perm('kan_se_bokningar')
+  const canAddBkg     = (p: PassData) => isAdmin() || isResponsible(p) || perm('kan_hantera_bokningar')
+  const canRemoveBkg  = (p: PassData) => isAdmin() || isResponsible(p) || perm('kan_hantera_bokningar')
+  const canMsgBooked  = (p: PassData) => isAdmin() || isResponsible(p) || perm('kan_skicka_utskick')
+  const canEditPass   = (p: PassData) => isAdmin() || isResponsible(p) || perm('kan_redigera_pass')
+  const canCancelPass = (p: PassData) => isAdmin() || isResponsible(p) || perm('kan_redigera_pass')
   const canDeletePass = () => isAdmin() || perm('kan_redigera_pass')
   const canCreatePass = () => isAdmin() || perm('kan_skapa_pass')
   const canManage     = () => isAdmin() || isAnstalld()
   const canMakePAdmin = () => isPAdmin() || isSuperAdmin()
-  const canMakeFAdmin = (c: number) => isPAdmin() || isSuperAdmin() || (isFAdmin() && (users[userIndex]?.churches ?? []).includes(c))
-
-  const currentChurchId = () => (isPAdmin() || isSuperAdmin()) ? (churches[activeChurch]?.id ?? churches[0]?.id ?? activeChurch) : effectiveChurchId
+  const canMakeFAdmin = (churchId: number) =>
+    isPAdmin() || isSuperAdmin() || (isFAdmin() && currentChurchId() === churchId)
 
   // ─── Actions ──────────────────────────────────────
   const cycleUser = () => {
@@ -320,7 +581,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setActiveChurch(0); setGroupFilter('alla'); setModal(null)
   }
   const goTo     = (p: string) => { setPage(p); setModal(null); if (typeof window !== 'undefined') localStorage.setItem('lastPage', p) }
-  const setChurch = (i: number) => setActiveChurch(i)
+  const setChurch = (i: number) => {
+    const churchId = churches[i]?.id
+    if (churchId === undefined || !availableChurches.some(church => church.id === churchId)) return
+
+    const targetMembership = membershipForChurchId(churchId)
+    const targetRole = targetMembership?.role ?? 'ideell'
+    const allowedPages = new Set([
+      ...(NAV_ITEMS[targetRole] ?? NAV_ITEMS.ideell).map(item => item.id),
+      'oversikt',
+    ])
+
+    setActiveChurch(i)
+    setGroupFilter('alla')
+    setModal(null)
+
+    if (!allowedPages.has(page)) {
+      const nextPage = (NAV_ITEMS[targetRole] ?? NAV_ITEMS.ideell)[0]?.id ?? 'pass'
+      setPage(nextPage)
+      if (typeof window !== 'undefined') localStorage.setItem('lastPage', nextPage)
+    }
+
+    if (typeof window !== 'undefined') localStorage.setItem('activeChurchId', String(churchId))
+  }
   const setFilter = (f: string) => setGroupFilter(f)
   const showModal = (content: ReactNode) => setModal(content)
   const closeModal = () => setModal(null)
@@ -382,6 +665,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setProfile((p: any) => ({ ...p, notif_settings: [{ ...p.notif_settings?.[0], [key]: val }] }))
     fetch('/api/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notif_settings: { [key]: val } }) })
   }
+  const markNotifRead = (id: number) => {
+    if (!currentUser) return
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+    fetch(`/api/notifications/${id}/read`, { method: 'POST' }).catch(() => {})
+  }
+
   const markAllNotifsRead = () => {
     if (!currentUser) return
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
@@ -477,19 +766,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
   const addPerson    = (p: PersonData) => setPeople(prev => [...prev, p])
   const updatePerson = (p: PersonData) => {
-    setPeople(prev => prev.map(x => x.id === p.id ? p : x))
+    setPeople(prev => prev.map(x => x.id === p.id && x.church === p.church ? p : x))
     fetch(`/api/people/${p.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ groups: p.groups }),
+      body: JSON.stringify({ groups: p.groups, church_id: p.church }),
     }).catch(() => {})
   }
   const deletePerson = (id: any) => {
-    fetch(`/api/people/${id}`, { method: 'DELETE' })
-      .then(res => res.json())
-      .then(d => { if (!d.ok) alert(`Kunde inte ta bort: ${d.error}`) })
+    const churchId = currentChurchId()
+    fetch(`/api/people/${id}?church_id=${churchId}`, { method: 'DELETE' })
+      .then(async res => ({ ok: res.ok, data: await res.json() }))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          alert(`Kunde inte ta bort: ${data.error ?? 'Okänt fel'}`)
+          return
+        }
+        setPeople(prev => prev.filter(x => !(x.id === id && x.church === churchId)))
+      })
       .catch(() => alert('Nätverksfel vid borttagning'))
-    setPeople(prev => prev.filter(x => x.id !== id))
   }
   const addMessage   = (m: MessageData) => setMessages(prev => [m, ...prev])
   const addChurch    = (c: Church)     => setChurches(prev => [...prev, c])
@@ -514,10 +809,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const deleteGroup  = (id: string)    => setGroups(prev => prev.filter(g => g.id !== id))
 
   const updateStaffPerms = async (profileId: string, perms: StaffPerms) => {
-    const { error } = await supabase.from('staff_permissions').upsert({
-      profile_id: profileId, ...perms,
-    }, { onConflict: 'profile_id' })
-    if (error) { alert('Kunde inte spara behörigheter: ' + error.message); return }
+    const churchId = currentChurchId()
+    const res = await fetch(`/api/people/${profileId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ church_id: churchId, staff_permissions: perms }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      alert('Kunde inte spara behörigheter: ' + (data.error ?? res.status))
+      return
+    }
+    setStaffPermsByChurch(prev => ({ ...prev, [churchId]: perms }))
   }
 
   const nextPersonId   = () => _nextPersonId++
@@ -538,19 +841,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={{
       userIndex, page, passes, people, messages, notifications, selfBookings, selfWaitlist,
       activeChurch, groupFilter, modal, groups, churches, pastorat, users,
+      memberships, availableChurches,
       currentUser, profile, loadingAuth, staffPerms,
       u, isIdeell, isAnstalld, isFAdmin, isPAdmin, isSuperAdmin, isAdmin, isKiosk,
       isResponsible, canBook, canViewBkgs, canAddBkg, canRemoveBkg, canMsgBooked,
       canEditPass, canCancelPass, canDeletePass, canCreatePass, canManage,
       canMakePAdmin, canMakeFAdmin, perm,
       cycleUser, goTo, setChurch, setFilter, showModal, closeModal,
-      doBook, doUnbook, joinWaitlist, leaveWaitlist, publishNow, toggleAvail, updateUserNotif, markAllNotifsRead,
+      doBook, doUnbook, joinWaitlist, leaveWaitlist, publishNow, toggleAvail, updateUserNotif, markNotifRead, markAllNotifsRead,
       addPass, updatePass, deletePass, cancelPass, reloadPasses, addBooking, removeBooking,
       addPerson, updatePerson, deletePerson, addMessage,
       addChurch, updateChurch, deleteChurch,
       addPastorat, updatePastorat, deletePastorat, addGroup, deleteGroup,
       nextPersonId, nextPassId, nextPastoratId, updateStaffPerms,
-      getResponsibleNames, currentChurchId, logout, inviteUser,
+      getResponsibleNames, currentChurchId, currentMembership, currentGroups, logout, inviteUser,
     }}>
       {children}
     </Ctx.Provider>

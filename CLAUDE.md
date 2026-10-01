@@ -44,10 +44,15 @@ Testmiljön har `TEST_MODE=true` och `EMAIL_ALLOWLIST` satta, så mail bara kan 
 - All mail via `lib/email.ts`.
 - Nya funktioner i `lib/appStore.tsx` läggs även in i `lib/demoStore.tsx`.
 - Kör `npm run check` före varje commit.
+- Migration 014 och 015 får ALDRIG köras mot produktion (014 kraschar, 015 öppnar säkerhetshål igen). 015 får aldrig köras efter 016 någonstans.
+- Migrationerna körs i nummerordning: 016 (finns i produktion), 017, 018, 019. Nya migrationer får nästa lediga nummer, aldrig ett som redan finns.
+- Behörighet styrs av medlemskap per församling (`profile_churches`, `profile_church_permissions`), inte av `profiles.church_id`/`admin_level` (de finns kvar bara för bakåtkompatibilitet). Använd `lib/authz.ts` i API:t.
+- Kör `supabase/tests/behorighet.sql`, `behorighet_017.sql` och `behorighet_018.sql` mot testdatabasen efter varje ändring av RLS-regler eller behörighetsfunktioner. Alla rader ska vara OK.
+- Bara en AI-assistent i taget ändrar samma filer. Den som börjar hämtar senaste `main` först.
 
 ## Behörighetsnivåer
 
-`role`: ideell, anstalld, fadmin, padmin, superadmin, kiosk. `admin_level`: none, forsamling, pastorat, super. Funktionerna `is_admin()`, `same_church_as()`, `can_set_admin_level()` i databasen styr RLS.
+`role`: ideell, anstalld, fadmin, padmin, superadmin, kiosk. `admin_level`: none, forsamling, pastorat, super. Båda sätts per församling i `profile_churches`. Databasfunktionerna `can_admin_church()`, `can_access_church()`, `can_view_people_in_church()`, `has_staff_permission_for_church()` och `can_access_pass_thread()` styr RLS.
 
 ## Kommandon
 

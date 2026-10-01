@@ -4,16 +4,18 @@ import { useApp } from '@/lib/appStore'
 import { gLabel, gCls } from '@/lib/appData'
 import PassCard from '@/components/ui/PassCard'
 import NewPassModal from '@/components/modals/NewPassModal'
+import Icon from '@/components/ui/Icon'
 
 export default function PassPage() {
-  const { u, passes, isAdmin, isPAdmin, isFAdmin, activeChurch, groupFilter, churches, setChurch, setFilter, showModal, toggleAvail, currentChurchId } = useApp()
+  const { u, profile, passes, isAdmin, groupFilter, setFilter, toggleAvail, currentChurchId, currentGroups } = useApp()
   const [showOld, setShowOld] = useState(false)
   const usr = u()
 
   if (isAdmin()) return <AdminPassPage />
 
-  const myGroups = usr.groups
-  const cid = usr.churches[0] ?? 0
+  const myGroups = currentGroups()
+  const cid = currentChurchId()
+  const isAvailable = profile?.available ?? usr.available
   const today = new Date().toISOString().slice(0, 10)
 
   const base = passes.filter(p =>
@@ -32,19 +34,20 @@ export default function PassPage() {
         <p className="page-sub">Pass för dina uppdragsgrupper</p>
       </div>
 
-      {!usr.available && (
-        <div className="alert alert-amber">
-          🌙 Du är markerad som otillgänglig.{' '}
-          <button onClick={toggleAvail} style={{ background: 'none', border: 'none', color: '#633806', fontWeight: 500, cursor: 'pointer', textDecoration: 'underline' }}>Ändra</button>
+      {!isAvailable && (
+        <div className="alert alert-amber" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+          <Icon name="Moon" size={18} />
+          Du är markerad som otillgänglig.
+          <button type="button" className="link-btn" onClick={toggleAvail}>Ändra</button>
         </div>
       )}
 
       {!myGroups.length ? (
-        <div className="alert alert-amber">ℹ Du har inga uppdragsgrupper tilldelade ännu. Kontakta din admin.</div>
+        <div className="alert alert-amber"><Icon name="Info" size={18} />Du har inga uppdragsgrupper ännu. Kontakta din admin.</div>
       ) : (
         <>
           <div className="alert alert-green">
-            🔔 Du ser pass för: {myGroups.map(g => <strong key={g}>{gLabel(g)}</strong>).reduce((a, b) => <>{a}, {b}</>)}
+            <Icon name="Bell" size={18} /><span>Du ser pass för: {myGroups.map(g => <strong key={g}>{gLabel(g)}</strong>).reduce((a, b) => <>{a}, {b}</>)}</span>
           </div>
           <div className="filter-bar">
             <button className={`filter-btn${groupFilter === 'alla' ? ' on' : ''}`} onClick={() => setFilter('alla')}>Alla mina pass</button>
@@ -54,18 +57,15 @@ export default function PassPage() {
           </div>
           <div className="pass-list">
             {visible.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '3rem', color: '#888780' }}>Inga kommande pass hittades för dina grupper just nu.</div>
+              <div className="empty-state">Inga kommande pass för dina grupper just nu.</div>
             ) : (
               visible.map(p => <PassCard key={p.id} pass={p} adminMode={false} />)
             )}
           </div>
           {old.length > 0 && (
             <div style={{ marginTop: 24 }}>
-              <button
-                onClick={() => setShowOld(v => !v)}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#5F5E5A', fontSize: 13, fontWeight: 600, padding: '6px 0' }}
-              >
-                <span style={{ fontSize: 16 }}>{showOld ? '▾' : '▸'}</span>
+              <button type="button" className="toggle-link" aria-expanded={showOld} onClick={() => setShowOld(v => !v)}>
+                <Icon name={showOld ? 'ChevronDown' : 'ChevronRight'} size={18} />
                 {showOld ? 'Dölj gamla pass' : `Visa gamla pass (${old.length})`}
               </button>
               {showOld && (
@@ -82,7 +82,7 @@ export default function PassPage() {
 }
 
 function AdminPassPage() {
-  const { passes, isPAdmin, isSuperAdmin, churches, activeChurch, setChurch, showModal, currentChurchId, groups } = useApp()
+  const { passes, isPAdmin, isSuperAdmin, churches, availableChurches, activeChurch, setChurch, showModal, currentChurchId, groups } = useApp()
   const [search, setSearch] = useState('')
   const [groupFilter, setGroupFilter] = useState('alla')
   const [showHistory, setShowHistory] = useState(false)
@@ -107,33 +107,38 @@ function AdminPassPage() {
           <h1 className="page-title">Pass</h1>
           <p className="page-sub">{churches.find(c => c.id === cid)?.name}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => showModal(<NewPassModal />)}>+ Nytt pass</button>
+        <button className="btn btn-primary" onClick={() => showModal(<NewPassModal />)}><Icon name="Plus" size={18} />Nytt pass</button>
       </div>
 
       {(isPAdmin() || isSuperAdmin()) && (
         <div className="church-bar">
-          {churches.map((c, i) => (
-            <button key={i} className={`church-btn${activeChurch === i ? ' on' : ''}`} onClick={() => setChurch(i)}>{c.name}</button>
-          ))}
+          {availableChurches.map((church) => {
+            const index = churches.findIndex(item => item.id === church.id)
+            return (
+              <button key={church.id} className={`church-btn${activeChurch === index ? ' on' : ''}`} onClick={() => setChurch(index)}>{church.name}</button>
+            )
+          })}
         </div>
       )}
 
       {kioskN > 0 && (
-        <div className="alert alert-dark" style={{ marginBottom: 14 }}>📟 {kioskN} pass visas i kiosken just nu.</div>
+        <div className="alert alert-dark" style={{ marginBottom: 14 }}><Icon name="DeviceIpad" size={18} />{kioskN} pass visas i kiosken just nu.</div>
       )}
 
       {/* Sök + gruppfilter */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+      <div className="search-row" style={{ marginBottom: 12 }}>
+        <Icon name="Search" size={18} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: '#7D0037' }} />
         <input
-          placeholder="🔍 Sök pass..."
+          type="search"
+          aria-label="Sök pass"
+          placeholder="Sök pass"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          style={{ flex: 1, minWidth: 160, fontSize: 13, padding: '8px 13px', border: '1.5px solid rgba(0,0,0,0.12)', borderRadius: 10, background: '#fff', outline: 'none', fontFamily: 'inherit' }}
         />
       </div>
       <div className="filter-bar" style={{ marginBottom: 16 }}>
         <button className={`filter-btn${groupFilter === 'alla' ? ' on' : ''}`} onClick={() => setGroupFilter('alla')}>Alla grupper</button>
-        {groups.map(g => (
+        {groups.filter(g => g.churchId === cid || g.churchId === null).map(g => (
           <button key={g.id} className={`filter-btn${groupFilter === g.id ? ' on' : ''}`} onClick={() => setGroupFilter(g.id)}>{g.label}</button>
         ))}
       </div>
@@ -143,23 +148,19 @@ function AdminPassPage() {
         {live.length > 0 && (<><div className="section-label" style={{ marginTop: sch.length ? 16 : 0 }}>Live</div>{live.map(p => <PassCard key={p.id} pass={p} adminMode />)}</>)}
         {inst.length > 0 && (<><div className="section-label" style={{ marginTop: 16 }}>Inställda</div>{inst.map(p => <PassCard key={p.id} pass={p} adminMode />)}</>)}
         {!sch.length && !live.length && !inst.length && !history.length && (
-          <div style={{ background: '#fff', borderRadius: 16, padding: '40px 24px', textAlign: 'center', border: '1px solid rgba(125,0,55,0.08)' }}>
-            <div style={{ fontSize: 48, marginBottom: 14 }}>📅</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#000', marginBottom: 6 }}>Inga pass skapade ännu</div>
-            <div style={{ fontSize: 13, color: '#5F5E5A', marginBottom: 20 }}>Klicka på "+ Nytt pass" för att komma igång.</div>
-            <button className="btn btn-primary" onClick={() => showModal(<NewPassModal />)}>+ Skapa första passet</button>
+          <div className="empty-state panel">
+            <div className="empty-state-title">Inga pass skapade ännu</div>
+            <div style={{ marginBottom: 20 }}>Klicka på Nytt pass för att komma igång.</div>
+            <button className="btn btn-primary" onClick={() => showModal(<NewPassModal />)}><Icon name="Plus" size={18} />Skapa första passet</button>
           </div>
         )}
       </div>
 
       {history.length > 0 && (
         <div style={{ marginTop: 24 }}>
-          <button
-            onClick={() => setShowHistory(v => !v)}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#5F5E5A', fontSize: 13, fontWeight: 600, padding: '6px 0' }}
-          >
-            <span style={{ fontSize: 16 }}>{showHistory ? '▾' : '▸'}</span>
-            {showHistory ? 'Dölj historik' : `Historik – gamla pass (${history.length})`}
+          <button type="button" className="toggle-link" aria-expanded={showHistory} onClick={() => setShowHistory(v => !v)}>
+            <Icon name={showHistory ? 'ChevronDown' : 'ChevronRight'} size={18} />
+            {showHistory ? 'Dölj historik' : `Historik, gamla pass (${history.length})`}
           </button>
           {showHistory && (
             <div className="pass-list" style={{ marginTop: 10, opacity: 0.75 }}>

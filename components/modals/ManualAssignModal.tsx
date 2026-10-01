@@ -1,6 +1,8 @@
 'use client'
 import { useState } from 'react'
 import { useApp } from '@/lib/appStore'
+import Icon, { PassMeta } from '@/components/ui/Icon'
+import { avBg, avFg, DEFAULT_AV, DEFAULT_AC } from '@/lib/avatarColors'
 import { ini2 } from '@/lib/appData'
 
 export default function ManualAssignModal({ passId }: { passId: number }) {
@@ -51,12 +53,12 @@ export default function ManualAssignModal({ passId }: { passId: number }) {
       body: JSON.stringify({
         pass_id: passId, name: name.trim(), mail: sendMail ? (mail || '') : '', tel: tel || '',
         source: 'manual', no_account: true,
-        ini, av_color: '#F1EFE8', ac_color: '#5F5E5A',
+        ini, av_color: DEFAULT_AV, ac_color: DEFAULT_AC,
       }),
     })
     if (!res.ok) { const d = await res.json(); alert(d.error); setLoading(false); return }
     const booking = await res.json()
-    addBooking(passId, { id: booking.id, personId: null, name: name.trim(), ini, av: '#F1EFE8', ac: '#5F5E5A', source: 'manual', noAccount: true, mail, tel })
+    addBooking(passId, { id: booking.id, personId: null, name: name.trim(), ini, av: DEFAULT_AV, ac: DEFAULT_AC, source: 'manual', noAccount: true, mail, tel })
     setLoading(false)
     closeModal()
   }
@@ -86,12 +88,12 @@ export default function ManualAssignModal({ passId }: { passId: number }) {
         body: JSON.stringify({
           pass_id: passId, name: row.name, mail: sendMail ? row.mail : '', tel: row.tel,
           source: 'manual', no_account: true,
-          ini, av_color: '#F1EFE8', ac_color: '#5F5E5A',
+          ini, av_color: DEFAULT_AV, ac_color: DEFAULT_AC,
         }),
       })
       if (res.ok) {
         const booking = await res.json()
-        addBooking(passId, { id: booking.id, personId: null, name: row.name, ini, av: '#F1EFE8', ac: '#5F5E5A', source: 'manual', noAccount: true, mail: row.mail, tel: row.tel })
+        addBooking(passId, { id: booking.id, personId: null, name: row.name, ini, av: DEFAULT_AV, ac: DEFAULT_AC, source: 'manual', noAccount: true, mail: row.mail, tel: row.tel })
         ok++
       }
       setProgress(i + 1)
@@ -102,31 +104,31 @@ export default function ManualAssignModal({ passId }: { passId: number }) {
 
   return (
     <>
-      <div className="modal-title">👤 Tilldela manuellt</div>
+      <h2 className="modal-title">Tilldela manuellt</h2>
       <div className="tab-switch">
-        <button className={`tab-switch-btn${tab === 0 ? ' on' : ''}`} onClick={() => setTab(0)}>Sök person</button>
-        <button className={`tab-switch-btn${tab === 1 ? ' on' : ''}`} onClick={() => setTab(1)}>Utan konto</button>
+        <button type="button" aria-pressed={tab === 0} className={`tab-switch-btn${tab === 0 ? ' on' : ''}`} onClick={() => setTab(0)}>Sök person</button>
+        <button type="button" aria-pressed={tab === 1} className={`tab-switch-btn${tab === 1 ? ' on' : ''}`} onClick={() => setTab(1)}>Utan konto</button>
       </div>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#5F5E5A', margin: '8px 0', cursor: 'pointer' }}>
-        <input type="checkbox" checked={sendMail} onChange={e => setSendMail(e.target.checked)} />
+      <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, color: '#000', minHeight: 44, margin: '4px 0', cursor: 'pointer' }}>
+        <input type="checkbox" checked={sendMail} onChange={e => setSendMail(e.target.checked)} style={{ accentColor: '#7D0037', width: 20, height: 20 }} />
         Skicka bokningsbekräftelse via e-post
       </label>
       {tab === 0 ? (
         <>
           <div className="form-field">
-            <label>Sök</label>
-            <input placeholder="Namn..." value={search} onChange={e => setSearch(e.target.value)} />
+            <label htmlFor="manualassign-f1">Sök</label>
+            <input id="manualassign-f1" placeholder="Namn..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
           <div>
             {candidates.map(person => (
-              <div key={person.id} className="search-row" onClick={() => assignPerson(person.id)}>
-                <div style={{ width: 28, height: 28, borderRadius: '50%', background: person.av, color: person.ac, fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{person.ini}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2A' }}>{person.name}</div>
-                  <div style={{ fontSize: 11, color: '#888780' }}>{person.groups.map(g => g).join(', ') || 'Inga grupper'}</div>
-                </div>
-                <span style={{ color: '#888780' }}>›</span>
-              </div>
+              <button key={person.id} type="button" className="pick-row" onClick={() => assignPerson(person.id)}>
+                <span aria-hidden="true" style={{ width: 32, height: 32, borderRadius: '50%', background: avBg(person.av), color: avFg(person.ac), fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{person.ini}</span>
+                <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: 15, fontWeight: 500, color: '#000' }}>{person.name}</span>
+                  <span style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)' }}>{person.groups.map(g => g).join(', ') || 'Inga grupper'}</span>
+                </span>
+                <Icon name="ChevronRight" size={18} style={{ color: '#7D0037' }} />
+              </button>
             ))}
           </div>
           <div className="modal-footer">
@@ -137,15 +139,16 @@ export default function ManualAssignModal({ passId }: { passId: number }) {
         <>
           {pasteRows.length === 0 ? (
             <>
-              <div className="form-field"><label>Namn</label><input placeholder="För- och efternamn" value={name} onChange={e => setName(e.target.value)} /></div>
-              <div className="form-field"><label>Telefon</label><input placeholder="073-..." value={tel} onChange={e => setTel(e.target.value)} /></div>
-              <div className="form-field"><label>E-post</label><input type="email" placeholder="namn@example.com" value={mail} onChange={e => setMail(e.target.value)} /></div>
+              <div className="form-field"><label htmlFor="manualassign-f2">Namn</label><input id="manualassign-f2" placeholder="För- och efternamn" value={name} onChange={e => setName(e.target.value)} /></div>
+              <div className="form-field"><label htmlFor="manualassign-f3">Telefon</label><input id="manualassign-f3" placeholder="073-..." value={tel} onChange={e => setTel(e.target.value)} /></div>
+              <div className="form-field"><label htmlFor="manualassign-f4">E-post</label><input id="manualassign-f4" type="email" placeholder="namn@example.com" value={mail} onChange={e => setMail(e.target.value)} /></div>
 
-              <div style={{ borderTop: '1px solid #E5E3DC', marginTop: 12, paddingTop: 12 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#5F5E5A', marginBottom: 6 }}>📋 Klistra in flera från Excel</div>
-                <p style={{ fontSize: 11, color: '#888780', marginBottom: 6 }}>Kolumner: namn → telefon → e-post</p>
+              <div style={{ borderTop: '1px solid rgba(125,0,55,0.18)', marginTop: 12, paddingTop: 12 }}>
+                <div id="manual-paste-rubrik" style={{ fontSize: 15, fontWeight: 500, color: '#000', marginBottom: 6 }}>Klistra in flera från Excel</div>
+                <p style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)', marginBottom: 6 }}>Kolumner: namn, telefon, e-post</p>
                 <textarea
-                  style={{ width: '100%', height: 72, fontSize: 12, fontFamily: 'monospace', padding: 8, border: '1.5px solid #D3D1C7', borderRadius: 8, resize: 'none', boxSizing: 'border-box' }}
+                  aria-labelledby="manual-paste-rubrik"
+                  style={{ width: '100%', height: 72, fontSize: 13, fontFamily: 'monospace', padding: 8, border: '1.5px solid rgba(125,0,55,0.35)', borderRadius: 8, resize: 'none', boxSizing: 'border-box' }}
                   placeholder={'Anna Svensson\t073-123456\tanna@mail.se\nErik Johansson\t070-654321'}
                   value={pasteText}
                   onChange={e => setPasteText(e.target.value)}
@@ -157,23 +160,23 @@ export default function ManualAssignModal({ passId }: { passId: number }) {
                 {pasteText.trim() ? (
                   <button className="btn btn-primary" onClick={parsePasteRows}>Förhandsgranska</button>
                 ) : (
-                  <button className="btn btn-primary" onClick={saveGuest} disabled={loading}>{loading ? 'Sparar...' : '✓ Tilldela'}</button>
+                  <button className="btn btn-primary" onClick={saveGuest} disabled={loading}>{loading ? 'Sparar...' : 'Tilldela'}</button>
                 )}
               </div>
             </>
           ) : (
             <>
               <div className="alert alert-blue" style={{ marginBottom: 8 }}>{pasteRows.length} personer redo att bokas</div>
-              <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid #E5E3DC', borderRadius: 8, marginBottom: 10 }}>
-                <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
-                  <thead><tr style={{ background: '#F1EFE8' }}>
+              <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid rgba(125,0,55,0.18)', borderRadius: 8, marginBottom: 10 }}>
+                <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+                  <thead><tr style={{ background: 'rgba(125,0,55,0.06)' }}>
                     <th style={{ padding: '5px 8px', textAlign: 'left' }}>Namn</th>
                     <th style={{ padding: '5px 8px', textAlign: 'left' }}>Telefon</th>
                     <th style={{ padding: '5px 8px', textAlign: 'left' }}>E-post</th>
                   </tr></thead>
                   <tbody>
                     {pasteRows.map((r, i) => (
-                      <tr key={i} style={{ borderTop: '1px solid #E5E3DC' }}>
+                      <tr key={i} style={{ borderTop: '1px solid rgba(125,0,55,0.18)' }}>
                         <td style={{ padding: '4px 8px' }}>{r.name}</td>
                         <td style={{ padding: '4px 8px' }}>{r.tel}</td>
                         <td style={{ padding: '4px 8px' }}>{r.mail}</td>
@@ -183,14 +186,14 @@ export default function ManualAssignModal({ passId }: { passId: number }) {
                 </table>
               </div>
               {loading && (
-                <div style={{ background: '#F1EFE8', borderRadius: 8, height: 6, marginBottom: 8 }}>
+                <div style={{ background: 'rgba(125,0,55,0.06)', borderRadius: 8, height: 6, marginBottom: 8 }}>
                   <div style={{ background: '#7D0037', height: '100%', width: `${(progress / pasteRows.length) * 100}%`, transition: 'width 0.3s', borderRadius: 8 }} />
                 </div>
               )}
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={() => { setPasteRows([]); setPasteText('') }} disabled={loading}>Ändra</button>
                 <button className="btn btn-primary" onClick={saveAllGuests} disabled={loading}>
-                  {loading ? `Bokar... ${progress}/${pasteRows.length}` : `✓ Boka ${pasteRows.length} pers`}
+                  {loading ? `Bokar... ${progress} av ${pasteRows.length}` : `Boka ${pasteRows.length} personer`}
                 </button>
               </div>
             </>

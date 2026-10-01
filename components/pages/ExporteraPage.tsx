@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
 import { useApp } from '@/lib/appStore'
+import Icon from '@/components/ui/Icon'
 
 function downloadCSV(filename: string, rows: string[][]) {
   const content = rows.map(r => r.map(cell => `"${(cell ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
@@ -126,24 +127,25 @@ function ImportPersoner({ churchId, groups }: { churchId: number; groups: { id: 
   }
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #D3D1C7', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <div style={{ fontSize: 14, fontWeight: 600 }}>👥 Importera personer</div>
-        <button className="btn btn-secondary btn-sm" onClick={mall}>⬇ Ladda ned mall</button>
+    <div className="panel">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="Users" size={18} style={{ color: '#7D0037' }} />Importera personer</h3>
+        <button className="btn btn-secondary btn-sm" onClick={mall}><Icon name="Download" size={18} />Ladda ned mall</button>
       </div>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-        <button className={`filter-btn${tab === 'paste' ? ' on' : ''}`} onClick={() => setTab('paste')}>📋 Klistra in</button>
-        <button className={`filter-btn${tab === 'file' ? ' on' : ''}`} onClick={() => setTab('file')}>📂 CSV-fil</button>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+        <button className={`filter-btn${tab === 'paste' ? ' on' : ''}`} onClick={() => setTab('paste')} aria-pressed={tab === 'paste'}>Klistra in</button>
+        <button className={`filter-btn${tab === 'file' ? ' on' : ''}`} onClick={() => setTab('file')} aria-pressed={tab === 'file'}>CSV-fil</button>
       </div>
 
       {tab === 'paste' ? (
         <>
-          <p style={{ fontSize: 12, color: '#5F5E5A', marginBottom: 8 }}>
-            Kopiera rader från Excel/Google Sheets och klistra in här. Kolumnordning: <strong>namn → e-post → roll → grupp</strong>
+          <p style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)', marginBottom: 8 }}>
+            Kopiera rader från Excel/Google Sheets och klistra in här. Kolumnordning: <strong style={{ fontWeight: 500 }}>namn, e-post, roll, grupp</strong>
           </p>
           <textarea
-            style={{ width: '100%', height: 100, fontSize: 12, fontFamily: 'monospace', padding: 8, border: '1.5px solid #D3D1C7', borderRadius: 8, resize: 'vertical', boxSizing: 'border-box' }}
+            aria-label="Rader att importera"
+            style={{ width: '100%', height: 100, fontSize: 13, fontFamily: 'monospace', padding: 8, border: '1.5px solid rgba(125,0,55,0.35)', borderRadius: 8, resize: 'vertical', boxSizing: 'border-box' }}
             placeholder={'Anna Svensson\tanna@kyrka.se\tideell\tDomkyrkans vänner\nErik Johansson\terik@kyrka.se\tanstalld'}
             value={pasteText}
             onChange={e => setPasteText(e.target.value)}
@@ -152,11 +154,11 @@ function ImportPersoner({ churchId, groups }: { churchId: number; groups: { id: 
         </>
       ) : (
         <>
-          <p style={{ fontSize: 12, color: '#5F5E5A', marginBottom: 8 }}>
-            Ladda upp en CSV med kolumnerna: <strong>namn, epost, roll, grupp</strong>
+          <p style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)', marginBottom: 8 }}>
+            Ladda upp en CSV med kolumnerna: <strong style={{ fontWeight: 500 }}>namn, epost, roll, grupp</strong>
           </p>
-          <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={onFile} />
-          <button className="btn btn-secondary" onClick={() => fileRef.current?.click()}>📂 Välj CSV-fil</button>
+          <input ref={fileRef} type="file" accept=".csv" aria-label="Välj CSV-fil" style={{ display: 'none' }} onChange={onFile} />
+          <button className="btn btn-secondary" onClick={() => fileRef.current?.click()}><Icon name="Upload" size={18} />Välj CSV-fil</button>
         </>
       )}
 
@@ -165,17 +167,17 @@ function ImportPersoner({ churchId, groups }: { churchId: number; groups: { id: 
           <div className="alert alert-blue" style={{ marginBottom: 8 }}>
             {rows.length} personer hittade i filen
           </div>
-          <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid #E5E3DC', borderRadius: 8, marginBottom: 10 }}>
-            <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
-              <thead><tr style={{ background: '#F1EFE8' }}>
-                <th style={{ padding: '6px 10px', textAlign: 'left' }}>Namn</th>
-                <th style={{ padding: '6px 10px', textAlign: 'left' }}>E-post</th>
-                <th style={{ padding: '6px 10px', textAlign: 'left' }}>Roll</th>
-                <th style={{ padding: '6px 10px', textAlign: 'left' }}>Grupp</th>
+          <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid rgba(125,0,55,0.18)', borderRadius: 8, marginBottom: 10 }}>
+            <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+              <thead><tr style={{ background: 'rgba(125,0,55,0.06)' }}>
+                <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 500 }}>Namn</th>
+                <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 500 }}>E-post</th>
+                <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 500 }}>Roll</th>
+                <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 500 }}>Grupp</th>
               </tr></thead>
               <tbody>
                 {rows.map((r, i) => (
-                  <tr key={i} style={{ borderTop: '1px solid #E5E3DC' }}>
+                  <tr key={i} style={{ borderTop: '1px solid rgba(125,0,55,0.18)' }}>
                     <td style={{ padding: '5px 10px' }}>{r.name}</td>
                     <td style={{ padding: '5px 10px' }}>{r.email}</td>
                     <td style={{ padding: '5px 10px' }}>{r.role}</td>
@@ -186,13 +188,13 @@ function ImportPersoner({ churchId, groups }: { churchId: number; groups: { id: 
             </table>
           </div>
           <button className="btn btn-primary" onClick={importAll} disabled={loading}>
-            {loading ? 'Importerar...' : `✓ Importera ${rows.length} personer`}
+            {loading ? 'Importerar...' : `Importera ${rows.length} personer`}
           </button>
         </div>
       )}
 
-      {done > 0 && <div className="alert alert-green" style={{ marginTop: 10 }}>✓ {done} personer importerade och inbjudna</div>}
-      {errors.map((e, i) => <div key={i} className="alert alert-red" style={{ marginTop: 6, fontSize: 12 }}>{e}</div>)}
+      {done > 0 && <div role="status" className="alert alert-green" style={{ marginTop: 10 }}><Icon name="Check" size={18} />{done} personer importerade och inbjudna</div>}
+      {errors.map((e, i) => <div key={i} className="alert alert-red" style={{ marginTop: 6, fontSize: 13 }}>{e}</div>)}
     </div>
   )
 }
@@ -283,24 +285,25 @@ function ImportPass({ churchId, groups }: { churchId: number; groups: { id: stri
   }
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #D3D1C7', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <div style={{ fontSize: 14, fontWeight: 600 }}>📅 Importera pass</div>
-        <button className="btn btn-secondary btn-sm" onClick={mall}>⬇ Ladda ned mall</button>
+    <div className="panel">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="Calendar" size={18} style={{ color: '#7D0037' }} />Importera pass</h3>
+        <button className="btn btn-secondary btn-sm" onClick={mall}><Icon name="Download" size={18} />Ladda ned mall</button>
       </div>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-        <button className={`filter-btn${tab === 'paste' ? ' on' : ''}`} onClick={() => setTab('paste')}>📋 Klistra in</button>
-        <button className={`filter-btn${tab === 'file' ? ' on' : ''}`} onClick={() => setTab('file')}>📂 CSV-fil</button>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+        <button className={`filter-btn${tab === 'paste' ? ' on' : ''}`} onClick={() => setTab('paste')} aria-pressed={tab === 'paste'}>Klistra in</button>
+        <button className={`filter-btn${tab === 'file' ? ' on' : ''}`} onClick={() => setTab('file')} aria-pressed={tab === 'file'}>CSV-fil</button>
       </div>
 
       {tab === 'paste' ? (
         <>
-          <p style={{ fontSize: 12, color: '#5F5E5A', marginBottom: 8 }}>
-            Kopiera rader från Excel/Google Sheets. Kolumnordning: <strong>titel → datum (ÅÅÅÅ-MM-DD) → tid → plats → platser → vaktmästare → telefon → grupp</strong>
+          <p style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)', marginBottom: 8 }}>
+            Kopiera rader från Excel/Google Sheets. Kolumnordning: <strong style={{ fontWeight: 500 }}>titel, datum (ÅÅÅÅ-MM-DD), tid, plats, platser, vaktmästare, telefon, grupp</strong>
           </p>
           <textarea
-            style={{ width: '100%', height: 100, fontSize: 12, fontFamily: 'monospace', padding: 8, border: '1.5px solid #D3D1C7', borderRadius: 8, resize: 'vertical', boxSizing: 'border-box' }}
+            aria-label="Rader att importera"
+            style={{ width: '100%', height: 100, fontSize: 13, fontFamily: 'monospace', padding: 8, border: '1.5px solid rgba(125,0,55,0.35)', borderRadius: 8, resize: 'vertical', boxSizing: 'border-box' }}
             placeholder={'Gudstjänst\t2026-06-15\t10:00\tDomkyrkan\t5\tAnna\t073-123\tDomkyrkans vänner'}
             value={pasteText}
             onChange={e => setPasteText(e.target.value)}
@@ -309,11 +312,11 @@ function ImportPass({ churchId, groups }: { churchId: number; groups: { id: stri
         </>
       ) : (
         <>
-          <p style={{ fontSize: 12, color: '#5F5E5A', marginBottom: 8 }}>
-            Ladda upp en CSV med kolumnerna: <strong>titel, datum (ÅÅÅÅ-MM-DD), tid, plats, platser, vaktmastare, telefon, grupp</strong>
+          <p style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)', marginBottom: 8 }}>
+            Ladda upp en CSV med kolumnerna: <strong style={{ fontWeight: 500 }}>titel, datum (ÅÅÅÅ-MM-DD), tid, plats, platser, vaktmastare, telefon, grupp</strong>
           </p>
-          <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={onFile} />
-          <button className="btn btn-secondary" onClick={() => fileRef.current?.click()}>📂 Välj CSV-fil</button>
+          <input ref={fileRef} type="file" accept=".csv" aria-label="Välj CSV-fil" style={{ display: 'none' }} onChange={onFile} />
+          <button className="btn btn-secondary" onClick={() => fileRef.current?.click()}><Icon name="Upload" size={18} />Välj CSV-fil</button>
         </>
       )}
 
@@ -322,19 +325,19 @@ function ImportPass({ churchId, groups }: { churchId: number; groups: { id: stri
           <div className="alert alert-blue" style={{ marginBottom: 8 }}>
             {rows.length} pass hittade i filen
           </div>
-          <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid #E5E3DC', borderRadius: 8, marginBottom: 10 }}>
-            <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
-              <thead><tr style={{ background: '#F1EFE8' }}>
-                <th style={{ padding: '6px 10px', textAlign: 'left' }}>Titel</th>
-                <th style={{ padding: '6px 10px', textAlign: 'left' }}>Datum</th>
-                <th style={{ padding: '6px 10px', textAlign: 'left' }}>Tid</th>
-                <th style={{ padding: '6px 10px', textAlign: 'left' }}>Plats</th>
-                <th style={{ padding: '6px 10px', textAlign: 'left' }}>Platser</th>
-                <th style={{ padding: '6px 10px', textAlign: 'left' }}>Grupp</th>
+          <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid rgba(125,0,55,0.18)', borderRadius: 8, marginBottom: 10 }}>
+            <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+              <thead><tr style={{ background: 'rgba(125,0,55,0.06)' }}>
+                <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 500 }}>Titel</th>
+                <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 500 }}>Datum</th>
+                <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 500 }}>Tid</th>
+                <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 500 }}>Plats</th>
+                <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 500 }}>Platser</th>
+                <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 500 }}>Grupp</th>
               </tr></thead>
               <tbody>
                 {rows.map((r, i) => (
-                  <tr key={i} style={{ borderTop: '1px solid #E5E3DC' }}>
+                  <tr key={i} style={{ borderTop: '1px solid rgba(125,0,55,0.18)' }}>
                     <td style={{ padding: '5px 10px' }}>{r.title}</td>
                     <td style={{ padding: '5px 10px' }}>{r.date}</td>
                     <td style={{ padding: '5px 10px' }}>{r.time}</td>
@@ -347,18 +350,18 @@ function ImportPass({ churchId, groups }: { churchId: number; groups: { id: stri
             </table>
           </div>
           <button className="btn btn-primary" onClick={importAll} disabled={loading}>
-            {loading ? `Importerar... ${progress}/${rows.length}` : `✓ Importera ${rows.length} pass`}
+            {loading ? `Importerar... ${progress} av ${rows.length}` : `Importera ${rows.length} pass`}
           </button>
           {loading && (
-            <div style={{ marginTop: 10, background: '#F1EFE8', borderRadius: 8, height: 8, overflow: 'hidden' }}>
+            <div style={{ marginTop: 10, background: 'rgba(125,0,55,0.06)', borderRadius: 8, height: 8, overflow: 'hidden' }}>
               <div style={{ background: '#7D0037', height: '100%', width: `${(progress / rows.length) * 100}%`, transition: 'width 0.3s ease' }} />
             </div>
           )}
         </div>
       )}
 
-      {done > 0 && <div className="alert alert-green" style={{ marginTop: 10 }}>✓ {done} pass skapade</div>}
-      {errors.map((e, i) => <div key={i} className="alert alert-red" style={{ marginTop: 6, fontSize: 12 }}>{e}</div>)}
+      {done > 0 && <div role="status" className="alert alert-green" style={{ marginTop: 10 }}><Icon name="Check" size={18} />{done} pass skapade</div>}
+      {errors.map((e, i) => <div key={i} className="alert alert-red" style={{ marginTop: 6, fontSize: 13 }}>{e}</div>)}
     </div>
   )
 }
@@ -390,7 +393,7 @@ export default function ExporteraPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Import & Export</h1>
+        <h1 className="page-title">Import <span className="serif">och</span> export</h1>
         <p className="page-sub">Importera och exportera data</p>
       </div>
 
@@ -402,20 +405,20 @@ export default function ExporteraPage() {
         </div>
       )}
 
-      <div className="section-label">Importera</div>
+      <h2 className="section-label">Importera</h2>
       <ImportPersoner churchId={cid} groups={groups} />
       <ImportPass churchId={cid} groups={groups} />
 
-      <div className="section-label">Exportera</div>
+      <h2 className="section-label">Exportera</h2>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        <button className="btn btn-primary" onClick={exportBkgsCSV}>📄 Exportera bokningar (CSV)</button>
-        <button className="btn btn-secondary" onClick={exportPeopleCSV}>👥 Exportera personal (CSV)</button>
+        <button className="btn btn-primary" onClick={exportBkgsCSV}><Icon name="Spreadsheet" size={18} />Exportera bokningar (CSV)</button>
+        <button className="btn btn-secondary" onClick={exportPeopleCSV}><Icon name="Users" size={18} />Exportera personal (CSV)</button>
       </div>
 
-      <div className="section-label">Bokningslista ({allBkgs.length} poster)</div>
-      <div style={{ background: '#fff', border: '1px solid #D3D1C7', borderRadius: 12, overflow: 'hidden' }}>
+      <h2 className="section-label">Bokningslista ({allBkgs.length} poster)</h2>
+      <div className="panel" style={{ padding: 0, overflow: 'auto' }}>
         {allBkgs.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '2rem', color: '#888780', fontSize: 13 }}>Inga bokningar ännu.</div>
+          <div className="empty-state">Inga bokningar ännu.</div>
         ) : (
           <table className="exp-table">
             <thead><tr><th>Pass</th><th>Datum</th><th>Namn</th><th>Källa</th></tr></thead>
@@ -426,7 +429,7 @@ export default function ExporteraPage() {
                   <td>{b.source === 'kiosk' ? 'Kiosk' : b.source === 'manual' ? 'Manuellt' : 'App'}</td>
                 </tr>
               ))}
-              {allBkgs.length > 15 && <tr><td colSpan={4} style={{ textAlign: 'center', color: '#888780', fontSize: 11 }}>+{allBkgs.length - 15} fler...</td></tr>}
+              {allBkgs.length > 15 && <tr><td colSpan={4} style={{ textAlign: 'center', color: 'rgba(0,0,0,0.72)', fontSize: 14 }}>och {allBkgs.length - 15} till</td></tr>}
             </tbody>
           </table>
         )}

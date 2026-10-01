@@ -1,6 +1,8 @@
 'use client'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useApp } from '@/lib/appStore'
+import type { PassData } from '@/lib/appData'
+import Icon, { PassMeta } from '@/components/ui/Icon'
 
 function KioskBookModal({ passId, onSuccess }: { passId: number; onSuccess: () => void }) {
   const { passes, closeModal } = useApp()
@@ -9,6 +11,7 @@ function KioskBookModal({ passId, onSuccess }: { passId: number; onSuccess: () =
   const [tel, setTel]     = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const ids = useId()
   const p = passes.find(x => x.id === passId)
   if (!p) return null
 
@@ -39,31 +42,30 @@ function KioskBookModal({ passId, onSuccess }: { passId: number; onSuccess: () =
 
   return (
     <>
-      <div style={{ background: '#FFEBE1', borderRadius: 12, padding: 16, marginBottom: 20, borderLeft: '4px solid #7D0037' }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: '#000', marginBottom: 6 }}>{p.title}</div>
-        <div style={{ display: 'flex', gap: 14, fontSize: 14, color: '#5F5E5A', flexWrap: 'wrap' }}>
-          <span>📅 {p.date}</span><span>🕐 {p.time}</span><span>📍 {p.plats}</span>
-        </div>
+      <h2 className="modal-title">Anmäl dig</h2>
+      <div className="panel" style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 20, fontWeight: 500, color: '#000', marginBottom: 8 }}>{p.title}</div>
+        <PassMeta date={p.date} time={p.time} plats={p.plats} className="meta-row" />
       </div>
       <div className="kiosk-fld">
-        <label>Namn <span style={{ color: '#7D0037' }}>*</span></label>
-        <input placeholder="Ditt för- och efternamn" value={name} onChange={e => setName(e.target.value)} autoFocus />
+        <label htmlFor={`${ids}-namn`}>Namn <span className="req">(måste fyllas i)</span></label>
+        <input id={`${ids}-namn`} autoComplete="name" required placeholder="Ditt för- och efternamn" value={name} onChange={e => setName(e.target.value)} autoFocus />
       </div>
       <div className="kiosk-fld">
-        <label>E-post <span style={{ color: '#BC8E4C', fontWeight: 400 }}>(för bekräftelse)</span></label>
-        <input type="email" placeholder="din@epost.se" value={mail} onChange={e => setMail(e.target.value)} />
+        <label htmlFor={`${ids}-mail`}>E-post <span style={{ color: 'rgba(0,0,0,0.72)', fontWeight: 400 }}>(för bekräftelse)</span></label>
+        <input id={`${ids}-mail`} type="email" autoComplete="email" placeholder="din@epost.se" value={mail} onChange={e => setMail(e.target.value)} />
       </div>
       <div className="kiosk-fld">
-        <label>Telefon</label>
-        <input placeholder="073-..." value={tel} onChange={e => setTel(e.target.value)} />
+        <label htmlFor={`${ids}-tel`}>Telefon</label>
+        <input id={`${ids}-tel`} type="tel" autoComplete="tel" placeholder="073-..." value={tel} onChange={e => setTel(e.target.value)} />
       </div>
       {error && (
-        <div className="alert alert-red" style={{ marginBottom: 12 }}>⚠ {error}</div>
+        <div role="alert" className="alert alert-red" style={{ marginBottom: 12 }}><Icon name="Alert" size={18} />{error}</div>
       )}
       <div className="modal-footer">
-        <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
+        <button className="btn btn-secondary btn-lg" onClick={closeModal}>Avbryt</button>
         <button className="btn btn-primary btn-lg" onClick={submit} disabled={loading}>
-          {loading ? 'Bokar...' : '✓ Anmäl mig'}
+          {loading ? 'Anmäler...' : 'Anmäl mig'}
         </button>
       </div>
     </>
@@ -85,26 +87,24 @@ export default function KioskPage() {
     const doSuccess = () => {
       const p = passes.find(x => x.id === passId)
       showModal(
-        <div style={{ textAlign: 'center', padding: '16px 0' }}>
-          <div style={{ width: 64, height: 64, background: '#28A88E', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, margin: '0 auto 16px' }}>✓</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#000', marginBottom: 8 }}>Tack, du är uppskriven!</div>
-          <div style={{ fontSize: 14, color: '#5F5E5A', marginBottom: 20, lineHeight: 1.6 }}>
+        <div role="status" style={{ textAlign: 'center', padding: '8px 0' }}>
+          <Icon name="CircleCheck" size={56} style={{ color: '#7D0037', margin: '0 auto 12px', display: 'block' }} />
+          <h2 style={{ fontSize: 26, fontWeight: 500, color: '#000', marginBottom: 8 }}>Tack, <span className="serif">du är anmäld</span></h2>
+          <div style={{ fontSize: 16, color: 'rgba(0,0,0,0.72)', marginBottom: 20, lineHeight: 1.6 }}>
             Du är nu anmäld till passet.{p && mail_hint(p)}
           </div>
           {p && (
-            <div style={{ background: '#FFEBE1', borderRadius: 12, padding: 16, marginBottom: 20, textAlign: 'left', borderLeft: '4px solid #28A88E' }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#000', marginBottom: 6 }}>{p.title}</div>
-              <div style={{ display: 'flex', gap: 14, fontSize: 13, color: '#5F5E5A', flexWrap: 'wrap' }}>
-                <span>📅 {p.date}</span><span>🕐 {p.time}</span><span>📍 {p.plats}</span>
-              </div>
+            <div className="panel" style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: 18, fontWeight: 500, color: '#000', marginBottom: 6 }}>{p.title}</div>
+              <PassMeta date={p.date} time={p.time} plats={p.plats} className="meta-row" />
             </div>
           )}
           <button
             className="btn btn-primary btn-lg"
-            style={{ width: '100%', justifyContent: 'center' }}
+            style={{ width: '100%' }}
             onClick={closeModal}
           >
-            🏠 Tillbaka
+            <Icon name="ArrowLeft" />Tillbaka till passen
           </button>
         </div>
       )
@@ -117,67 +117,71 @@ export default function KioskPage() {
       <div className="kiosk-header">
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 8,
-          background: '#7D0037', color: '#fff', borderRadius: 20,
-          padding: '6px 14px', fontSize: 12, fontWeight: 700,
-          marginBottom: 16, letterSpacing: '0.05em',
+          background: '#FFC3AA', color: '#000', borderRadius: 20,
+          padding: '6px 16px', fontSize: 15, fontWeight: 500,
+          marginBottom: 16,
         }}>
-          ✝ ANMÄLNINGSSTATION
+          <Icon name="DeviceIpad" size={18} />Anmälningsstation
         </div>
-        <h1>Skriv upp dig som volontär</h1>
+        <h1>Skriv upp dig <span className="serif">som volontär</span></h1>
         <p>Välj ett pass nedan och fyll i dina uppgifter.<br />Du behöver inte ha konto sedan tidigare.</p>
       </div>
 
       {visible.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#fff', borderRadius: 20, border: '1px solid rgba(125,0,55,0.08)' }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>📅</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: '#000', marginBottom: 8 }}>Inga lediga pass just nu</div>
-          <div style={{ fontSize: 14, color: '#5F5E5A', lineHeight: 1.6 }}>Det finns inga pass att anmäla sig till för tillfället.<br />Kontakta en anställd för mer information.</div>
+        <div className="panel empty-state">
+          <div className="empty-state-title">Inga lediga pass just nu</div>
+          <div>Det finns inga pass att anmäla sig till för tillfället.<br />Kontakta en anställd för mer information.</div>
         </div>
       ) : (
-        visible.map(p => {
-          const left = p.spots - p.filled
-          return (
-            <div key={p.id} className="kiosk-pass-card" onClick={() => openModal(p.id)}>
-              <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 12 }}>
-                <div style={{ background: '#FFEBE1', borderRadius: 12, padding: '10px 14px', textAlign: 'center', minWidth: 56, flexShrink: 0 }}>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: '#7D0037', lineHeight: 1 }}>
-                    {p.date ? new Date(p.date).getDate() : '–'}
-                  </div>
-                  <div style={{ fontSize: 11, color: '#BC8E4C', fontWeight: 700, textTransform: 'uppercase' }}>
-                    {p.date ? new Date(p.date).toLocaleDateString('sv', { month: 'short' }) : ''}
-                  </div>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div className="kiosk-pass-title">{p.title}</div>
-                  <div style={{ display: 'flex', gap: 14, fontSize: 14, color: '#5F5E5A', flexWrap: 'wrap' }}>
-                    <span>🕐 {p.time}</span><span>📍 {p.plats}</span>
-                  </div>
-                </div>
-              </div>
-              {p.desc && <div style={{ fontSize: 13, color: '#5F5E5A', marginBottom: 14, lineHeight: 1.6 }}>{p.desc}</div>}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-                  {Array.from({ length: Math.min(p.spots, 12) }, (_, i) => (
-                    <div key={i} style={{
-                      width: 12, height: 12, borderRadius: '50%',
-                      background: i < p.filled ? '#7D0037' : '#FFEBE1',
-                      border: i < p.filled ? 'none' : '1.5px solid #BC8E4C',
-                    }} />
-                  ))}
-                  <span style={{ fontSize: 14, fontWeight: 700, color: left <= 2 ? '#FF785A' : '#28A88E', marginLeft: 8 }}>
-                    {left} plats{left !== 1 ? 'er' : ''} kvar
-                  </span>
-                </div>
-                <button className="btn btn-primary">Anmäl mig →</button>
-              </div>
-            </div>
-          )
-        })
+        visible.map(p => <KioskCard key={p.id} pass={p} onOpen={() => openModal(p.id)} />)
       )}
     </div>
   )
 }
 
-function mail_hint(p: any) {
-  return p.vk ? ` Vakmästare: ${p.vk}${p.tel ? ', ' + p.tel : ''}.` : ''
+function KioskCard({ pass: p, onOpen }: { pass: PassData; onOpen: () => void }) {
+  const left = p.spots - p.filled
+  const [y, m, d] = p.date ? p.date.split('-').map(Number) : []
+  const date = p.date ? new Date(y, m - 1, d) : null
+  return (
+    // Hela kortet går att trycka på. Knappen är det som nås med tangentbord och skärmläsare.
+    <div className="kiosk-pass-card" onClick={onOpen} style={{ flexDirection: 'column' }}>
+      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', marginBottom: 12 }}>
+        <div style={{ background: '#FFEBE1', borderRadius: 14, padding: '10px 14px', textAlign: 'center', minWidth: 64, flexShrink: 0, lineHeight: 1 }}>
+          <div style={{ fontSize: 28, fontWeight: 500, color: '#7D0037' }}>{date ? date.getDate() : '–'}</div>
+          <div className="serif" style={{ fontSize: 16, color: '#000', marginTop: 4 }}>
+            {date ? date.toLocaleDateString('sv-SE', { month: 'short' }).replace('.', '') : ''}
+          </div>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h2 className="kiosk-pass-title">{p.title}</h2>
+          <PassMeta time={p.time} plats={p.plats} className="meta-row" />
+        </div>
+      </div>
+      {p.desc && <div style={{ fontSize: 15, color: 'rgba(0,0,0,0.72)', marginBottom: 14, lineHeight: 1.6 }}>{p.desc}</div>}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span aria-hidden="true" style={{ display: 'flex', gap: 5 }}>
+            {Array.from({ length: Math.min(p.spots, 12) }, (_, i) => (
+              <span key={i} className={`dot ${i < p.filled ? 'dot-on' : 'dot-off'}`} />
+            ))}
+          </span>
+          <span style={{ fontSize: 16, fontWeight: 500, color: '#7D0037', marginLeft: 8 }}>
+            {left} plats{left !== 1 ? 'er' : ''} kvar
+          </span>
+        </div>
+        <button
+          type="button"
+          className="btn btn-primary btn-lg"
+          onClick={e => { e.stopPropagation(); onOpen() }}
+        >
+          Anmäl mig<span className="sr-only"> till {p.title}</span>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function mail_hint(p: PassData) {
+  return p.vk ? ` Vaktmästare: ${p.vk}${p.tel ? ', ' + p.tel : ''}.` : ''
 }

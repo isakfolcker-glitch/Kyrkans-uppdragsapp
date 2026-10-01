@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useApp } from '@/lib/appStore'
+import Icon, { PassMeta } from '@/components/ui/Icon'
 
 export default function SendToBookedModal({ passId }: { passId: number }) {
   const { passes, closeModal, addMessage, u } = useApp()
@@ -18,19 +19,19 @@ export default function SendToBookedModal({ passId }: { passId: number }) {
 
   return (
     <>
-      <div className="modal-title">✉ Skicka till bokade</div>
-      <div style={{ background: '#F1EFE8', borderRadius: 8, padding: '10px 13px', marginBottom: 12 }}>
-        <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2A' }}>{p.title}</div>
-        <div style={{ fontSize: 12, color: '#888780' }}>{p.date} · {p.time} · {p.bookings.length} mottagare</div>
+      <h2 className="modal-title">Skicka till bokade</h2>
+      <div className="panel" style={{ padding: '12px 14px', marginBottom: 12 }}>
+        <div style={{ fontSize: 15, fontWeight: 500, color: '#000' }}>{p.title}</div>
+        <div style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)' }}>{p.date} · {p.time} · {p.bookings.length} mottagare</div>
       </div>
       {p.bookings.length - withMail > 0 && (
-        <div className="alert alert-amber">⚠️ {p.bookings.length - withMail} bokade saknar e-post.</div>
+        <div className="alert alert-amber"><Icon name="Alert" size={18} />{p.bookings.length - withMail} bokade saknar e-post.</div>
       )}
-      <div className="form-field"><label>Ämne</label><input placeholder="ex. Påminnelse om passet" value={subject} onChange={e => setSubject(e.target.value)} /></div>
-      <div className="form-field"><label>Meddelande</label><textarea placeholder="Skriv ditt meddelande..." value={body} onChange={e => setBody(e.target.value)} /></div>
+      <div className="form-field"><label htmlFor="sendtobooked-f1">Ämne</label><input id="sendtobooked-f1" placeholder="ex. Påminnelse om passet" value={subject} onChange={e => setSubject(e.target.value)} /></div>
+      <div className="form-field"><label htmlFor="sendtobooked-f2">Meddelande</label><textarea id="sendtobooked-f2" placeholder="Skriv ditt meddelande..." value={body} onChange={e => setBody(e.target.value)} /></div>
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
-        <button className="btn btn-primary" onClick={send}>✉ Skicka ({withMail} pers)</button>
+        <button className="btn btn-primary" onClick={send}><Icon name="Send" size={18} />Skicka ({withMail} personer)</button>
       </div>
     </>
   )
