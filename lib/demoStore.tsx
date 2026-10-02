@@ -126,7 +126,12 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
   }
 
   const goTo        = (p: string) => { setPage(p); setModal(null) }
-  const setChurch   = (i: number) => setActiveChurch(i)
+  const setChurch = (i: number) => {
+    if (!availableChurches.some(church => church.id === churches[i]?.id)) return
+    setActiveChurch(i)
+    setGroupFilter('alla')
+    setModal(null)
+  }
   const setFilter   = (f: string) => setGroupFilter(f)
   const showModal   = (content: ReactNode) => setModal(content)
   const closeModal  = () => setModal(null)

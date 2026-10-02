@@ -11,8 +11,8 @@ export const DEMO_GROUPS: Group[] = [
 ]
 
 export const DEMO_CHURCHES: Church[] = [
-  { id: 1, name: 'Domkyrkan', admin: 'Sarah Björk', tel: '08-123 45 67', address: 'Domkyrkoplan 1, Stockholm' },
-  { id: 2, name: 'Hovförsamlingen', admin: 'Anna Ström', tel: '08-789 01 23', address: 'Slottsbacken 1, Stockholm' },
+  { id: 1, name: 'Domkyrkan', admin: 'Sarah Björk', tel: '08-123 45 67', address: 'Domkyrkoplan 1, Stockholm', pastoratId: 1 },
+  { id: 2, name: 'Hovförsamlingen', admin: 'Anna Ström', tel: '08-789 01 23', address: 'Slottsbacken 1, Stockholm', pastoratId: 1 },
 ]
 
 export const DEMO_PASTORAT: PastoratData[] = [

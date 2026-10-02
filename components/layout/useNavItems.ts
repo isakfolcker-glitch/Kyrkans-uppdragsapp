@@ -1,6 +1,6 @@
 'use client'
 import { useApp } from '@/lib/appStore'
-import { NAV_ITEMS } from '@/lib/appData'
+import { navigationForRole } from '@/lib/navigation'
 
 export type NavItem = { id: string; icon: string; lbl: string }
 
@@ -11,21 +11,12 @@ export type NavItem = { id: string; icon: string; lbl: string }
  */
 export function useNavItems(): NavItem[] {
   const { u, perm } = useApp()
-  const role = u().role
-  let items = NAV_ITEMS[role] || []
-
-  if (role === 'anstalld') {
-    const extra: NavItem[] = []
-    if (perm('kan_se_personal') || perm('kan_lagg_till_personal')) extra.push({ id: 'personal', icon: 'Users', lbl: 'Personal' })
-    if (perm('kan_hantera_grupper')) extra.push({ id: 'grupper', icon: 'UsersGroup', lbl: 'Grupper' })
-    if (perm('kan_skicka_utskick')) extra.push({ id: 'utskick', icon: 'Send', lbl: 'Utskick' })
-    if (extra.length > 0) {
-      const passIdx = items.findIndex(x => x.id === 'pass')
-      items = [...items.slice(0, passIdx + 1), ...extra, ...items.slice(passIdx + 1)]
-    }
-  }
-
-  return items
+  return navigationForRole(u().role, {
+    kan_se_personal: perm('kan_se_personal'),
+    kan_lagg_till_personal: perm('kan_lagg_till_personal'),
+    kan_hantera_grupper: perm('kan_hantera_grupper'),
+    kan_skicka_utskick: perm('kan_skicka_utskick'),
+  })
 }
 
 /** Antal olästa notiser för den inloggade (eller demoanvändaren). */

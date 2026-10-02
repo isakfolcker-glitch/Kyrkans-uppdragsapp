@@ -49,8 +49,8 @@ export default function AuthConfirmPage() {
 
       // Bakåtkompatibilitet under utrullningen av migration 016.
       const hasLegacyChurch = Boolean(profile?.church_id)
-      const isLegacySuper = profile?.admin_level === 'super'
-      const hasAccess = names.length > 0 || hasLegacyChurch || isLegacySuper
+      const { data: isOwner } = await supabase.rpc('is_system_super_admin')
+      const hasAccess = names.length > 0 || hasLegacyChurch || isOwner === true
 
       if (!hasAccess && !membershipError) {
         setAccessError('Ditt konto saknar en aktiv församlingsinbjudan. Kontakta en administratör i din församling.')

@@ -31,8 +31,9 @@ describe('canAssignLevel', () => {
     expect(canAssignLevel('pastorat', 'pastorat')).toBe(true)
     expect(canAssignLevel('pastorat', 'super')).toBe(false)
   })
-  it('superadmin kan ge alla nivåer', () => {
-    expect(canAssignLevel('super', 'super')).toBe(true)
+  it('systemägaren kan ge pastoratsnivå men aldrig dela ut systemägarskap', () => {
+    expect(canAssignLevel('super', 'pastorat')).toBe(true)
+    expect(canAssignLevel('super', 'super')).toBe(false)
   })
   it('ideell kan inte ge någon nivå alls', () => {
     expect(canAssignLevel('none', 'none')).toBe(false)
@@ -83,4 +84,12 @@ describe('levelInChurch (medlemskap per församling)', () => {
     expect(levelInChurch(caller('none', []), 1, 1)).toBe('none')
     expect(isAdmin(caller('none', []))).toBe(false)
   })
+})
+
+
+it('rå superflagga i medlemskap ger inte systemnivå utan verifierad ägarstatus', () => {
+  const legacy = { id: 'legacy', email: null, name: 'Test', isSuper: false, adminLevel: 'pastorat' as const,
+    memberships: [{ churchId: 1, pastoratId: 10, role: 'superadmin', adminLevel: 'super' as const }] }
+  expect(levelInChurch(legacy, 1, 10)).toBe('pastorat')
+  expect(levelInChurch(legacy, 2, 20)).toBe('none')
 })

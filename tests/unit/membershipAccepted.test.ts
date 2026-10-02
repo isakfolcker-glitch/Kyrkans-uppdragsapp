@@ -54,7 +54,7 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: currentUser } }) },
     from: builder,
-    rpc: async () => ({ data: false, error: null }),
+    rpc: async () => ({ data: currentUser?.id === 'super' && tables.system_owner?.some(r => r.profile_id === 'super'), error: null }),
   }),
 }))
 vi.mock('@/app/api/waitlist/route', () => ({ promoteFromWaitlist: async () => {} }))
@@ -75,6 +75,7 @@ beforeEach(() => {
   profileUpdates.length = 0
   // Församling 1 och 2 i pastorat 1, församling 3 i pastorat 2.
   tables = {
+    system_owner: [{ profile_id: 'super' }],
     churches: [{ id: 1, pastorat_id: 1 }, { id: 2, pastorat_id: 1 }, { id: 3, pastorat_id: 2 }],
     profiles: [
       { id: 'admin-1', name: 'Admin Ett', admin_level: 'none', email: 'admin1@test.invalid' },
@@ -185,5 +186,22 @@ describe('people/[id] PATCH: e-post', () => {
     const res = await person.PATCH(req('/api/people/vol-only-1', 'PATCH', { church_id: 1, email: 'Ny@Test.invalid' }), params('vol-only-1'))
     expect(res.status).toBe(200)
     expect(tables.profiles.find(p => p.id === 'vol-only-1')?.email).toBe('ny@test.invalid')
+  })
+})
+
+
+describe('låst systemägare', () => {
+  it('en gammal superflagga ger ingen global behörighet utan ägarpost', async () => {
+    tables.system_owner = []
+    login('super')
+    const { caller } = await authz.getCaller()
+    expect(caller?.isSuper).toBe(false)
+    expect(await authz.canAdminChurch(caller!, 3)).toBe(false)
+  })
+  it('lokal administratör kan inte administrera ägaren trots låg profilroll', async () => {
+    tables.system_owner = [{ profile_id: 'vol-only-1' }]
+    login('admin-1')
+    const { caller } = await authz.getCaller()
+    expect(await authz.canAdminProfile(caller!, 'vol-only-1')).toBe(false)
   })
 })
