@@ -90,6 +90,7 @@ describe('grupp-API', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({ groups: [{ memberIds: ['member-a'] }], people: [{ name: 'Test Person' }] })
     expect(queryCalls).toContainEqual({ table: 'profile_churches', method: 'eq', args: ['church_id', 1] })
+    expect(queryCalls).toContainEqual({ table: 'groups', method: 'eq', args: ['church_id', 1] })
     expect(queryCalls).toContainEqual({ table: 'profile_churches', method: 'eq', args: ['active', true] })
     expect(queryCalls).toContainEqual({ table: 'profile_churches', method: 'not', args: ['accepted_at', 'is', null] })
     expect(JSON.stringify(queryCalls)).not.toMatch(/email|phone/)

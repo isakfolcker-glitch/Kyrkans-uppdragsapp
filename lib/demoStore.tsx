@@ -189,7 +189,7 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
   const deleteGroup    = (id: string) => setGroups(prev => prev.filter(g => g.id !== id))
 
   const getGroupManagement = useCallback(async (churchId: number): Promise<GroupManagementData> => ({
-    groups: groups.filter(group => group.churchId === churchId || group.churchId == null).map(group => ({
+    groups: groups.filter(group => group.churchId === churchId).map(group => ({
       ...group, memberIds: people.filter(person => person.church === churchId && person.groups.includes(group.id)).map(person => String(person.id)),
     })),
     people: people.filter(person => person.church === churchId && person.role !== 'kiosk').map(person => ({

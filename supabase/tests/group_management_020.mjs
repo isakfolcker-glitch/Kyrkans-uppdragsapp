@@ -27,6 +27,8 @@ try {
     CREATE TABLE public.profile_churches(profile_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE, church_id int REFERENCES public.churches(id) ON DELETE CASCADE,
       role text NOT NULL, is_employee boolean NOT NULL, active boolean NOT NULL DEFAULT true, accepted_at timestamptz, PRIMARY KEY(profile_id, church_id));
     CREATE TABLE public.profile_groups(profile_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE, group_id text REFERENCES public.groups(id) ON DELETE CASCADE, PRIMARY KEY(profile_id, group_id));
+    CREATE TABLE public.passes(id int PRIMARY KEY, church_id int REFERENCES public.churches(id));
+    CREATE TABLE public.pass_groups(pass_id int REFERENCES public.passes(id), group_id text REFERENCES public.groups(id) ON DELETE CASCADE, PRIMARY KEY(pass_id, group_id));
     INSERT INTO public.churches VALUES(1),(2);
   `)
   for (const [index, id] of ids.entries()) await db.query('INSERT INTO public.profiles VALUES($1,$2)', [id, `Invented Person ${index}`])
@@ -34,11 +36,30 @@ try {
     ($1,1,'anstalld',true,true,now()),($2,1,'ideell',false,true,now()),($3,2,'anstalld',true,true,now()),
     ($4,1,'anstalld',true,true,NULL),($5,1,'anstalld',true,false,now()),($6,1,'kiosk',false,true,now())`, ids)
   await db.exec("INSERT INTO public.groups VALUES('existing','Existing','tag-extra',1),('unrelated','Unrelated','tag-extra',2)")
+  await db.exec("INSERT INTO public.groups VALUES('legacy','Legacy shared group','tag-kv',NULL); INSERT INTO public.passes VALUES(101,1),(102,2); INSERT INTO public.pass_groups VALUES(101,'legacy'),(102,'legacy')")
+  await db.query("INSERT INTO public.profile_groups VALUES($1,'legacy'),($2,'legacy')", [volunteerA, staffB])
   const migration = await readFile(new URL('../migrations/020_grupphantering.sql', import.meta.url), 'utf8')
   await db.exec(migration)
   await check('migration is repeatable and preserves existing groups', async () => {
     await db.exec(migration)
-    assert.equal((await one('SELECT count(*)::int AS count FROM public.groups')).count, 2)
+    assert.equal((await one('SELECT count(*)::int AS count FROM public.groups')).count, 5)
+  })
+  await check('legacy shared groups get independent local copies with preserved member and pass links', async () => {
+    const localA = await one("SELECT id,label,cls FROM public.groups WHERE source_group_id='legacy' AND church_id=1")
+    const localB = await one("SELECT id FROM public.groups WHERE source_group_id='legacy' AND church_id=2")
+    assert.notEqual(localA.id, localB.id)
+    assert.equal(localA.label, 'Legacy shared group')
+    assert.equal(localA.cls, 'tag-kv')
+    assert.equal((await one(`SELECT count(*)::int AS count FROM public.profile_groups WHERE profile_id='${volunteerA}' AND group_id='${localA.id}'`)).count, 1)
+    assert.equal((await one(`SELECT count(*)::int AS count FROM public.profile_groups WHERE profile_id='${volunteerA}' AND group_id='${localB.id}'`)).count, 0)
+    assert.equal((await one(`SELECT group_id FROM public.pass_groups WHERE pass_id=101`)).group_id, localA.id)
+    assert.equal((await one(`SELECT group_id FROM public.pass_groups WHERE pass_id=102`)).group_id, localB.id)
+    await save(localA.id, 1, staffA, [], [volunteerA])
+    assert.equal((await one(`SELECT count(*)::int AS count FROM public.profile_groups WHERE profile_id='${staffB}' AND group_id='${localB.id}'`)).count, 1)
+    assert.equal((await one(`SELECT label FROM public.groups WHERE id='${localB.id}'`)).label, 'Legacy shared group')
+    assert.equal((await one("SELECT count(*)::int AS count FROM public.groups WHERE id='legacy'")).count, 1)
+    await db.exec(migration)
+    assert.equal((await one(`SELECT count(*)::int AS count FROM public.profile_groups WHERE profile_id='${volunteerA}' AND group_id='${localA.id}'`)).count, 0)
   })
   await check('create group with members and eligible employee atomically', async () => {
     await save('a', 1, staffA, [volunteerA, staffA], [], true)

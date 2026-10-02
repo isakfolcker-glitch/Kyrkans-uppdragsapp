@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   // Läs endast namn, lokal roll och gruppkopplingar; aldrig mail/telefon.
   const admin = createAdminClient()
   const [groupResult, membershipResult] = await Promise.all([
-    admin.from('groups').select('*').or(`church_id.eq.${churchId},church_id.is.null`).order('label'),
+    admin.from('groups').select('*').eq('church_id', churchId).order('label'),
     admin.from('profile_churches')
       .select('profile_id, role, is_employee, profiles!inner(name, profile_groups(group_id))')
       .eq('church_id', churchId).eq('active', true).not('accepted_at', 'is', null).neq('role', 'kiosk'),

@@ -7,6 +7,49 @@ ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS responsible_profile_id UUID
 CREATE INDEX IF NOT EXISTS groups_responsible_profile_idx
   ON public.groups(responsible_profile_id) WHERE responsible_profile_id IS NOT NULL;
 
+-- Äldre standardgrupper skapades utan church_id. Gör egna kopior för varje
+-- församling så att deras medlemmar och kontaktperson kan hanteras oberoende.
+-- Originalrader och äldre profilkopplingar behålls för bakåtkompatibilitet.
+ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS source_group_id TEXT
+  REFERENCES public.groups(id) ON DELETE SET NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS groups_church_source_idx
+  ON public.groups(church_id, source_group_id) WHERE source_group_id IS NOT NULL;
+
+-- Kopiera kopplingar endast till NYA kopior. En omkörning ska inte återställa
+-- medlemmar som användaren redan har tagit bort ur en lokal grupp.
+CREATE TEMP TABLE group_copies_020 ON COMMIT DROP AS
+WITH copies AS (
+  INSERT INTO public.groups(id, label, cls, church_id, source_group_id)
+  SELECT 'grupp_' || gen_random_uuid()::text, original.label, original.cls, church.id, original.id
+  FROM public.groups original CROSS JOIN public.churches church
+  WHERE original.church_id IS NULL
+    AND NOT EXISTS (SELECT 1 FROM public.groups local
+      WHERE local.source_group_id = original.id AND local.church_id = church.id)
+  RETURNING id, church_id, source_group_id
+) SELECT * FROM copies;
+
+INSERT INTO public.profile_groups(profile_id, group_id)
+SELECT old_link.profile_id, local.id
+FROM public.profile_groups old_link
+JOIN pg_temp.group_copies_020 local ON local.source_group_id = old_link.group_id
+JOIN public.profile_churches membership ON membership.profile_id = old_link.profile_id
+  AND membership.church_id = local.church_id AND membership.active
+  AND membership.accepted_at IS NOT NULL
+ON CONFLICT (profile_id, group_id) DO NOTHING;
+
+INSERT INTO public.pass_groups(pass_id, group_id)
+SELECT old_link.pass_id, local.id
+FROM public.pass_groups old_link
+JOIN public.passes pass ON pass.id = old_link.pass_id
+JOIN public.groups local ON local.source_group_id = old_link.group_id
+  AND local.church_id = pass.church_id
+ON CONFLICT (pass_id, group_id) DO NOTHING;
+
+DELETE FROM public.pass_groups old_link
+USING public.passes pass, public.groups local
+WHERE pass.id = old_link.pass_id AND local.church_id = pass.church_id
+  AND local.source_group_id = old_link.group_id;
+
 CREATE OR REPLACE FUNCTION public.validate_group_responsible()
 RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
 BEGIN

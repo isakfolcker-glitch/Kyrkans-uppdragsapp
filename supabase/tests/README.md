@@ -20,7 +20,8 @@ PGLITE_MODULE_PATH=/tmp/group-sql node supabase/tests/group_management_020.mjs
 
 Testerna kontrollerar transaktioner, församlingsgränser, ansvarigas medlemskap,
 städning när medlemskap ändras eller tas bort, funktionens anropsrättigheter och
-att migrationen kan köras igen. Alla 19 kontroller ska passera. Detta kompletterar
+att migrationen kan köras igen och bevarar kopplingar när äldre gemensamma grupper
+får egna kopior per församling. Alla 20 kontroller ska passera. Detta kompletterar
 API-enhetstesterna; befintliga RLS-tester och inloggade flöden måste även verifieras
 mot testprojektet före produktionssättning. Kör migration 020 efter 019 och först
 mot testdatabasen. Gamla migrationsfiler ändras inte.

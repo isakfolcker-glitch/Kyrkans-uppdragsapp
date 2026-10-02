@@ -309,7 +309,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    const { data: groupData } = await supabase.from('groups').select('*')
+    const { data: groupData } = await supabase.from('groups').select('*').not('church_id', 'is', null)
     const mappedGroups: Group[] = (groupData ?? []).map((group: any) => ({
       id: group.id,
       label: group.label,
@@ -383,7 +383,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const profileGroups = rawProfile?.profile_groups?.map((g: any) => g.group_id) || []
         const visibleGroupIds = profileGroups.filter((groupId: string) => {
           const group = mappedGroups.find(item => item.id === groupId)
-          return !group || group.churchId === null || group.churchId === membership.church_id
+          return Boolean(group && group.churchId === membership.church_id)
         })
         return {
           id: rawProfile?.id,
@@ -512,7 +512,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const profileGroupIds = profile?.profile_groups?.map((group: any) => group.group_id) ?? []
     return profileGroupIds.filter((groupId: string) => {
       const group = groups.find(item => item.id === groupId)
-      return !group || group.churchId === null || group.churchId === churchId
+      return Boolean(group && group.churchId === churchId)
     })
   }
 
