@@ -1,7 +1,7 @@
 export type Role = 'ideell' | 'anstalld' | 'fadmin' | 'padmin' | 'superadmin' | 'kiosk'
 export type AdminLevel = 'none' | 'forsamling' | 'pastorat' | 'super'
 
-export interface Group { id: string; label: string; cls: string; churchId?: number | null }
+export interface Group { id: string; label: string; cls: string; churchId?: number | null; responsibleProfileId?: string | null }
 export interface Church { id?: number; name: string; admin: string; tel: string; address?: string; pastoratId?: number | null }
 export interface PersonData {
   id: any; name: string; mail: string; phone?: string

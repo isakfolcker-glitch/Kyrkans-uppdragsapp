@@ -1,9 +1,10 @@
 'use client'
-import { useState, ReactNode, createContext, useContext } from 'react'
+import { useState, useCallback, ReactNode, createContext, useContext } from 'react'
 import { Ctx, ALL_PERMS, NO_PERMS, StaffPerms } from '@/lib/appStore'
 import type { PassMessage } from '@/types'
 import { Group, Church, PersonData, PassData, MessageData, NotifData, ChurchMembershipData, NAV_ITEMS } from '@/lib/appData'
 import { DEMO_GROUPS, DEMO_CHURCHES, DEMO_PASTORAT, DEMO_USERS, DEMO_PEOPLE, DEMO_PASSES, DEMO_MESSAGES, DEMO_NOTIFICATIONS, DEMO_COMMENTS } from '@/lib/demoData'
+import { applyGroupMemberships, isGroupEmployee, type GroupManagementData, type SaveGroupInput } from './groupManagement'
 
 let _nextId = 200
 let _nextCommentId = 1000
@@ -92,9 +93,9 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
   }))
   const availableChurches = churches.filter(church => church.id !== undefined && usr.churches.includes(church.id))
   const currentMembership = () => memberships.find(membership => membership.churchId === currentChurchId()) ?? null
-  const currentGroups = () => usr.groups
+  const currentGroups = () => people.find(person => String(person.id) === String(usr.id) && person.church === currentChurchId())?.groups ?? []
 
-  const u = () => DEMO_USERS[userIndex]
+  const u = () => ({ ...DEMO_USERS[userIndex], groups: currentGroups() })
 
   const addNotif = (type: string, title: string, body: string) => {
     setNotifs(prev => [{ id: Date.now(), userId: usr.id, type, title, body, time: new Date().toISOString(), read: false }, ...prev])
@@ -187,6 +188,34 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
   const addGroup       = (g: Group)  => setGroups(prev => [...prev, g])
   const deleteGroup    = (id: string) => setGroups(prev => prev.filter(g => g.id !== id))
 
+  const getGroupManagement = useCallback(async (churchId: number): Promise<GroupManagementData> => ({
+    groups: groups.filter(group => group.churchId === churchId || group.churchId == null).map(group => ({
+      ...group, memberIds: people.filter(person => person.church === churchId && person.groups.includes(group.id)).map(person => String(person.id)),
+    })),
+    people: people.filter(person => person.church === churchId && person.role !== 'kiosk').map(person => ({
+      id: String(person.id), name: person.name, role: person.role, isEmployee: person.isEmployee,
+    })),
+  }), [groups, people])
+
+  const saveManagedGroup = async (input: SaveGroupInput): Promise<Group> => {
+    if (!perm('kan_hantera_grupper') || input.churchId !== currentChurchId()) throw new Error('Saknar behörighet i församlingen.')
+    const candidates = people.filter(person => person.church === input.churchId && person.role !== 'kiosk')
+    if ([...input.addMemberIds, ...input.removeMemberIds].some(id => !candidates.some(person => String(person.id) === id))) throw new Error('Personen tillhör inte församlingen.')
+    if (input.responsibleProfileId && !candidates.some(person => String(person.id) === input.responsibleProfileId && isGroupEmployee(person))) throw new Error('Ansvarig måste vara anställd i församlingen.')
+    if (input.id && !groups.some(group => group.id === input.id && group.churchId === input.churchId)) throw new Error('Gruppen tillhör inte församlingen.')
+    const group: Group = { id: input.id ?? `demo_${crypto.randomUUID()}`, label: input.label.trim(), cls: input.cls, churchId: input.churchId, responsibleProfileId: input.responsibleProfileId }
+    setGroups(prev => input.id ? prev.map(item => item.id === group.id ? group : item) : [...prev, group])
+    setPeople(prev => applyGroupMemberships(prev, group.id, input.churchId, input.addMemberIds, input.removeMemberIds))
+    return group
+  }
+
+  const removeManagedGroup = async (id: string) => {
+    if (!perm('kan_hantera_grupper') || !groups.some(group => group.id === id && group.churchId === currentChurchId())) throw new Error('Saknar behörighet för gruppen.')
+    deleteGroup(id)
+    setPeople(prev => prev.map(person => ({ ...person, groups: person.groups.filter(group => group !== id) })))
+    setPasses(prev => prev.map(pass => ({ ...pass, groups: pass.groups.filter(group => group !== id) })))
+  }
+
   const nextPersonId   = () => _nextId++
   const nextPassId     = () => _nextId++
   const nextPastoratId = () => _nextId++
@@ -229,7 +258,7 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
       addPass, updatePass, deletePass, cancelPass, reloadPasses, addBooking, removeBooking,
       addPerson, updatePerson, deletePerson, addMessage,
       addChurch, updateChurch, deleteChurch,
-      addPastorat, updatePastorat, deletePastorat, addGroup, deleteGroup,
+      addPastorat, updatePastorat, deletePastorat, addGroup, deleteGroup, getGroupManagement, saveManagedGroup, removeManagedGroup,
       nextPersonId, nextPassId, nextPastoratId, updateStaffPerms,
       getResponsibleNames, currentChurchId, currentMembership, currentGroups, logout, inviteUser,
     }}>

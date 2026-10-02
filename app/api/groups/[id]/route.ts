@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCaller, canAdminOrStaff, type Caller, unauthorized, forbidden } from '@/lib/authz'
+import { saveGroupEditor } from '@/lib/groupsServer'
 
 /**
  * Gemensamma grupper (utan församling): bara superadmin.
@@ -18,12 +19,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!caller) return unauthorized()
 
   const admin = createAdminClient()
-  const { data: group } = await admin.from('groups').select('church_id').eq('id', id).maybeSingle()
+  const { data: group, error: groupError } = await admin.from('groups').select('church_id').eq('id', id).maybeSingle()
+  if (groupError) return NextResponse.json({ error: 'Kunde inte läsa gruppen.' }, { status: 500 })
   if (!group) return NextResponse.json({ error: 'Gruppen finns inte' }, { status: 404 })
   if (!(await canManageGroup(caller, group.church_id))) return forbidden('Saknar behörighet för den här gruppen')
 
-  // Bara namn och färg får ändras. Församlingen ändras aldrig härifrån.
-  const body = await req.json()
+  // Församlingen ändras aldrig härifrån. Komplett redigering sparas atomärt.
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: 'Ogiltig grupp.' }, { status: 400 })
+  if ('responsible_profile_id' in body || 'add_member_ids' in body || 'remove_member_ids' in body) {
+    if (group.church_id === null || body.church_id !== group.church_id) return forbidden('Gruppen tillhör inte vald församling.')
+    return saveGroupEditor(body, id)
+  }
   const update: Record<string, string> = {}
   if ('label' in body) {
     const label = typeof body.label === 'string' ? body.label.trim() : ''
@@ -47,7 +54,8 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
   if (!caller) return unauthorized()
 
   const admin = createAdminClient()
-  const { data: group } = await admin.from('groups').select('church_id').eq('id', id).maybeSingle()
+  const { data: group, error: groupError } = await admin.from('groups').select('church_id').eq('id', id).maybeSingle()
+  if (groupError) return NextResponse.json({ error: 'Kunde inte läsa gruppen.' }, { status: 500 })
   if (!group) return NextResponse.json({ error: 'Gruppen finns inte' }, { status: 404 })
   if (!(await canManageGroup(caller, group.church_id))) return forbidden('Saknar behörighet för den här gruppen')
 

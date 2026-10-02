@@ -1,11 +1,12 @@
 'use client'
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   GROUPS, CHURCHES, NAV_ITEMS, INITIAL_PEOPLE, INITIAL_PASSES, INITIAL_MESSAGES, INITIAL_NOTIFICATIONS,
   Group, Church, PersonData, PassData, MessageData, NotifData, PastoratData, UserDef, ChurchMembershipData, USERS,
   ini2, gLabel, gCls, roleLabel,
 } from './appData'
+import { applyGroupMemberships, type GroupManagementData, type SaveGroupInput } from './groupManagement'
 
 // ─── Types ───────────────────────────────────────────
 export interface StaffPerms {
@@ -72,6 +73,9 @@ interface AppCtx {
   deleteChurch: (idx: number) => void
   addPastorat: (p: PastoratData) => Promise<void>; updatePastorat: (p: PastoratData) => Promise<void>
   deletePastorat: (id: number) => Promise<void>; addGroup: (g: Group) => void; deleteGroup: (id: string) => void
+  getGroupManagement: (churchId: number) => Promise<GroupManagementData>
+  saveManagedGroup: (input: SaveGroupInput) => Promise<Group>
+  removeManagedGroup: (id: string) => Promise<void>
   nextPersonId: () => number; nextPassId: () => number; nextPastoratId: () => number
   getResponsibleNames: (pass: PassData) => string; currentChurchId: () => number
   currentMembership: () => ChurchMembershipData | null; currentGroups: () => string[]
@@ -311,6 +315,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       label: group.label,
       cls: group.cls,
       churchId: group.church_id ?? null,
+      responsibleProfileId: group.responsible_profile_id ?? null,
     }))
     setGroups(mappedGroups)
 
@@ -808,6 +813,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const addGroup     = (g: Group)      => setGroups(prev => [...prev, g])
   const deleteGroup  = (id: string)    => setGroups(prev => prev.filter(g => g.id !== id))
 
+  const getGroupManagement = useCallback(async (churchId: number): Promise<GroupManagementData> => {
+    const response = await fetch(`/api/groups?church_id=${churchId}`, { cache: 'no-store' })
+    const data = await response.json()
+    if (!response.ok) throw new Error(data.error ?? 'Kunde inte läsa grupperna.')
+    return data
+  }, [])
+
+  const saveManagedGroup = async (input: SaveGroupInput): Promise<Group> => {
+    const response = await fetch(input.id ? `/api/groups/${encodeURIComponent(input.id)}` : '/api/groups', {
+      method: input.id ? 'PATCH' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ church_id: input.churchId, label: input.label, cls: input.cls,
+        responsible_profile_id: input.responsibleProfileId,
+        add_member_ids: input.addMemberIds, remove_member_ids: input.removeMemberIds }),
+    })
+    const data = await response.json()
+    if (!response.ok) throw new Error(data.error ?? 'Kunde inte spara gruppen.')
+    const group: Group = { id: data.id, label: data.label, cls: data.cls, churchId: data.church_id, responsibleProfileId: data.responsible_profile_id }
+    setGroups(prev => input.id ? prev.map(item => item.id === group.id ? group : item) : [...prev, group])
+    setPeople(prev => applyGroupMemberships(prev, group.id, input.churchId, input.addMemberIds, input.removeMemberIds))
+    if (currentUser && (input.addMemberIds.includes(currentUser.id) || input.removeMemberIds.includes(currentUser.id))) {
+      setProfile((prev: { profile_groups?: { group_id: string }[] } | null) => {
+        if (!prev) return prev
+        const current = (prev.profile_groups ?? []) as { group_id: string }[]
+        const filtered = current.filter(item => item.group_id !== group.id)
+        return { ...prev, profile_groups: input.addMemberIds.includes(currentUser.id) ? [...filtered, { group_id: group.id }] : filtered }
+      })
+    }
+    return group
+  }
+
+  const removeManagedGroup = async (id: string) => {
+    const response = await fetch(`/api/groups/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    const data = await response.json()
+    if (!response.ok) throw new Error(data.error ?? 'Kunde inte ta bort gruppen.')
+    deleteGroup(id)
+    setPeople(prev => prev.map(person => ({ ...person, groups: person.groups.filter(group => group !== id) })))
+    setPasses(prev => prev.map(pass => ({ ...pass, groups: pass.groups.filter(group => group !== id) })))
+    setProfile((prev: { profile_groups?: { group_id: string }[] } | null) => prev ? { ...prev, profile_groups: (prev.profile_groups ?? []).filter(item => item.group_id !== id) } : prev)
+  }
+
   const updateStaffPerms = async (profileId: string, perms: StaffPerms) => {
     const churchId = currentChurchId()
     const res = await fetch(`/api/people/${profileId}`, {
@@ -852,7 +898,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addPass, updatePass, deletePass, cancelPass, reloadPasses, addBooking, removeBooking,
       addPerson, updatePerson, deletePerson, addMessage,
       addChurch, updateChurch, deleteChurch,
-      addPastorat, updatePastorat, deletePastorat, addGroup, deleteGroup,
+      addPastorat, updatePastorat, deletePastorat, addGroup, deleteGroup, getGroupManagement, saveManagedGroup, removeManagedGroup,
       nextPersonId, nextPassId, nextPastoratId, updateStaffPerms,
       getResponsibleNames, currentChurchId, currentMembership, currentGroups, logout, inviteUser,
     }}>
