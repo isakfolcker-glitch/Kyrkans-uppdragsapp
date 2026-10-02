@@ -27,7 +27,7 @@ export type Caller = {
   id: string
   email: string | null
   name: string
-  /** Systemsuperadmin: super i något aktivt medlemskap eller äldre profiles.admin_level = super. */
+  /** Endast den låsta systemägaren, verifierad genom databasen. */
   isSuper: boolean
   /** Högsta nivå i något aktivt medlemskap. Används bara som förkontroll, aldrig som ensam behörighet. */
   adminLevel: AdminLevel
@@ -71,6 +71,7 @@ export function isAdmin(caller: Caller | null): caller is Caller {
  * i den församling det gäller (inte högsta nivå någonstans).
  */
 export function canAssignLevel(callerLevelInChurch: AdminLevel, level: string): boolean {
+  if (level === 'super') return false
   if (callerLevelInChurch === 'super') return true
   if (callerLevelInChurch === 'pastorat') return ['none', 'forsamling', 'pastorat'].includes(level)
   if (callerLevelInChurch === 'forsamling') return ['none', 'forsamling'].includes(level)
@@ -85,7 +86,8 @@ export function canAssignLevel(callerLevelInChurch: AdminLevel, level: string): 
  */
 export function levelInChurch(caller: Caller, churchId: number, churchPastoratId: number | null): AdminLevel {
   if (caller.isSuper) return 'super'
-  const direct = caller.memberships.find(m => m.churchId === churchId)?.adminLevel ?? 'none'
+  const directLevel = caller.memberships.find(m => m.churchId === churchId)?.adminLevel ?? 'none'
+  const direct = directLevel === 'super' ? 'pastorat' : directLevel
   const pastoratAccess = churchPastoratId != null && caller.memberships.some(m =>
     levelRank(m.adminLevel) >= RANK.pastorat && m.pastoratId != null && m.pastoratId === churchPastoratId)
   return maxLevel(direct, pastoratAccess ? 'pastorat' : 'none')
@@ -97,6 +99,8 @@ export async function getCaller(): Promise<{ caller: Caller | null; supabase: Su
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { caller: null, supabase }
 
+  const { data: owner, error: ownerError } = await supabase.rpc('is_system_super_admin')
+  const isSuper = !ownerError && owner === true
   const admin = createAdminClient()
   const [{ data: p }, { data: rows }] = await Promise.all([
     admin.from('profiles').select('name, admin_level').eq('id', user.id).maybeSingle(),
@@ -113,11 +117,10 @@ export async function getCaller(): Promise<{ caller: Caller | null; supabase: Su
     return {
       churchId: Number(r.church_id),
       pastoratId: church?.pastorat_id ?? null,
-      role: r.role,
-      adminLevel: (LEVELS as string[]).includes(r.admin_level) ? (r.admin_level as AdminLevel) : 'none',
+      role: !isSuper && r.role === 'superadmin' ? 'padmin' : r.role,
+      adminLevel: r.admin_level === 'super' && !isSuper ? 'pastorat' : (LEVELS as string[]).includes(r.admin_level) ? (r.admin_level as AdminLevel) : 'none',
     }
   })
-  const isSuper = p?.admin_level === 'super' || memberships.some(m => m.adminLevel === 'super')
 
   return {
     supabase,
@@ -159,14 +162,16 @@ export type ProfileMemberships = {
 /** Personens medlemskap och högsta nivå. null om personen inte finns. */
 export async function profileMaxLevel(targetId: string): Promise<ProfileMemberships | null> {
   const admin = createAdminClient()
-  const [{ data: profile }, { data: rows }] = await Promise.all([
+  const [{ data: owner, error: ownerError }, { data: profile }, { data: rows }] = await Promise.all([
+    admin.from('system_owner').select('profile_id').eq('profile_id', targetId).maybeSingle(),
     admin.from('profiles').select('id, admin_level').eq('id', targetId).maybeSingle(),
     admin.from('profile_churches').select('church_id, admin_level, accepted_at').eq('profile_id', targetId).eq('active', true),
   ])
+  if (ownerError) throw new Error('Systemägarens behörighet kunde inte verifieras')
   if (!profile) return null
   const all = (rows ?? []) as { church_id: number; admin_level: string; accepted_at: string | null }[]
   return {
-    level: maxLevel(profile.admin_level, ...all.map(r => r.admin_level)),
+    level: owner ? 'super' : maxLevel(profile.admin_level, ...all.map(r => r.admin_level)),
     churchIds: all.filter(r => r.accepted_at != null).map(r => Number(r.church_id)),
     pendingChurchIds: all.filter(r => r.accepted_at == null).map(r => Number(r.church_id)),
   }
@@ -375,14 +380,13 @@ export async function loadPassThreadAudience(passId: number): Promise<PassThread
 
   const target = { churchId: pass.church_id as number, pastoratId: pastoratOf(pass.churches as ChurchJoin) }
 
-  // Admins räknas per församlingsmedlemskap (profile_churches). Superadmin
-  // kan också finnas kvar i den gamla kolumnen profiles.admin_level.
-  const [{ data: resp }, { data: books }, { data: memberships }, { data: legacySupers }, { data: kioskRows }] = await Promise.all([
+  // Lokal adminåtkomst och den enda systemägaren räknas separat.
+  const [{ data: resp }, { data: books }, { data: memberships }, { data: systemOwners }, { data: kioskRows }] = await Promise.all([
     admin.from('pass_responsible').select('profile_id').eq('pass_id', passId),
     admin.from('bookings').select('profile_id').eq('pass_id', passId).not('profile_id', 'is', null),
     admin.from('profile_churches').select('profile_id, admin_level, church_id, churches(pastorat_id)')
       .eq('active', true).not('accepted_at', 'is', null).neq('admin_level', 'none'),
-    admin.from('profiles').select('id').eq('admin_level', 'super'),
+    admin.from('system_owner').select('profile_id'),
     // Kioskkonton i passets församling räknas aldrig in, som i databasen.
     admin.from('profile_churches').select('profile_id')
       .eq('church_id', pass.church_id).eq('role', 'kiosk').eq('active', true),
@@ -394,11 +398,11 @@ export async function loadPassThreadAudience(passId: number): Promise<PassThread
   const churchAdminIds = Array.from(new Set([
     ...(memberships ?? [])
       .filter(m => levelCoversChurch(
-        { adminLevel: m.admin_level, churchId: m.church_id, pastoratId: pastoratOf(m.churches as ChurchJoin) },
+        { adminLevel: m.admin_level === 'super' ? 'pastorat' : m.admin_level, churchId: m.church_id, pastoratId: pastoratOf(m.churches as ChurchJoin) },
         target,
       ))
       .map(m => m.profile_id as string),
-    ...(legacySupers ?? []).map(p => p.id as string),
+    ...(systemOwners ?? []).map(p => p.profile_id as string),
   ]))
   const vkId = (pass.vk_profile_id as string | null) ?? null
 

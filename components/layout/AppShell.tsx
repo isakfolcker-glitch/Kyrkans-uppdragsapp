@@ -4,6 +4,7 @@ import { useApp } from '@/lib/appStore'
 import Sidebar, { useSubText } from '@/components/layout/Sidebar'
 import { useNavItems, useUnreadCount } from '@/components/layout/useNavItems'
 import PendingInvitations from '@/components/layout/PendingInvitations'
+import OrganizationSwitcher from '@/components/layout/OrganizationSwitcher'
 import Modal from '@/components/ui/Modal'
 import Icon from '@/components/ui/Icon'
 import Greeting from '@/components/ui/Greeting'
@@ -61,10 +62,8 @@ export default function AppShell() {
         <div className="app-column">
           <MobileHeader />
           <main className="main-content">
+            <OrganizationSwitcher />
             <PendingInvitations />
-            <div className="desktop-only">
-              <ChurchSwitcher />
-            </div>
             <PageContent />
           </main>
         </div>
@@ -72,59 +71,6 @@ export default function AppShell() {
       </div>
       <BottomNav />
     </>
-  )
-}
-
-/** Rolltext för vald församling, t.ex. "Församlingsadmin". */
-function useRoleLabel() {
-  const { currentMembership } = useApp()
-  const membership = currentMembership()
-  return membership?.adminLevel === 'super'
-    ? 'Systemadmin'
-    : membership?.adminLevel === 'pastorat'
-      ? 'Pastoratsadmin'
-      : membership?.adminLevel === 'forsamling'
-        ? 'Församlingsadmin'
-        : membership?.role === 'anstalld'
-          ? 'Anställd'
-          : 'Ideell'
-}
-
-/** Rullgardin för att byta församling. Visas bara om man har fler än en. */
-function ChurchSelect({ id }: { id: string }) {
-  const { availableChurches, churches, currentChurchId, setChurch } = useApp()
-  return (
-    <select
-      id={id}
-      className="church-select"
-      value={currentChurchId()}
-      onChange={event => {
-        const churchId = Number(event.target.value)
-        const index = churches.findIndex(church => church.id === churchId)
-        if (index >= 0) setChurch(index)
-      }}
-    >
-      {availableChurches.map(church => (
-        <option key={church.id} value={church.id}>{church.name}</option>
-      ))}
-    </select>
-  )
-}
-
-function ChurchSwitcher() {
-  const { currentUser, isKiosk, availableChurches } = useApp()
-  const roleLabel = useRoleLabel()
-  const selectId = useId()
-  if (!currentUser || isKiosk() || availableChurches.length <= 1) return null
-
-  return (
-    <div className="church-switcher row-line">
-      <div style={{ minWidth: 0 }}>
-        <label htmlFor={selectId} className="church-switcher-label">Församling</label>
-        <div className="church-switcher-sub">{roleLabel} i vald församling</div>
-      </div>
-      <ChurchSelect id={selectId} />
-    </div>
   )
 }
 
@@ -176,12 +122,10 @@ function MobileHeader() {
 
 /** Panelen bakom "Mer": Min profil, övriga sidor, församlingsbyte och utloggning. */
 function MorePanel({ id, onClose }: { id: string; onClose: () => void }) {
-  const { page, goTo, currentUser, logout, cycleUser, u, isKiosk, availableChurches } = useApp()
+  const { page, goTo, currentUser, logout, cycleUser, u } = useApp()
   const items = useNavItems().filter(item => !TAB_IDS.has(item.id))
   const closeBtn = useRef<HTMLButtonElement>(null)
   const titleId = useId()
-  const selectId = useId()
-  const roleLabel = useRoleLabel()
 
   // Senaste onClose i en ref, så att fokus bara flyttas när panelen öppnas
   // och inte varje gång appen ritas om.
@@ -222,14 +166,6 @@ function MorePanel({ id, onClose }: { id: string; onClose: () => void }) {
             </button>
           ))}
         </nav>
-
-        {currentUser && !isKiosk() && availableChurches.length > 1 && (
-          <div className="mer-church">
-            <label htmlFor={selectId} className="church-switcher-label">Byt församling</label>
-            <div className="church-switcher-sub">Du är {roleLabel.toLowerCase()} i vald församling</div>
-            <ChurchSelect id={selectId} />
-          </div>
-        )}
 
         {currentUser ? (
           <button type="button" className="mer-item" onClick={logout}>

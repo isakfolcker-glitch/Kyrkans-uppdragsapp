@@ -8,6 +8,10 @@ export async function DELETE() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
 
+  const { data: owner, error: ownerError } = await supabase.rpc('is_system_super_admin')
+  if (ownerError) return NextResponse.json({ error: 'Behörigheten kunde inte verifieras' }, { status: 503 })
+  if (owner) return NextResponse.json({ error: 'Systemägarkontot kan inte raderas här' }, { status: 403 })
+
   const admin = createAdminClient()
   await deletePersonData(admin, user.id)
 

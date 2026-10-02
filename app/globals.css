@@ -1555,3 +1555,24 @@ a:hover { color: var(--text); }
   .bottom-nav { display: grid; }
   .page-title { font-size: 28px; }
 }
+
+/* Församling och pastorat är alltid synliga i arbetsytan. */
+.organization-context { border: 1px solid var(--linje); border-radius: 18px; padding: 18px 20px; margin-bottom: 24px; background: var(--yta); }
+.organization-current { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.organization-current > svg { color: var(--vin); }
+.organization-current-copy { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
+.organization-current-copy strong { font-size: 19px; font-weight: 500; overflow-wrap: anywhere; }
+.organization-eyebrow, .organization-parent, .organization-scope { color: var(--text-2); font-size: 13px; line-height: 1.5; }
+.organization-role { border-radius: 999px; background: var(--rosa); padding: 5px 10px; font-size: 12px; color: var(--vin); }
+.organization-selectors { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+.organization-select-field { flex: 1; min-width: min(100%, 200px); }
+.organization-select-field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+.organization-select-field select { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--linje-stark); border-radius: 10px; color: var(--text); background: #fff; font: inherit; font-size: 16px; }
+.organization-select-field select:focus-visible { outline: 2px solid var(--vin); outline-offset: 2px; }
+.organization-scope { margin-top: 12px; }
+@media (max-width: 600px) {
+  .organization-context { padding: 16px; margin-bottom: 20px; }
+  .organization-current-copy strong { font-size: 17px; }
+  .organization-current { align-items: flex-start; }
+  .organization-role { margin-left: 36px; }
+}

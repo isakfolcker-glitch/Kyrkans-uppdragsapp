@@ -121,9 +121,7 @@ function PermModal({ personId, churchId }: { personId: any; churchId: number }) 
           {(isPAdmin() || isSuperAdmin()) && (
             <RoleButton active={role === 'padmin'} onClick={() => setRole('padmin')}><Icon name="World" size={18} />Pastoratsadmin</RoleButton>
           )}
-          {isSuperAdmin() && (
-            <RoleButton active={role === 'superadmin'} onClick={() => setRole('superadmin')}><Icon name="Settings" size={18} />Systemadmin</RoleButton>
-          )}
+          {role === 'superadmin' && <span>Systemägare · Låst behörighet</span>}
         </div>
       </div>
 
@@ -233,7 +231,7 @@ export default function BehorigheterPage() {
                       {isAdminRole && <span className="role-tag" style={{ background: '#FFC3AA', color: '#000', marginLeft: 4 }}>Alla behörigheter</span>}
                     </div>
                   </div>
-                  <button className="btn btn-secondary btn-sm" onClick={() => showModal(<PermModal personId={person.id} churchId={churchId} />)}><Icon name="Shield" size={18} />Ändra<span className="sr-only"> behörighet för {person.name}</span></button>
+                  <button className="btn btn-secondary btn-sm" disabled={person.adminLevel === 'super'} onClick={() => showModal(<PermModal personId={person.id} churchId={churchId} />)}><Icon name="Shield" size={18} />Ändra<span className="sr-only"> behörighet för {person.name}</span></button>
                 </div>
               )
             })}

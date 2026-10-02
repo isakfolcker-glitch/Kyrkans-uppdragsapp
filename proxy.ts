@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { resolveSystemOwner } from '@/lib/systemOwnerServer'
 import { demoToken } from '@/lib/demoToken'
 
 export async function proxy(request: NextRequest) {
@@ -80,7 +81,8 @@ export async function proxy(request: NextRequest) {
       ? Boolean(profile?.church_id)
       : Boolean(memberships?.some(m => m.accepted_at != null))
     const hasPending = !membershipError && Boolean(memberships?.some(m => m.accepted_at == null))
-    const hasAccess = hasMembership || profile?.admin_level === 'super'
+    const isOwner = await resolveSystemOwner(supabase, user).catch(() => false)
+    const hasAccess = hasMembership || isOwner
 
     // Ny användare med väntande inbjudan: till onboarding, där inbjudan accepteras.
     if (!profile?.onboarding_done && !hasAccess && hasPending && !pathname.startsWith('/auth') && !isApiRoute) {

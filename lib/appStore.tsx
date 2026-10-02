@@ -7,6 +7,9 @@ import {
   ini2, gLabel, gCls, roleLabel,
 } from './appData'
 
+import { effectiveChurchMembership } from './organizationContext'
+import { navigationForRole } from './navigation'
+
 // ─── Types ───────────────────────────────────────────
 export interface StaffPerms {
   kan_skapa_pass: boolean
@@ -89,6 +92,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Auth state
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
+  const [systemOwner, setSystemOwner] = useState(false)
   const [loadingAuth, setLoadingAuth] = useState(true)
 
   // State — börjar tomt, fylls på från Supabase när inloggad
@@ -123,13 +127,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (event === 'SIGNED_IN') {
         if (session?.user) fetchProfile(session.user.id)
       } else if (event === 'SIGNED_OUT') {
-        setProfile(null); setLoadingAuth(false)
+        setProfile(null); setSystemOwner(false); setLoadingAuth(false)
       }
     })
     return () => subscription.unsubscribe()
   }, [])
 
   const fetchProfile = async (userId: string) => {
+    const ownerResponse = await fetch('/api/system/owner', { method: 'POST' }).catch(() => null)
+    const ownerStatus = ownerResponse?.ok ? await ownerResponse.json() : null
+    const isOwner = ownerStatus?.isOwner === true
+    setSystemOwner(isOwner)
     const { data } = await supabase
       .from('profiles')
       .select('*, profile_groups(group_id), notif_settings(*)')
@@ -166,12 +174,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }]
     }
 
+    if (!isOwner) mappedMemberships = mappedMemberships.map(m => ({ ...m,
+      role: m.role === 'superadmin' ? 'padmin' : m.role,
+      adminLevel: m.adminLevel === 'super' ? 'pastorat' : m.adminLevel,
+    }))
     setProfile(data)
     setMemberships(mappedMemberships)
     setLoadingAuth(false)
 
     if (data) {
-      await fetchAppData(data, mappedMemberships)
+      await fetchAppData(data, mappedMemberships, isOwner)
 
       const { data: permsRows, error: permsError } = await supabase
         .from('profile_church_permissions')
@@ -260,7 +272,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const fetchAppData = async (prof: any, membershipRows: ChurchMembershipData[]) => {
+  const fetchAppData = async (prof: any, membershipRows: ChurchMembershipData[], isSystemSuper: boolean) => {
     const { data: churchData } = await supabase.from('churches').select('*').order('id')
     const mappedChurches: Church[] = (churchData ?? []).map((church: any) => ({
       id: church.id,
@@ -273,7 +285,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setChurches(mappedChurches)
 
     const directChurchIds = new Set(membershipRows.filter(m => m.active).map(m => m.churchId))
-    const isSystemSuper = prof.admin_level === 'super' || membershipRows.some(m => m.active && m.adminLevel === 'super')
     const pastoratAdminIds = new Set(
       membershipRows
         .filter(m => m.active && m.adminLevel === 'pastorat')
@@ -390,9 +401,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           ac: rawProfile?.ac_color || '#7D0037',
           church: membership.church_id,
           groups: visibleGroupIds,
-          role: membership.role,
+          role: isSystemSuper && rawProfile?.id === prof.id ? 'superadmin' : membership.role === 'superadmin' ? 'padmin' : membership.role,
           isEmployee: membership.is_employee,
-          adminLevel: membership.admin_level,
+          adminLevel: isSystemSuper && rawProfile?.id === prof.id ? 'super' : membership.admin_level === 'super' ? 'pastorat' : membership.admin_level,
           available: rawProfile?.available ?? true,
         }
       }).filter((person: PersonData) => Boolean(person.id))
@@ -419,8 +430,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   // ─── Behörighetssystem ────────────────────────────
-  const systemSuper = profile?.admin_level === 'super'
-    || memberships.some(membership => membership.active && membership.adminLevel === 'super')
+  const systemSuper = systemOwner
 
   const directChurchIds = new Set(
     memberships.filter(membership => membership.active).map(membership => membership.churchId)
@@ -453,39 +463,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   const membershipForChurchId = (churchId: number): ChurchMembershipData | null => {
-    const direct = memberships.find(membership => membership.active && membership.churchId === churchId)
-    if (direct) return direct
-
-    if (systemSuper && currentUser) {
-      return {
-        profileId: currentUser.id,
-        churchId,
-        role: 'superadmin',
-        adminLevel: 'super',
-        isEmployee: true,
-        active: true,
-      }
-    }
-
-    const targetPastoratId = churches.find(church => church.id === churchId)?.pastoratId
-    if (targetPastoratId !== undefined && targetPastoratId !== null && currentUser) {
-      const inherited = memberships.find(membership => {
-        if (!membership.active || membership.adminLevel !== 'pastorat') return false
-        return churches.find(church => church.id === membership.churchId)?.pastoratId === targetPastoratId
-      })
-      if (inherited) {
-        return {
-          profileId: currentUser.id,
-          churchId,
-          role: 'padmin',
-          adminLevel: 'pastorat',
-          isEmployee: true,
-          active: true,
-        }
-      }
-    }
-
-    return null
+    if (!currentUser) return null
+    return effectiveChurchMembership(currentUser.id, churchId, memberships, churches, systemSuper)
   }
 
   const currentMembership = (): ChurchMembershipData | null => {
@@ -495,10 +474,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const effectiveMembership = currentMembership()
   const effectiveAdminLevel = currentUser
-    ? (effectiveMembership?.adminLevel ?? 'none')
+    ? (systemOwner ? 'super' : effectiveMembership?.adminLevel ?? 'none')
     : (users[userIndex]?.adminLevel ?? 'none')
   const effectiveRole = currentUser
-    ? (effectiveMembership?.role ?? 'ideell')
+    ? (systemOwner ? 'superadmin' : effectiveMembership?.role ?? 'ideell')
     : (users[userIndex]?.role ?? 'ideell')
 
   const currentGroups = () => {
@@ -535,7 +514,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             ? 'Församlingsadmin'
             : role === 'padmin'
               ? 'Pastoratsadmin'
-              : 'Systemadmin',
+              : 'Superadmin',
       groups: currentGroups(),
       churches: availableChurches.flatMap(church => church.id !== undefined ? [church.id] : []),
       responsibleForPasses: passes.filter(pass => pass.responsibleUserIds?.includes(currentUser.id)).map(pass => pass.id),
@@ -588,7 +567,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const targetMembership = membershipForChurchId(churchId)
     const targetRole = targetMembership?.role ?? 'ideell'
     const allowedPages = new Set([
-      ...(NAV_ITEMS[targetRole] ?? NAV_ITEMS.ideell).map(item => item.id),
+      ...navigationForRole(targetRole, staffPermsByChurch[churchId]).map(item => item.id),
       'oversikt',
     ])
 

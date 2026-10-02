@@ -109,7 +109,7 @@ export async function getEffectiveAdminLevel(
   // Ett direkt medlemskap med nivån 'none' får inte blockera pastoratsnivån.
   const membership = await getDirectMembership(supabase, profileId, churchId)
   const direct: MembershipAdminLevel = membership?.admin_level ?? 'none'
-  if (direct === 'super') return 'super'
+  if (direct === 'super') return 'pastorat'
   if (direct === 'pastorat') return 'pastorat'
 
   const { data: pastoratAccess } = await supabase.rpc('has_pastorat_admin_access', {
@@ -148,6 +148,7 @@ export async function canAssignRole(
   churchId: number,
   targetRole: string,
 ): Promise<boolean> {
+  if (targetRole === 'superadmin') return false
   const callerLevel = await getEffectiveAdminLevel(supabase, profileId, churchId)
   const targetLevel = roleToAdminLevel(targetRole)
 

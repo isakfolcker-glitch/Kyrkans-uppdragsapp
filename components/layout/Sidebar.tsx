@@ -5,10 +5,12 @@ import { useNavItems, useUnreadCount } from '@/components/layout/useNavItems'
 
 /** Församlingens namn (eller motsvarande) under appnamnet. */
 export function useSubText() {
-  const { churches, isKiosk, isPAdmin, isSuperAdmin, currentChurchId } = useApp()
+  const { churches, pastorat, isKiosk, isPAdmin, isSuperAdmin, currentChurchId } = useApp()
   if (isKiosk()) return 'Anmälningsstation'
-  return churches.find(c => c.id === currentChurchId())?.name
-    ?? (isSuperAdmin() ? 'Systemadministratör' : isPAdmin() ? 'Pastorat' : '')
+  const church = churches.find(item => item.id === currentChurchId())
+  const parent = pastorat.find(item => item.id === church?.pastoratId)
+  return church ? [church.name, parent?.name].filter(Boolean).join(' · ')
+    : (isSuperAdmin() ? 'Systemadministratör' : isPAdmin() ? 'Pastorat' : '')
 }
 
 /** Sidomeny för dator. Döljs på mobil, där AppShell visar huvud och nedre meny. */
