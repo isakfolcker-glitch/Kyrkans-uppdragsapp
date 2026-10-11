@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "check": "npm run typecheck && npm run test"
+    "check": "npm run typecheck && npm run test",
+    "mail:forhandsvisa": "node --no-warnings scripts/forhandsvisa-mail.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
