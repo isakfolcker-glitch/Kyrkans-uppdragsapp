@@ -1,5 +1,6 @@
 'use client'
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react'
+import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import {
   GROUPS, CHURCHES, NAV_ITEMS, INITIAL_PEOPLE, INITIAL_PASSES, INITIAL_MESSAGES, INITIAL_NOTIFICATIONS,
@@ -110,6 +111,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [staffPermsByChurch, setStaffPermsByChurch] = useState<Record<number, StaffPerms>>({})
   const [users] = useState<UserDef[]>(USERS)
 
+  // Realtidskanalen för notiser. Sparas här så att den gamla kan tas bort
+  // innan en ny skapas (profilen kan laddas flera gånger, t.ex. både vid start
+  // och vid SIGNED_IN). Annars kastar Supabase "cannot add postgres_changes
+  // callbacks ... after subscribe()".
+  const notifChannelRef = useRef<RealtimeChannel | null>(null)
+  const notifChannelSeq = useRef(0)
+  const stopNotifChannel = () => {
+    const ch = notifChannelRef.current
+    notifChannelRef.current = null
+    if (ch) supabase.removeChannel(ch)
+  }
+
   // ─── Auth listener ────────────────────────────────
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -123,10 +136,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (event === 'SIGNED_IN') {
         if (session?.user) fetchProfile(session.user.id)
       } else if (event === 'SIGNED_OUT') {
+        stopNotifChannel()
         setProfile(null); setLoadingAuth(false)
       }
     })
-    return () => subscription.unsubscribe()
+    return () => {
+      subscription.unsubscribe()
+      stopNotifChannel()
+    }
   }, [])
 
   const fetchProfile = async (userId: string) => {
@@ -244,7 +261,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         passId: n.pass_id ?? null, commentId: n.comment_id ?? null,
       })))
 
-      supabase.channel('notif-' + userId)
+      // Ta bort den gamla kanalen först. Nytt unikt namn varje gång, eftersom
+      // en borttagen kanal ligger kvar i klientens lista tills servern svarat.
+      stopNotifChannel()
+      notifChannelSeq.current += 1
+      notifChannelRef.current = supabase.channel(`notif-${userId}-${notifChannelSeq.current}`)
         .on('postgres_changes', {
           event: 'INSERT', schema: 'public', table: 'notifications',
           filter: `user_id=eq.${userId}`,
