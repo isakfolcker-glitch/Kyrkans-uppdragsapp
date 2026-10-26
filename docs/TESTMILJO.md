@@ -40,6 +40,19 @@ Vercel > Settings > Domains > Add: `test.kyrkouppdrag.se`, koppla till Git-grene
    - `isakfolcker+ideellb@gmail.com` (ideell, Test Församling B, för att testa att församlingar inte ser varandra)
 3. Nollställ testpassen när du vill: logga in som admin och kör `POST /api/test/reset-data`.
 
+## Keepalive (håller Supabase-projekten vakna)
+
+Supabase pausar gratisprojekt automatiskt efter 7 dagars inaktivitet. För att det inte ska hända igen finns `/api/cron/keepalive` (`app/api/cron/keepalive/route.ts`), som Vercel Cron anropar en gång per dygn (06:00 UTC, se `vercel.json`). Jobbet gör bara en liten läsning (`select id from churches limit 1`) mot produktionsdatabasen, och mot testdatabasen om de två variablerna nedan är satta. Svaret innehåller aldrig riktig data, bara t.ex. `{ "ok": true, "prod": "ok", "test": "ok" }`.
+
+Eftersom Vercel Cron bara körs i miljön Production behöver testdatabasens uppgifter läggas in där (inte i Preview), annars hoppar jobbet bara över testdelen utan fel:
+
+| Variabel | Värde |
+|---|---|
+| KEEPALIVE_TEST_SUPABASE_URL | testprojektets publika URL, samma som `NEXT_PUBLIC_SUPABASE_URL` ovan: `https://waexfsgudzzbmaoqnnte.supabase.co` |
+| KEEPALIVE_TEST_SUPABASE_ANON_KEY | testprojektets publika anon-nyckel (inte service role) |
+
+Isak behöver lägga in dessa två manuellt i Vercel-dashboarden under projektets Settings > Environment Variables, miljö **Production**, eftersom hemligheter aldrig ska ligga i koden. De är anon-nycklar (samma typ som redan är publik i webbläsaren för testmiljön), men ligger ändå bara i Production för att produktionsjobbet ska kunna nå testdatabasen.
+
 ## Databasändringar
 
 1. Ny fil i `supabase/migrations/`, nästa nummer.
