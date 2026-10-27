@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import AuthCard from '@/components/layout/AuthCard'
 import Icon from '@/components/ui/Icon'
+import PasswordChecklist from '@/components/ui/PasswordChecklist'
+import { checkPassword, passwordErrorToSwedish } from '@/lib/passwordRules'
 
 export default function ResetPasswordPage() {
   const router = useRouter()
@@ -27,13 +29,14 @@ export default function ResetPasswordPage() {
   }, [])
 
   const save = async () => {
-    if (password.length < 8) { setError('Lösenordet måste vara minst 8 tecken.'); return }
+    const unmet = checkPassword(password)
+    if (unmet.length) { setError(`Lösenordet uppfyller inte alla krav: ${unmet.map(r => r.label.toLowerCase()).join(', ')}.`); return }
     if (password !== password2) { setError('Lösenorden matchar inte.'); return }
     setLoading(true)
     setError('')
     const supabase = createClient()
     const { error } = await supabase.auth.updateUser({ password })
-    if (error) { setError(error.message); setLoading(false); return }
+    if (error) { setError(passwordErrorToSwedish(error)); setLoading(false); return }
     router.replace('/dashboard')
   }
 
@@ -51,9 +54,11 @@ export default function ResetPasswordPage() {
           <input
             id="reset-losen"
             type="password" placeholder="Minst 8 tecken" autoComplete="new-password" required
+            aria-describedby="reset-losen-krav"
             value={password} onChange={e => setPassword(e.target.value)}
           />
         </div>
+        <PasswordChecklist password={password} id="reset-losen-krav" />
         <div className="form-field">
           <label htmlFor="reset-losen2">Upprepa lösenord</label>
           <input
