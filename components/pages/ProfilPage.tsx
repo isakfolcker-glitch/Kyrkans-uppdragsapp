@@ -76,12 +76,13 @@ export default function ProfilPage() {
   const [resetBusy, setResetBusy] = useState(false)
 
   const sendResetLink = async () => {
-    if (!displayEmail) return
+    // Bara currentUser (den riktigt inloggade), aldrig demots påhittade e-post.
+    if (!currentUser?.email) return
     setResetBusy(true)
     const supabase = createClient()
     // Skickas härifrån: en redan inloggad person som går till /login
     // skickas annars direkt vidare till /dashboard av proxy.ts.
-    await supabase.auth.resetPasswordForEmail(displayEmail, {
+    await supabase.auth.resetPasswordForEmail(currentUser.email, {
       redirectTo: window.location.origin + '/auth/reset',
     })
     setResetBusy(false)
@@ -230,12 +231,14 @@ export default function ProfilPage() {
           <button className="btn btn-primary" onClick={changePassword} disabled={pwBusy}>
             <Icon name="Lock" size={18} />{pwBusy ? 'Byter…' : 'Byt lösenord'}
           </button>
-          {resetSent ? (
-            <span style={{ fontSize: 14 }}>Ett mail med en länk för nytt lösenord är skickat till {displayEmail}.</span>
-          ) : (
-            <button type="button" className="link-btn" onClick={sendResetLink} disabled={resetBusy}>
-              {resetBusy ? 'Skickar…' : 'Minns du inte ditt nuvarande lösenord?'}
-            </button>
+          {currentUser?.email && (
+            resetSent ? (
+              <span style={{ fontSize: 14 }}>Ett mail med en länk för nytt lösenord är skickat till {currentUser.email}.</span>
+            ) : (
+              <button type="button" className="link-btn" onClick={sendResetLink} disabled={resetBusy}>
+                {resetBusy ? 'Skickar…' : 'Minns du inte ditt nuvarande lösenord?'}
+              </button>
+            )
           )}
         </div>
       </div>
