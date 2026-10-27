@@ -5,6 +5,8 @@ import { gLabel, gCls } from '@/lib/appData'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Icon from '@/components/ui/Icon'
+import PasswordChecklist from '@/components/ui/PasswordChecklist'
+import { checkPassword, passwordErrorToSwedish } from '@/lib/passwordRules'
 
 const notifDefs = [
   { key: 'passdag',    lbl: 'Påminnelse samma dag',      sub: 'E-post kl 07:00 på uppdragsdagen' },
@@ -49,19 +51,42 @@ export default function ProfilPage() {
   }
 
   // Byt lösenord
+  const [currentPw, setCurrentPw] = useState('')
   const [pw, setPw]   = useState('')
   const [pw2, setPw2] = useState('')
   const [pwMsg, setPwMsg] = useState('')
+  const [pwBusy, setPwBusy] = useState(false)
 
   const changePassword = async () => {
-    if (pw.length < 8) { setPwMsg('Minst 8 tecken.'); return }
-    if (pw !== pw2)    { setPwMsg('Lösenorden matchar inte.'); return }
+    if (!currentPw) { setPwMsg('Ange ditt nuvarande lösenord.'); return }
+    const unmet = checkPassword(pw)
+    if (unmet.length) { setPwMsg(`Lösenordet uppfyller inte alla krav: ${unmet.map(r => r.label.toLowerCase()).join(', ')}.`); return }
+    if (pw !== pw2) { setPwMsg('Lösenorden matchar inte.'); return }
+    setPwBusy(true)
     const supabase = createClient()
-    const { error } = await supabase.auth.updateUser({ password: pw })
-    if (error) { setPwMsg('Kunde inte byta lösenord: ' + error.message); return }
+    const { error } = await supabase.auth.updateUser({ password: pw, current_password: currentPw })
+    setPwBusy(false)
+    if (error) { setPwMsg(passwordErrorToSwedish(error)); return }
     setPwMsg('Lösenordet är bytt.')
-    setPw(''); setPw2('')
+    setCurrentPw(''); setPw(''); setPw2('')
     setTimeout(() => setPwMsg(''), 2000)
+  }
+
+  const [resetSent, setResetSent] = useState(false)
+  const [resetBusy, setResetBusy] = useState(false)
+
+  const sendResetLink = async () => {
+    // Bara currentUser (den riktigt inloggade), aldrig demots påhittade e-post.
+    if (!currentUser?.email) return
+    setResetBusy(true)
+    const supabase = createClient()
+    // Skickas härifrån: en redan inloggad person som går till /login
+    // skickas annars direkt vidare till /dashboard av proxy.ts.
+    await supabase.auth.resetPasswordForEmail(currentUser.email, {
+      redirectTo: window.location.origin + '/auth/reset',
+    })
+    setResetBusy(false)
+    setResetSent(true)
   }
 
   return (
@@ -181,22 +206,41 @@ export default function ProfilPage() {
       {/* Byt lösenord */}
       <h2 className="section-label">Byt lösenord</h2>
       <div className="panel">
+        <div className="form-field">
+          <label htmlFor="profilpage-f4b">Nuvarande lösenord</label>
+          <input id="profilpage-f4b" type="password" placeholder="••••••••" value={currentPw} onChange={e => setCurrentPw(e.target.value)} autoComplete="current-password" />
+        </div>
         <div className="form-row">
           <div className="form-field">
             <label htmlFor="profilpage-f5">Nytt lösenord</label>
-            <input id="profilpage-f5" type="password" placeholder="••••••••" value={pw} onChange={e => setPw(e.target.value)} autoComplete="new-password" />
+            <input id="profilpage-f5" type="password" placeholder="••••••••" aria-describedby="profilpage-losen-krav"
+              value={pw} onChange={e => setPw(e.target.value)} autoComplete="new-password" />
           </div>
           <div className="form-field">
             <label htmlFor="profilpage-f6">Upprepa lösenord</label>
             <input id="profilpage-f6" type="password" placeholder="••••••••" value={pw2} onChange={e => setPw2(e.target.value)} autoComplete="new-password" />
           </div>
         </div>
+        <PasswordChecklist password={pw} id="profilpage-losen-krav" />
         {pwMsg && (
           <div role="status" className={`alert ${pwMsg === 'Lösenordet är bytt.' ? 'alert-green' : 'alert-red'}`} style={{ marginBottom: 12 }}>
             {pwMsg}
           </div>
         )}
-        <button className="btn btn-primary" onClick={changePassword}><Icon name="Lock" size={18} />Byt lösenord</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <button className="btn btn-primary" onClick={changePassword} disabled={pwBusy}>
+            <Icon name="Lock" size={18} />{pwBusy ? 'Byter…' : 'Byt lösenord'}
+          </button>
+          {currentUser?.email && (
+            resetSent ? (
+              <span style={{ fontSize: 14 }}>Ett mail med en länk för nytt lösenord är skickat till {currentUser.email}.</span>
+            ) : (
+              <button type="button" className="link-btn" onClick={sendResetLink} disabled={resetBusy}>
+                {resetBusy ? 'Skickar…' : 'Minns du inte ditt nuvarande lösenord?'}
+              </button>
+            )
+          )}
+        </div>
       </div>
 
       {/* GDPR */}

@@ -1,18 +1,23 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { saveOnboarding, validateOnboardingInput } from '@/lib/onboardingSave'
 import PendingInvitations from '@/components/layout/PendingInvitations'
 import AuthCard from '@/components/layout/AuthCard'
 import Icon from '@/components/ui/Icon'
+import PasswordChecklist from '@/components/ui/PasswordChecklist'
 
 type Step = 'loading' | 'form' | 'saving' | 'invites' | 'done' | 'error'
+
+const LOADING_TIMEOUT_MS = 10000
 
 export default function AuthConfirmPage() {
   const router = useRouter()
   const [step, setStep]     = useState<Step>('loading')
   const [email, setEmail]   = useState('')
   const [name, setName]     = useState('')
+  const [userId, setUserId] = useState('')
   const [phone, setPhone]   = useState('')
   const [birthYear, setBirthYear] = useState('')
   const [ecName, setEcName] = useState('')
@@ -23,12 +28,36 @@ export default function AuthConfirmPage() {
   const [membershipNames, setMembershipNames] = useState<string[]>([])
   const [accessError, setAccessError] = useState('')
 
+  // Visas i slutsteget ('invites' eller 'done') när något behövde en extra notis.
+  const [passwordAlreadySet, setPasswordAlreadySet] = useState(false)
+  const [membershipAcceptFailed, setMembershipAcceptFailed] = useState(false)
+  const [resetSending, setResetSending] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
+
+  // Håller reda på det senaste steget utanför Reacts renderingscykel, så att
+  // onAuthStateChange-lyssnaren aldrig kan byta steg mitt under spara-flödet.
+  const stepRef = useRef<Step>('loading')
+  const savingRef = useRef(false)
+  const goStep = (next: Step) => { stepRef.current = next; setStep(next) }
+
   useEffect(() => {
     const supabase = createClient()
+    let signedInHandled = false
+
+    const timeoutId = setTimeout(() => {
+      if (stepRef.current === 'loading') {
+        setAccessError('Det tog för lång tid att läsa in dina uppgifter. Öppna länken i mejlet igen.')
+        goStep('error')
+      }
+    }, LOADING_TIMEOUT_MS)
 
     const handleSession = async () => {
+      // Spärr: lyssnaren får aldrig byta steg medan sparandet pågår.
+      if (stepRef.current === 'saving') return
+
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
+      clearTimeout(timeoutId)
 
       // Kolla om onboarding redan är klar
       const { data: profile } = await supabase
@@ -54,7 +83,7 @@ export default function AuthConfirmPage() {
 
       if (!hasAccess && !membershipError) {
         setAccessError('Ditt konto saknar en aktiv församlingsinbjudan. Kontakta en administratör i din församling.')
-        setStep('error')
+        goStep('error')
         return
       }
 
@@ -66,15 +95,19 @@ export default function AuthConfirmPage() {
         return
       }
 
+      setUserId(session.user.id)
       setEmail(session.user.email ?? '')
       setName(profile?.name ?? '')
       setPhone(profile?.phone ?? '')
-      setStep('form')
+      goStep('form')
     }
 
-    // Supabase läser #access_token från hashen automatiskt
+    // Supabase läser #access_token från hashen automatiskt. USER_UPDATED
+    // (t.ex. när vi sätter lösenordet) ska INTE köra om handleSession – det
+    // skulle kunna kapa sparandet mitt i. SIGNED_IN körs bara en gång.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+      if (event === 'SIGNED_IN' && !signedInHandled) {
+        signedInHandled = true
         handleSession()
       }
     })
@@ -82,70 +115,68 @@ export default function AuthConfirmPage() {
     // Kör direkt ifall sessionen redan finns
     handleSession()
 
-    return () => subscription.unsubscribe()
+    return () => { subscription.unsubscribe(); clearTimeout(timeoutId) }
   }, [router])
 
   const save = async () => {
+    // Spärra dubbelklick / dubbla inskick.
+    if (savingRef.current) return
     setError('')
 
-    if (!phone.trim())   { setError('Ange ditt telefonnummer.'); return }
-    if (!birthYear.trim() || isNaN(Number(birthYear)) || Number(birthYear) < 1900 || Number(birthYear) > 2015) {
-      setError('Ange ett giltigt födelseår (t.ex. 1990).'); return
-    }
-    if (!ecName.trim())  { setError('Ange namn på din kontaktperson.'); return }
-    if (!ecPhone.trim()) { setError('Ange telefonnummer till din kontaktperson.'); return }
-    if (password.length < 8) { setError('Lösenordet måste vara minst 8 tecken.'); return }
-    if (password !== password2) { setError('Lösenorden matchar inte.'); return }
+    // Snabb kontroll innan vi visar "Sparar…", så enkla fel (t.ex. ett glömt
+    // fält) ger direkt svar utan att flimra förbi sparläget.
+    const input = { phone, birthYear, ecName, ecPhone, password, password2 }
+    const validationError = validateOnboardingInput(input)
+    if (validationError) { setError(validationError); return }
 
-    setStep('saving')
+    savingRef.current = true
     const supabase = createClient()
-
-    // Sätt lösenord
-    const { error: pwErr } = await supabase.auth.updateUser({ password })
-    if (pwErr) { setError(pwErr.message); setStep('form'); return }
-
-    // Spara profil
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setError('Ingen session. Försök igen.'); setStep('form'); return }
-
-    const { error: profErr } = await supabase.from('profiles').update({
-      phone,
-      birth_year: Number(birthYear),
-      emergency_contact_name: ecName,
-      emergency_contact_phone: ecPhone,
-      onboarding_done: true,
-    }).eq('id', user.id)
-
-    if (profErr) { setError(profErr.message); setStep('form'); return }
-
-    // Godkänn bara församlingen i länken (?church). Varje församling godkänns för sig.
     const church = new URLSearchParams(window.location.search).get('church')
     const churchId = church && /^\d+$/.test(church) ? Number(church) : null
-    if (churchId) {
-      const acceptRes = await fetch('/api/memberships/accept', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ church_id: churchId }),
-      })
-      if (!acceptRes.ok) {
-        const data = await acceptRes.json().catch(() => ({}))
-        setError(data.error ?? 'Kunde inte aktivera din församlingsinbjudan.')
-        setStep('form')
-        return
-      }
-    }
 
-    // Finns fler väntande inbjudningar (eller ingen församling i länken) får
-    // personen godkänna eller avböja var och en för sig.
-    const pendingRes = await fetch('/api/memberships/pending').catch(() => null)
-    const pending = pendingRes?.ok ? await pendingRes.json().catch(() => []) : []
-    if (Array.isArray(pending) && pending.length) {
-      setStep('invites')
+    goStep('saving')
+
+    const result = await saveOnboarding({
+      supabase,
+      fetchFn: fetch,
+      userId,
+      churchId,
+      input,
+    })
+
+    if (!result.ok) {
+      setError(result.error)
+      savingRef.current = false
+      goStep('form')
       return
     }
 
-    setStep('done')
-    setTimeout(() => router.replace(churchId ? `/dashboard?church=${churchId}` : '/dashboard'), 1200)
+    setPasswordAlreadySet(result.passwordAlreadySet)
+    setMembershipAcceptFailed(result.membershipAcceptFailed)
+    savingRef.current = false
+
+    if (result.hasPendingInvites) {
+      goStep('invites')
+      return
+    }
+
+    goStep('done')
+    // Skicka inte vidare automatiskt om något behöver personens uppmärksamhet
+    // (t.ex. lösenordsnotisen) – då väljer de själva när de är klara.
+    if (!result.passwordAlreadySet && !result.membershipAcceptFailed) {
+      setTimeout(() => router.replace(churchId ? `/dashboard?church=${churchId}` : '/dashboard'), 1200)
+    }
+  }
+
+  const sendResetLink = async () => {
+    if (!email) return
+    setResetSending(true)
+    const supabase = createClient()
+    await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset`,
+    })
+    setResetSending(false)
+    setResetSent(true)
   }
 
   /* ── UI ── */
@@ -158,14 +189,34 @@ export default function AuthConfirmPage() {
 
   if (step === 'done') return (
     <AuthCard title={<>Välkommen <span className="serif">in</span></>}>
-      <p role="status" style={{ color: 'rgba(0,0,0,0.72)', fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Icon name="CircleCheck" style={{ color: '#7D0037' }} />Du skickas vidare…
-      </p>
+      <PasswordAlreadySetNotice
+        show={passwordAlreadySet}
+        resetSending={resetSending}
+        resetSent={resetSent}
+        onSendReset={sendResetLink}
+        onContinue={() => router.replace('/dashboard')}
+      />
+      <MembershipAcceptFailedNotice show={membershipAcceptFailed} />
+      {!passwordAlreadySet && !membershipAcceptFailed && (
+        <p role="status" style={{ color: 'rgba(0,0,0,0.72)', fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Icon name="CircleCheck" style={{ color: '#7D0037' }} />Du skickas vidare…
+        </p>
+      )}
+      {!passwordAlreadySet && membershipAcceptFailed && (
+        <button className="btn btn-secondary" onClick={() => router.replace('/dashboard')}>Gå vidare</button>
+      )}
     </AuthCard>
   )
 
   if (step === 'invites') return (
     <AuthCard wide title={<>Dina uppgifter <span className="serif">är sparade</span></>} lead="Godkänn de församlingar du vill vara med i.">
+      <PasswordAlreadySetNotice
+        show={passwordAlreadySet}
+        resetSending={resetSending}
+        resetSent={resetSent}
+        onSendReset={sendResetLink}
+      />
+      <MembershipAcceptFailedNotice show={membershipAcceptFailed} />
       <PendingInvitations />
       <button className="btn btn-secondary" onClick={() => router.replace('/dashboard')}>Gå vidare</button>
     </AuthCard>
@@ -223,10 +274,12 @@ export default function AuthConfirmPage() {
         </fieldset>
 
         <div className="form-field">
-          <label htmlFor="onb-losen">Välj lösenord (minst 8 tecken)</label>
+          <label htmlFor="onb-losen">Välj lösenord</label>
           <input id="onb-losen" type="password" required placeholder="••••••••"
+            aria-describedby="onb-losen-krav"
             value={password} onChange={e => setPassword(e.target.value)} autoComplete="new-password" />
         </div>
+        <PasswordChecklist password={password} id="onb-losen-krav" />
         <div className="form-field">
           <label htmlFor="onb-losen2">Upprepa lösenord</label>
           <input id="onb-losen2" type="password" required placeholder="••••••••"
@@ -246,5 +299,51 @@ export default function AuthConfirmPage() {
         </p>
       </form>
     </AuthCard>
+  )
+}
+
+/**
+ * Visas när kontot redan hade ett ANNAT lösenord än det personen just
+ * skrev in, så att lösenordsfältet i onboardingen inte sparades.
+ */
+function PasswordAlreadySetNotice({ show, resetSending, resetSent, onSendReset, onContinue }: {
+  show: boolean
+  resetSending: boolean
+  resetSent: boolean
+  onSendReset: () => void
+  onContinue?: () => void
+}) {
+  if (!show) return null
+  return (
+    <div role="alert" className="alert alert-amber" style={{ flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+        <Icon name="Alert" size={18} style={{ marginTop: 2 }} />
+        <span>Dina uppgifter är sparade. Ditt konto hade redan ett lösenord, så det du skrev nu sparades inte.</span>
+      </div>
+      {resetSent && (
+        <span style={{ fontWeight: 400 }}>En länk för att välja nytt lösenord är skickad till din e-post.</span>
+      )}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {!resetSent && (
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onSendReset} disabled={resetSending}>
+            {resetSending ? 'Skickar…' : 'Skicka länk för nytt lösenord'}
+          </button>
+        )}
+        {onContinue && (
+          <button type="button" className="btn btn-primary btn-sm" onClick={onContinue}>Gå vidare</button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Mjuk notis: en inbjudan i länken kunde inte godkännas automatiskt (t.ex. redan borttagen). */
+function MembershipAcceptFailedNotice({ show }: { show: boolean }) {
+  if (!show) return null
+  return (
+    <div role="alert" className="alert alert-amber">
+      <Icon name="Alert" size={18} />
+      Din inbjudan kunde inte godkännas automatiskt. Har du fler väntande inbjudningar nedan, godkänn dem där – annars, be en administratör bjuda in dig igen.
+    </div>
   )
 }
