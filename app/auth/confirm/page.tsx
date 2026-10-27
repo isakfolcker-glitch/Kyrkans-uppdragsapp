@@ -320,18 +320,19 @@ function PasswordAlreadySetNotice({ show, resetSending, resetSent, onSendReset, 
         <Icon name="Alert" size={18} style={{ marginTop: 2 }} />
         <span>Dina uppgifter är sparade. Ditt konto hade redan ett lösenord, så det du skrev nu sparades inte.</span>
       </div>
-      {resetSent ? (
+      {resetSent && (
         <span style={{ fontWeight: 400 }}>En länk för att välja nytt lösenord är skickad till din e-post.</span>
-      ) : (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      )}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {!resetSent && (
           <button type="button" className="btn btn-secondary btn-sm" onClick={onSendReset} disabled={resetSending}>
             {resetSending ? 'Skickar…' : 'Skicka länk för nytt lösenord'}
           </button>
-          {onContinue && (
-            <button type="button" className="btn btn-primary btn-sm" onClick={onContinue}>Gå vidare</button>
-          )}
-        </div>
-      )}
+        )}
+        {onContinue && (
+          <button type="button" className="btn btn-primary btn-sm" onClick={onContinue}>Gå vidare</button>
+        )}
+      </div>
     </div>
   )
 }
