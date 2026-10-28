@@ -106,7 +106,6 @@ function KyrkaModal({ forsamlingId, onSaved }: { forsamlingId: number; onSaved: 
 export default function ForsamlingarPage() {
   const { churches, pastorat, passes, people, showModal, deleteChurch, isSuperAdmin, isPAdmin, currentChurchId } = useApp()
   const [kyrkorMap, setKyrkorMap] = useState<Record<number, Kyrka[]>>({})
-  const activePastoratId = churches.find(c => c.id === currentChurchId())?.pastoratId
   const visibleChurches = isSuperAdmin() || isPAdmin() ? churches : churches.filter(c => c.id === currentChurchId())
 
   // Hämta kyrkor (byggnader) från Supabase
