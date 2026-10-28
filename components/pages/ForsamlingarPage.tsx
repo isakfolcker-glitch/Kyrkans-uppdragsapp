@@ -8,26 +8,37 @@ interface Kyrka { id: number; name: string; address?: string; forsamling_id: num
 
 // ── Modal: Lägg till/redigera församling ──────────────
 function ForsamlingModal({ idx, forsamlingId }: { idx?: number; forsamlingId?: number }) {
-  const { churches, closeModal, addChurch, updateChurch } = useApp()
+  const { churches, pastorat, isSuperAdmin, closeModal, addChurch, updateChurch } = useApp()
   const existing = idx !== undefined ? churches[idx] : null
   const [name, setName] = useState(existing?.name || '')
   const [admin, setAdmin] = useState(existing?.admin || '')
   const [tel, setTel] = useState(existing?.tel || '')
+  const [pastoratId, setPastoratId] = useState<number | null>(existing?.pastoratId ?? null)
+  const canChoosePastorat = isSuperAdmin()
   const [loading, setLoading] = useState(false)
 
   const save = async () => {
     if (!name.trim()) { alert('Namn krävs'); return }
     setLoading(true)
-    if (existing && forsamlingId !== undefined) {
-      await fetch(`/api/churches/${forsamlingId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, admin, tel }) })
-      updateChurch(idx!, { name, admin, tel })
-    } else {
-      const res = await fetch('/api/churches', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, admin, tel }) })
+    try {
+      const res = await fetch(existing && forsamlingId !== undefined ? `/api/churches/${forsamlingId}` : '/api/churches', {
+        method: existing ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), admin, tel, ...(canChoosePastorat ? { pastorat_id: pastoratId } : {}) }),
+      })
       const data = await res.json()
-      if (res.ok) addChurch({ id: data.id, name: data.name, admin: data.admin_name || '', tel: data.tel || '' })
+      if (!res.ok) { alert(data.error || 'Kunde inte spara församlingen'); return }
+      if (existing && idx !== undefined) {
+        updateChurch(idx, { ...existing, name: name.trim(), admin, tel, pastoratId: canChoosePastorat ? pastoratId : existing.pastoratId })
+      } else {
+        addChurch({ id: data.id, name: data.name, admin: data.admin_name || '', tel: data.tel || '', pastoratId: data.pastorat_id ?? null })
+      }
+      closeModal()
+    } catch {
+      alert('Nätverksfel när församlingen skulle sparas')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
-    closeModal()
   }
 
   return (
@@ -38,6 +49,16 @@ function ForsamlingModal({ idx, forsamlingId }: { idx?: number; forsamlingId?: n
         <div className="form-field"><label htmlFor="forsamlingar-f2">Ansvarig admin</label><input id="forsamlingar-f2" placeholder="Namn" value={admin} onChange={e => setAdmin(e.target.value)} /></div>
         <div className="form-field"><label htmlFor="forsamlingar-f3">Telefon</label><input id="forsamlingar-f3" placeholder="073-..." value={tel} onChange={e => setTel(e.target.value)} /></div>
       </div>
+      {canChoosePastorat && (
+        <div className="form-field">
+          <label htmlFor="forsamlingar-pastorat">Tillhör pastorat</label>
+          <select id="forsamlingar-pastorat" value={pastoratId ?? ''} onChange={e => setPastoratId(e.target.value ? Number(e.target.value) : null)}>
+            <option value="">Inget pastorat</option>
+            {pastorat.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </div>
+      )}
+      {!canChoosePastorat && !existing && <p className="page-sub">Församlingen kopplas automatiskt till ditt pastorat.</p>}
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
         <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? 'Sparar...' : 'Spara'}</button>
@@ -83,8 +104,9 @@ function KyrkaModal({ forsamlingId, onSaved }: { forsamlingId: number; onSaved: 
 
 // ── Huvudsida ─────────────────────────────────────────
 export default function ForsamlingarPage() {
-  const { churches, passes, people, showModal, deleteChurch } = useApp()
+  const { churches, pastorat, passes, people, showModal, deleteChurch, isSuperAdmin, isPAdmin, currentChurchId } = useApp()
   const [kyrkorMap, setKyrkorMap] = useState<Record<number, Kyrka[]>>({})
+  const visibleChurches = isSuperAdmin() || isPAdmin() ? churches : churches.filter(c => c.id === currentChurchId())
 
   // Hämta kyrkor (byggnader) från Supabase
   useEffect(() => {
@@ -123,13 +145,14 @@ export default function ForsamlingarPage() {
         <button className="btn btn-primary" onClick={() => showModal(<ForsamlingModal />)}><Icon name="Plus" size={18} />Ny församling</button>
       </div>
 
-      {churches.length === 0 && (
+      {visibleChurches.length === 0 && (
         <div className="empty-state">
           Inga församlingar ännu. Klicka på Ny församling för att börja.
         </div>
       )}
 
-      {churches.map((c, i) => {
+      {visibleChurches.map((c) => {
+        const i = churches.findIndex(church => church.id === c.id)
         const forsamlingId = c.id!
         const passCount = passes.filter(p => p.church === forsamlingId && !p.cancelled && p.pubStatus === 'live').length
         const peopleCount = people.filter(p => p.church === forsamlingId && p.role === 'ideell').length
@@ -143,7 +166,7 @@ export default function ForsamlingarPage() {
                 <Icon name="BuildingChurch" size={24} style={{ color: '#7D0037' }} />
                 <div>
                   <div style={{ fontSize: 15, fontWeight: 500, color: '#000' }}>{c.name}</div>
-                  <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.72)' }}>Admin: {c.admin} · {c.tel}</div>
+                  <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.72)' }}>Pastorat: {pastorat.find(p => p.id === c.pastoratId)?.name ?? 'Ej kopplat'} · Admin: {c.admin} · {c.tel}</div>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
