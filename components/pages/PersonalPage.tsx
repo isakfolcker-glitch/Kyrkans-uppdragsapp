@@ -5,6 +5,7 @@ import { gLabel, gCls, roleLabel } from '@/lib/appData'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 import Icon from '@/components/ui/Icon'
 import { avBg, avFg } from '@/lib/avatarColors'
+import ChatPrivacyNote from '@/components/chat/ChatPrivacyNote'
 
 function SetPasswordModal({ personId, personName, churchId }: { personId: any; personName: string; churchId: number }) {
   const { closeModal } = useApp()
@@ -173,6 +174,7 @@ function EditPersonModal({ personId, churchId }: { personId: any; churchId: numb
             </button>
           ))}
         </div>
+        <ChatPrivacyNote className="group-chat-note" />
       </div>
       {error && <div className="alert alert-red">{error}</div>}
       <div className="modal-footer-split">

@@ -72,6 +72,8 @@ interface AppCtx {
   deleteChurch: (idx: number) => void
   addPastorat: (p: PastoratData) => Promise<void>; updatePastorat: (p: PastoratData) => Promise<void>
   deletePastorat: (id: number) => Promise<void>; addGroup: (g: Group) => void; deleteGroup: (id: string) => void
+  /** Sätter exakt vilka som är gruppansvariga i en grupp. Returnerar felmeddelande eller null. */
+  setGroupLeaders: (groupId: string, leaderIds: string[]) => Promise<string | null>
   nextPersonId: () => number; nextPassId: () => number; nextPastoratId: () => number
   getResponsibleNames: (pass: PassData) => string; currentChurchId: () => number
   currentMembership: () => ChurchMembershipData | null; currentGroups: () => string[]
@@ -368,7 +370,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // En profil kan förekomma en gång per aktivt församlingsmedlemskap.
     const { data: peopleMemberships } = await supabase
       .from('profile_churches')
-      .select('church_id, role, admin_level, is_employee, active, profiles!inner(id, name, email, phone, ini, av_color, ac_color, available, profile_groups(group_id))')
+      .select('church_id, role, admin_level, is_employee, active, profiles!inner(id, name, email, phone, ini, av_color, ac_color, available, profile_groups(group_id, is_leader))')
       .eq('active', true)
       .not('accepted_at', 'is', null) // väntande inbjudningar visas inte som personer
 
@@ -376,6 +378,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const peopleRows: PersonData[] = peopleMemberships.map((membership: any) => {
         const rawProfile = Array.isArray(membership.profiles) ? membership.profiles[0] : membership.profiles
         const profileGroups = rawProfile?.profile_groups?.map((g: any) => g.group_id) || []
+        const leaderIds: string[] = (rawProfile?.profile_groups ?? []).filter((g: { is_leader?: boolean }) => g.is_leader === true).map((g: { group_id: string }) => g.group_id)
         const visibleGroupIds = profileGroups.filter((groupId: string) => {
           const group = mappedGroups.find(item => item.id === groupId)
           return !group || group.churchId === null || group.churchId === membership.church_id
@@ -390,6 +393,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           ac: rawProfile?.ac_color || '#7D0037',
           church: membership.church_id,
           groups: visibleGroupIds,
+          leaderGroups: leaderIds.filter(groupId => visibleGroupIds.includes(groupId)),
           role: membership.role,
           isEmployee: membership.is_employee,
           adminLevel: membership.admin_level,
@@ -807,6 +811,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
   const addGroup     = (g: Group)      => setGroups(prev => [...prev, g])
   const deleteGroup  = (id: string)    => setGroups(prev => prev.filter(g => g.id !== id))
+  // Gruppansvariga (chatten): API:t tar exakt lista och kontrollerar att anroparen är admin.
+  const setGroupLeaders = async (groupId: string, leaderIds: string[]): Promise<string | null> => {
+    try {
+      const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leader_ids: leaderIds }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) return data.error ?? 'Kunde inte spara gruppansvariga'
+    } catch {
+      return 'Kunde inte nå servern. Försök igen.'
+    }
+    const wanted = new Set(leaderIds.map(String))
+    setPeople(prev => prev.map(p => {
+      if (!p.groups.includes(groupId)) return p
+      const rest = (p.leaderGroups ?? []).filter(g => g !== groupId)
+      return { ...p, leaderGroups: wanted.has(String(p.id)) ? [...rest, groupId] : rest }
+    }))
+    return null
+  }
 
   const updateStaffPerms = async (profileId: string, perms: StaffPerms) => {
     const churchId = currentChurchId()
@@ -852,7 +877,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addPass, updatePass, deletePass, cancelPass, reloadPasses, addBooking, removeBooking,
       addPerson, updatePerson, deletePerson, addMessage,
       addChurch, updateChurch, deleteChurch,
-      addPastorat, updatePastorat, deletePastorat, addGroup, deleteGroup,
+      addPastorat, updatePastorat, deletePastorat, addGroup, deleteGroup, setGroupLeaders,
       nextPersonId, nextPassId, nextPastoratId, updateStaffPerms,
       getResponsibleNames, currentChurchId, currentMembership, currentGroups, logout, inviteUser,
     }}>

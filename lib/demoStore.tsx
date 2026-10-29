@@ -1,8 +1,10 @@
 'use client'
-import { useState, ReactNode, createContext, useContext } from 'react'
+import { useMemo, useState, ReactNode, createContext, useContext } from 'react'
 import { Ctx, ALL_PERMS, NO_PERMS, StaffPerms } from '@/lib/appStore'
 import type { PassMessage } from '@/types'
 import { Group, Church, PersonData, PassData, MessageData, NotifData, ChurchMembershipData, NAV_ITEMS } from '@/lib/appData'
+import { createDemoChat } from '@/lib/demoChat'
+import type { ChatTransport } from '@/lib/chatClient'
 import { DEMO_GROUPS, DEMO_CHURCHES, DEMO_PASTORAT, DEMO_USERS, DEMO_PEOPLE, DEMO_PASSES, DEMO_MESSAGES, DEMO_NOTIFICATIONS, DEMO_COMMENTS } from '@/lib/demoData'
 
 let _nextId = 200
@@ -28,6 +30,13 @@ const DemoCommentsCtx = createContext<DemoComments | null>(null)
 /** null utanför demoläget. */
 export const useDemoComments = () => useContext(DemoCommentsCtx)
 
+// ─── Gruppchatt (demoläge) ─────────────────────────────
+// Samma upplägg som kommentarerna: eget kontext, så att ChatProvider kan välja
+// demo eller skarpt läge. Meddelandena finns bara i minnet (lib/demoChat.ts).
+const DemoChatCtx = createContext<ChatTransport | null>(null)
+/** null utanför demoläget. */
+export const useDemoChatTransport = () => useContext(DemoChatCtx)
+
 function initSelfBookings(idx: number, passes: PassData[]) {
   const uid = DEMO_USERS[idx].id
   const out: Record<number, boolean> = {}
@@ -52,6 +61,7 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
   const [groups, setGroups]           = useState<Group[]>(DEMO_GROUPS)
   const [churches, setChurches]       = useState<Church[]>(DEMO_CHURCHES)
   const [comments, setComments]       = useState<PassMessage[]>(DEMO_COMMENTS)
+  const [chatStore]                   = useState(() => createDemoChat())
 
   const usr          = DEMO_USERS[userIndex]
   const adminLevel   = usr.adminLevel
@@ -209,6 +219,22 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
   const deleteComment = (id: number) =>
     setComments(prev => prev.map(m => m.id === id ? { ...m, body: '', mentions: [], deletedAt: new Date().toISOString() } : m))
 
+  // Gruppansvariga: exakt lista med person-id för gruppen, som PATCH /api/groups/[id] i skarpt läge.
+  const setGroupLeaders = async (groupId: string, leaderIds: string[]) => {
+    const wanted = new Set(leaderIds.map(String))
+    setPeople(prev => prev.map(p => {
+      if (!p.groups.includes(groupId)) return p
+      const rest = (p.leaderGroups ?? []).filter(g => g !== groupId)
+      return { ...p, leaderGroups: wanted.has(String(p.id)) ? [...rest, groupId] : rest }
+    }))
+    return null
+  }
+
+  const chatTransport = useMemo(
+    () => chatStore.transportFor({ id: String(usr.id), name: usr.name, ini: usr.ini, av: usr.av, ac: usr.ac, groups: usr.groups }),
+    [chatStore, usr],
+  )
+
   const logout      = () => {}
   const inviteUser  = async () => {}
   const updateStaffPerms = async () => {}
@@ -229,12 +255,14 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
       addPass, updatePass, deletePass, cancelPass, reloadPasses, addBooking, removeBooking,
       addPerson, updatePerson, deletePerson, addMessage,
       addChurch, updateChurch, deleteChurch,
-      addPastorat, updatePastorat, deletePastorat, addGroup, deleteGroup,
+      addPastorat, updatePastorat, deletePastorat, addGroup, deleteGroup, setGroupLeaders,
       nextPersonId, nextPassId, nextPastoratId, updateStaffPerms,
       getResponsibleNames, currentChurchId, currentMembership, currentGroups, logout, inviteUser,
     }}>
       <DemoCommentsCtx.Provider value={{ comments, addComment, editComment, deleteComment }}>
-        {children}
+        <DemoChatCtx.Provider value={chatTransport}>
+          {children}
+        </DemoChatCtx.Provider>
       </DemoCommentsCtx.Provider>
     </Ctx.Provider>
   )

@@ -38,16 +38,16 @@ export const DEMO_USERS: UserDef[] = [
     id: 3, name: 'Sarah Björk', email: 'sarah@kyrkan.se',
     role: 'padmin', isEmployee: true, adminLevel: 'pastorat',
     ini: 'SB', av: '#FFDCCB', ac: '#7D0037', badge: 'rb-fadmin', badgeLbl: 'Pastoratsadmin',
-    groups: [], churches: [1, 2], responsibleForPasses: [],
+    groups: ['kyrkv'], churches: [1, 2], responsibleForPasses: [],
     notifs: {}, available: true,
   },
 ]
 
 export const DEMO_PEOPLE: PersonData[] = [
   { id: 1,  name: 'Maria Lindström', mail: 'maria@kyrkan.se',    phone: '073-111 22 33', ini: 'ML', av: '#FFC3AA', ac: '#7D0037', role: 'ideell',    isEmployee: false, adminLevel: 'none',      church: 1, groups: ['kyrkv','extra'],         available: true  },
-  { id: 2,  name: 'Johan Eriksson',  mail: 'johan@kyrkan.se',    phone: '070-222 33 44', ini: 'JE', av: '#FFDCCB', ac: '#7D0037', role: 'anstalld',  isEmployee: true,  adminLevel: 'none',      church: 1, groups: ['kyrkv'],              available: true  },
-  { id: 3,  name: 'Sarah Björk',     mail: 'sarah@kyrkan.se',    phone: '070-333 44 55', ini: 'SB', av: '#FFDCCB', ac: '#7D0037', role: 'padmin',    isEmployee: true,  adminLevel: 'pastorat',  church: 1, groups: [],                    available: true  },
-  { id: 4,  name: 'Lars Pettersson', mail: 'lars@kyrkan.se',     phone: '076-444 55 66', ini: 'LP', av: '#FFEBE1', ac: '#7D0037', role: 'ideell',    isEmployee: false, adminLevel: 'none',      church: 1, groups: ['kyrkv','doerr'],      available: true  },
+  { id: 2,  name: 'Johan Eriksson',  mail: 'johan@kyrkan.se',    phone: '070-222 33 44', ini: 'JE', av: '#FFDCCB', ac: '#7D0037', role: 'anstalld',  isEmployee: true,  adminLevel: 'none',      church: 1, groups: ['kyrkv'],              available: true, leaderGroups: ['kyrkv'] },
+  { id: 3,  name: 'Sarah Björk',     mail: 'sarah@kyrkan.se',    phone: '070-333 44 55', ini: 'SB', av: '#FFDCCB', ac: '#7D0037', role: 'padmin',    isEmployee: true,  adminLevel: 'pastorat',  church: 1, groups: ['kyrkv'],              available: true  },
+  { id: 4,  name: 'Lars Pettersson', mail: 'lars@kyrkan.se',     phone: '076-444 55 66', ini: 'LP', av: '#FFEBE1', ac: '#7D0037', role: 'ideell',    isEmployee: false, adminLevel: 'none',      church: 1, groups: ['kyrkv','doerr'],      available: true, leaderGroups: ['doerr'] },
   { id: 5,  name: 'Eva Nilsson',     mail: 'eva@kyrkan.se',      phone: '073-555 66 77', ini: 'EN', av: '#FFDCCB', ac: '#7D0037', role: 'ideell',    isEmployee: false, adminLevel: 'none',      church: 1, groups: ['brand','extra'],      available: true  },
   { id: 6,  name: 'Anders Carlsson', mail: 'anders@kyrkan.se',                           ini: 'AC', av: '#FFDCCB', ac: '#7D0037', role: 'ideell',    isEmployee: false, adminLevel: 'none',      church: 1, groups: ['konsert','kyrkv'],    available: false },
   { id: 7,  name: 'Ingrid Johansson',mail: 'ingrid@kyrkan.se',                           ini: 'IJ', av: '#FFEBE1', ac: '#7D0037', role: 'ideell',    isEmployee: false, adminLevel: 'none',      church: 1, groups: ['kyrkv'],              available: true  },
@@ -263,3 +263,41 @@ export const DEMO_COMMENTS: PassMessage[] = [
     createdAt: hoursAgo(30), editedAt: null, deletedAt: null, authorIsStaff: true, mentions: [],
   },
 ]
+
+// Gruppchatt i demoläget. Påhittade meddelanden, [författare (person-id), minuter sedan, text].
+// Sparas bara lokalt (lib/demoChat.ts) och skickas aldrig till något API.
+export const DEMO_CHAT_SEED: Record<string, [number, number, string][]> = {
+  kyrkv: [
+    [2, 2900, 'Hej allihop! Söndagens mässa börjar 11:00. Samling i sakristian 10:15.'],
+    [1, 2880, 'Jag tar kollekten som vanligt.'],
+    [4, 2860, 'Jag kan hjälpa till med psalmnummer om någon behöver.'],
+    [2, 1500, 'Tack! Kom ihåg att tända ljusen i koret innan gudstjänsten.'],
+    [7, 1490, 'Jag har glömt min nyckel hemma. Kan någon släppa in mig?'],
+    [2, 1485, 'Jag öppnar vid sidoingången 10:00.'],
+    [1, 180, 'Fint arbete idag allihop! Tack för hjälpen.'],
+    [10, 95, 'Någon som kan byta med mig på lördag förmiddag?'],
+    [2, 40, 'Skriv i Pass-fliken om du vill byta, så ser alla det.'],
+  ],
+  doerr: [
+    [8, 4000, 'Norra dörren kärvar lite. Jag har sagt till vaktmästaren.'],
+    [4, 3990, 'Bra! Jag tar södra dörren så länge.'],
+    [13, 600, 'Hej, är det här chatten för dörrvakterna?'],
+    [4, 590, 'Ja, välkommen!'],
+  ],
+  brand: [
+    [5, 7000, 'Brandronden är klar. Allt var i ordning.'],
+    [10, 6990, 'Tack Eva!'],
+  ],
+  konsert: [
+    [9, 300, 'Nästa konsert: kom en halvtimme före för att visa publiken till platserna.'],
+    [6, 280, 'Jag kommer. Kan jag få en väst?'],
+  ],
+  extra: [
+    [9, 5000, 'Vi behöver fler som kan hjälpa till vid kyrkkaffet nästa söndag.'],
+    [11, 4980, 'Jag kan baka något!'],
+    [1, 4970, 'Jag kan ställa fram koppar och fat.'],
+  ],
+  natt: [
+    [8, 9000, 'Nattvakten i går gick lugnt. Inget att rapportera.'],
+  ],
+}

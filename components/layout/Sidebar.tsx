@@ -2,6 +2,8 @@
 import { useApp } from '@/lib/appStore'
 import Icon from '@/components/ui/Icon'
 import { useNavItems, useUnreadCount } from '@/components/layout/useNavItems'
+import { useChatUnread } from '@/components/chat/ChatProvider'
+import UnreadBadge from '@/components/chat/UnreadBadge'
 
 /** Församlingens namn (eller motsvarande) under appnamnet. */
 export function useSubText() {
@@ -17,6 +19,7 @@ export default function Sidebar() {
   const usr = u()
   const items = useNavItems()
   const unread = useUnreadCount()
+  const chatUnread = useChatUnread()
   const subText = useSubText()
   const displayName = profile?.name || usr.name
 
@@ -41,6 +44,7 @@ export default function Sidebar() {
             >
               <Icon name={item.icon} />
               {label}
+              {item.id === 'chatt' && chatUnread > 0 && <UnreadBadge count={chatUnread} className="nav-badge-side" />}
             </button>
           )
         })}

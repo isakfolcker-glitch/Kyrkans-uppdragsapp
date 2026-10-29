@@ -21,12 +21,17 @@ import OversiktPage from '@/components/pages/OversiktPage'
 import ForsamlingarPage from '@/components/pages/ForsamlingarPage'
 import PastoratPage from '@/components/pages/PastoratPage'
 import KioskPage from '@/components/pages/KioskPage'
+import ChattPage from '@/components/pages/ChattPage'
+import { ChatProvider, useChatUnread } from '@/components/chat/ChatProvider'
+import UnreadBadge from '@/components/chat/UnreadBadge'
 
 // Flikarna i nedre menyn på mobil. Allt annat ligger under "Mer".
+// Chatt visas bara för den som har den i sin meny (inte kiosk).
 const TABS = [
   { id: 'oversikt',       icon: 'Home',     lbl: 'Start' },
   { id: 'pass',           icon: 'Calendar', lbl: 'Pass' },
   { id: 'mina-bokningar', icon: 'Bookmark', lbl: 'Bokningar' },
+  { id: 'chatt',          icon: 'Message',  lbl: 'Chatt' },
   { id: 'notiser',        icon: 'Bell',     lbl: 'Notiser' },
 ]
 const TAB_IDS = new Set(TABS.map(t => t.id))
@@ -38,6 +43,7 @@ function PageContent() {
     case 'pass':           return <PassPage />
     case 'mina-ansvar':    return <MinaAnsvarPage />
     case 'mina-bokningar': return <MinaBokningarPage />
+    case 'chatt':          return <ChattPage />
     case 'notiser':        return <NotiserPage />
     case 'profil':         return <ProfilPage />
     case 'personal':       return <PersonalPage />
@@ -55,7 +61,7 @@ function PageContent() {
 
 export default function AppShell() {
   return (
-    <>
+    <ChatProvider>
       <div className="app-shell">
         <Sidebar />
         <div className="app-column">
@@ -71,7 +77,7 @@ export default function AppShell() {
         <Modal />
       </div>
       <BottomNav />
-    </>
+    </ChatProvider>
   )
 }
 
@@ -251,11 +257,13 @@ function MorePanel({ id, onClose }: { id: string; onClose: () => void }) {
 function BottomNav() {
   const { page, goTo, isKiosk } = useApp()
   const unread = useUnreadCount()
+  const chatUnread = useChatUnread()
+  const hasChat = useNavItems().some(item => item.id === 'chatt')
   if (isKiosk()) return null
 
   return (
     <nav className="bottom-nav" aria-label="Huvudmeny">
-      {TABS.map(tab => {
+      {TABS.filter(tab => tab.id !== 'chatt' || hasChat).map(tab => {
         const active = page === tab.id
         const label = tab.id === 'notiser' && unread > 0 ? `${tab.lbl} (${unread})` : tab.lbl
         return (
@@ -266,7 +274,10 @@ function BottomNav() {
             aria-current={active ? 'page' : undefined}
             onClick={() => goTo(tab.id)}
           >
-            <span className="tab-pill"><Icon name={tab.icon} /></span>
+            <span className="tab-pill">
+              <Icon name={tab.icon} />
+              {tab.id === 'chatt' && chatUnread > 0 && <UnreadBadge count={chatUnread} />}
+            </span>
             {label}
           </button>
         )
