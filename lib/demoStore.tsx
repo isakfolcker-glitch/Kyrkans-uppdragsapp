@@ -220,6 +220,22 @@ export function DemoProvider({ children, initialIndex = 2 }: { children: ReactNo
   const addPastorat = async (p: PastoratData) => {
     setPastorat(prev => [...prev, p])
     setChurches(prev => prev.map(c => p.churches.includes(c.id!) ? { ...c, pastoratId: p.id } : c))
+    // Adminuppdraget hör till det nya pastoratets församlingar. Personens
+    // tidigare medlemskap och roll i andra pastorat ska behållas.
+    const adminPerson = people.find(person => p.adminEmail && person.mail.toLowerCase() === p.adminEmail.toLowerCase())
+    if (adminPerson) {
+      setPeople(prev => {
+        const next = prev.map(person => person.id === adminPerson.id && p.churches.includes(person.church)
+          ? { ...person, role: 'padmin' as Role, adminLevel: 'pastorat' as const, isEmployee: true }
+          : person)
+        for (const churchId of p.churches) {
+          if (!next.some(person => person.id === adminPerson.id && person.church === churchId)) {
+            next.push({ ...adminPerson, church: churchId, role: 'padmin', adminLevel: 'pastorat', isEmployee: true, groups: [] })
+          }
+        }
+        return next
+      })
+    }
   }
   const updatePastorat = async (p: PastoratData) => {
     setPastorat(prev => prev.map(x => x.id === p.id ? p : x))

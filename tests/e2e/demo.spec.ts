@@ -223,3 +223,41 @@ test('demo behörigheter: anställds rättigheter kan sparas och läsas lokalt',
   await expect(dialog.getByRole('checkbox', { name: /^Skapa pass/ })).not.toBeChecked()
   await dialog.getByRole('button', { name: 'Avbryt' }).click()
 })
+
+test('demo pastoratsadmin: exportvalen håller sig inom pastoratet', async ({ page }) => {
+  await page.getByRole('button', { name: /^Pastoratsadmin,/ }).click()
+  await openMenu(page, 'Exportera')
+  await expect(page.locator('.church-bar').getByRole('button', { name: 'Domkyrkan', exact: true })).toBeVisible()
+  await expect(page.locator('.church-bar').getByRole('button', { name: 'Hovförsamlingen', exact: true })).toBeVisible()
+  await expect(page.locator('.church-bar').getByRole('button', { name: 'Exempelförsamlingen', exact: true })).toHaveCount(0)
+})
+
+test('demo nytt pastorat: vald admin får rollen i nya församlingen, tidigare roll bevaras', async ({ page }) => {
+  await page.getByRole('button', { name: /^Superadmin,/ }).click()
+  await openMenu(page, 'Pastorat')
+  await page.getByRole('button', { name: 'Nytt pastorat', exact: true }).click()
+  await page.getByLabel('Namn på pastoratet').fill('Johans lokala pastorat')
+  await page.getByLabel('Pastoratsadmin', { exact: true }).selectOption('2')
+  await page.getByRole('checkbox', { name: 'Exempelförsamlingen', exact: true }).check()
+  await page.getByRole('button', { name: 'Skapa pastorat' }).click()
+  await expect(page.getByText('Johans lokala pastorat', { exact: true }).first()).toBeVisible()
+  const mobile = (page.viewportSize()?.width ?? 1280) < 768
+  const originalViewport = page.viewportSize()!
+  // The kiosk has no mobile menu. Expand to the desktop menu while cycling
+  // Superadmin -> kiosk -> Maria -> Johan, then verify the original viewport.
+  if (mobile) await page.setViewportSize({ width: 1280, height: 800 })
+  for (let index = 0; index < 3; index++) {
+    await page.getByRole('button', { name: /^Byt testanvändare/ }).click()
+  }
+  if (mobile) await page.setViewportSize(originalViewport)
+  let labels = (await visibleMenu(page)).map(label => label.trim().replace(/ \(\d+\)$/, ''))
+  expect(labels).toContain('Mina ansvar')
+  expect(labels).not.toContain('Behörigheter')
+  if (mobile) await page.getByRole('button', { name: 'Mer', exact: true }).click()
+  await page.getByLabel(mobile ? 'Byt församling' : 'Församling', { exact: true }).selectOption({ label: 'Exempelförsamlingen' })
+  if (mobile) await page.getByRole('button', { name: 'Stäng', exact: true }).click()
+  labels = (await visibleMenu(page)).map(label => label.trim().replace(/ \(\d+\)$/, ''))
+  expect(labels).toContain('Behörigheter')
+  expect(labels).toContain('Församlingar')
+  expect(labels).not.toContain('Mina ansvar')
+})

@@ -1,5 +1,5 @@
 'use client'
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { usePathname } from 'next/navigation'
 import {
@@ -82,6 +82,21 @@ interface AppCtx {
 }
 
 let _nextPersonId = 100, _nextPassId = 200, _nextPasId = 2
+// Webbläsarklienten delas i fliken. Serialisera start/stopp eftersom SDK:ns
+// start väntar asynkront innan timern skapas. Ingen session eller cookie ändras.
+let refreshOwner: { client: ReturnType<typeof createClient>; signal: AbortSignal } | null = null
+let refreshQueue = Promise.resolve()
+const syncAuthRefresh = (client: ReturnType<typeof createClient>) => {
+  refreshQueue = refreshQueue.then(async () => {
+    // Init kan annars installera SDK:ns visibilitylistener efter vår cleanup.
+    await client.auth.initialize()
+    if (refreshOwner?.client === client && !refreshOwner.signal.aborted && document.visibilityState !== 'hidden') {
+      await client.auth.startAutoRefresh()
+    } else {
+      await client.auth.stopAutoRefresh()
+    }
+  }).catch(() => { console.error('Kunde inte uppdatera inloggningens bakgrundsarbete.') })
+}
 export const Ctx = createContext<AppCtx>(null!)
 export const useApp = () => useContext(Ctx)
 
@@ -94,6 +109,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
 function LiveAppProvider({ children }: { children: ReactNode }) {
   const supabase = createClient()
+  const loadController = useRef<AbortController | null>(null)
+  const notificationChannel = useRef<{ signal: AbortSignal; userId: string; channel: ReturnType<typeof supabase.channel> } | null>(null)
 
   // Auth state
   const [currentUser, setCurrentUser] = useState<any>(null)
@@ -121,29 +138,53 @@ function LiveAppProvider({ children }: { children: ReactNode }) {
 
   // ─── Auth listener ────────────────────────────────
   useEffect(() => {
+    // Ny signal även när React provar cleanup och setup igen i StrictMode.
+    const controller = new AbortController()
+    const { signal } = controller
+    loadController.current = controller
+    refreshOwner = { client: supabase, signal }
+    const onVisibilityChange = () => { if (!signal.aborted) syncAuthRefresh(supabase) }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    syncAuthRefresh(supabase)
     supabase.auth.getUser().then(({ data: { user } }) => {
+      if (signal.aborted) return
       setCurrentUser(user)
-      if (user) fetchProfile(user.id)
+      if (user) fetchProfile(user.id, signal)
       else setLoadingAuth(false)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (signal.aborted) return
       setCurrentUser(session?.user ?? null)
       // Ladda bara om all data vid inloggning/utloggning — INTE vid token-refresh
       if (event === 'SIGNED_IN') {
-        if (session?.user) fetchProfile(session.user.id)
+        if (session?.user) fetchProfile(session.user.id, signal)
       } else if (event === 'SIGNED_OUT') {
         setProfile(null); setLoadingAuth(false)
       }
     })
-    return () => subscription.unsubscribe()
+    return () => {
+      controller.abort()
+      subscription.unsubscribe()
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      if (refreshOwner?.signal === signal) refreshOwner = null
+      syncAuthRefresh(supabase)
+      const owned = notificationChannel.current
+      if (owned?.signal === signal) {
+        notificationChannel.current = null
+        void supabase.removeChannel(owned.channel)
+      }
+    }
   }, [])
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, signal: AbortSignal) => {
+    if (signal.aborted) return
     const { data } = await supabase
       .from('profiles')
       .select('*, profile_groups(group_id), notif_settings(*)')
       .eq('id', userId)
+      .abortSignal(signal)
       .single()
+    if (signal.aborted) return
 
     const { data: membershipRows, error: membershipError } = await supabase
       .from('profile_churches')
@@ -151,6 +192,8 @@ function LiveAppProvider({ children }: { children: ReactNode }) {
       .eq('profile_id', userId)
       .eq('active', true)
       .not('accepted_at', 'is', null) // väntande inbjudningar ger ingen tillgång
+      .abortSignal(signal)
+    if (signal.aborted) return
 
     let mappedMemberships: ChurchMembershipData[] = (membershipRows ?? []).map((m: any) => ({
       profileId: m.profile_id,
@@ -180,12 +223,15 @@ function LiveAppProvider({ children }: { children: ReactNode }) {
     setLoadingAuth(false)
 
     if (data) {
-      await fetchAppData(data, mappedMemberships)
+      await fetchAppData(data, mappedMemberships, signal)
+      if (signal.aborted) return
 
       const { data: permsRows, error: permsError } = await supabase
         .from('profile_church_permissions')
         .select('*')
         .eq('profile_id', userId)
+        .abortSignal(signal)
+      if (signal.aborted) return
 
       if (!permsError) {
         const byChurch: Record<number, StaffPerms> = {}
@@ -208,7 +254,9 @@ function LiveAppProvider({ children }: { children: ReactNode }) {
           .from('staff_permissions')
           .select('*')
           .eq('profile_id', userId)
+          .abortSignal(signal)
           .maybeSingle()
+        if (signal.aborted) return
         if (legacyPerms && mappedMemberships[0]) {
           setStaffPermsByChurch({
             [mappedMemberships[0].churchId]: {
@@ -226,10 +274,12 @@ function LiveAppProvider({ children }: { children: ReactNode }) {
       }
 
       // Hämta kö-anmälningar och position
-      const { data: myWaitlist } = await supabase.from('waitlist').select('pass_id, created_at').eq('profile_id', userId)
+      const { data: myWaitlist } = await supabase.from('waitlist').select('pass_id, created_at').eq('profile_id', userId).abortSignal(signal)
+      if (signal.aborted) return
       if (myWaitlist?.length) {
         const passIds = myWaitlist.map((w: any) => w.pass_id)
-        const { data: allWl } = await supabase.from('waitlist').select('pass_id, profile_id, created_at').in('pass_id', passIds).order('created_at')
+        const { data: allWl } = await supabase.from('waitlist').select('pass_id, profile_id, created_at').in('pass_id', passIds).order('created_at').abortSignal(signal)
+        if (signal.aborted) return
         const positions: Record<number, number> = {}
         if (allWl) {
           passIds.forEach((pid: number) => {
@@ -247,17 +297,26 @@ function LiveAppProvider({ children }: { children: ReactNode }) {
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(50)
+        .abortSignal(signal)
+      if (signal.aborted) return
       if (notifData) setNotifications(notifData.map((n: any) => ({
         id: n.id, userId: n.user_id, type: n.type,
         title: n.title, body: n.body, time: n.created_at, read: n.read,
         passId: n.pass_id ?? null, commentId: n.comment_id ?? null,
       })))
 
-      supabase.channel('notif-' + userId)
+      // Ersätt bara denna providers kanal. Andra delar av appen kan ha egna.
+      const previous = notificationChannel.current
+      if (previous?.signal === signal && previous.userId === userId) return
+      if (previous) void supabase.removeChannel(previous.channel)
+      // Eget topic per kanal hindrar SDK:n från att återanvända en kanal som
+      // fortfarande håller på att avslutas efter tidigare avmontering.
+      const channel = supabase.channel(`notif-${userId}-${crypto.randomUUID()}`)
         .on('postgres_changes', {
           event: 'INSERT', schema: 'public', table: 'notifications',
           filter: `user_id=eq.${userId}`,
         }, (payload) => {
+          if (signal.aborted) return
           const n = payload.new as any
           setNotifications(prev => [{
             id: n.id, userId: n.user_id, type: n.type,
@@ -266,11 +325,14 @@ function LiveAppProvider({ children }: { children: ReactNode }) {
           }, ...prev])
         })
         .subscribe()
+      notificationChannel.current = { signal, userId, channel }
     }
   }
 
-  const fetchAppData = async (prof: any, membershipRows: ChurchMembershipData[]) => {
-    const { data: churchData } = await supabase.from('churches').select('*').order('id')
+  const fetchAppData = async (prof: any, membershipRows: ChurchMembershipData[], signal: AbortSignal) => {
+    if (signal.aborted) return
+    const { data: churchData } = await supabase.from('churches').select('*').order('id').abortSignal(signal)
+    if (signal.aborted) return
     const mappedChurches: Church[] = (churchData ?? []).map((church: any) => ({
       id: church.id,
       name: church.name,
@@ -314,7 +376,8 @@ function LiveAppProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    const { data: groupData } = await supabase.from('groups').select('*')
+    const { data: groupData } = await supabase.from('groups').select('*').abortSignal(signal)
+    if (signal.aborted) return
     const mappedGroups: Group[] = (groupData ?? []).map((group: any) => ({
       id: group.id,
       label: group.label,
@@ -327,6 +390,8 @@ function LiveAppProvider({ children }: { children: ReactNode }) {
       .from('pastorat')
       .select('id, name, churches(id)')
       .order('id')
+      .abortSignal(signal)
+    if (signal.aborted) return
     if (pastData?.length) {
       setPastorat(pastData.map((p: any) => ({
         id: p.id,
@@ -342,6 +407,8 @@ function LiveAppProvider({ children }: { children: ReactNode }) {
       .from('passes')
       .select('*, pass_groups(group_id), pass_responsible(profile_id), bookings(id, name, ini, av_color, ac_color, mail, tel, source, no_account, profile_id), pass_history(entry), waitlist(id)')
       .order('created_at', { ascending: false })
+      .abortSignal(signal)
+    if (signal.aborted) return
 
     if (passData) {
       const mappedPasses: PassData[] = passData.map((p: any) => ({
@@ -380,6 +447,8 @@ function LiveAppProvider({ children }: { children: ReactNode }) {
       .select('church_id, role, admin_level, is_employee, active, profiles!inner(id, name, email, phone, ini, av_color, ac_color, available, profile_groups(group_id))')
       .eq('active', true)
       .not('accepted_at', 'is', null) // väntande inbjudningar visas inte som personer
+      .abortSignal(signal)
+    if (signal.aborted) return
 
     if (peopleMemberships) {
       const peopleRows: PersonData[] = peopleMemberships.map((membership: any) => {
@@ -413,6 +482,8 @@ function LiveAppProvider({ children }: { children: ReactNode }) {
       .select('*')
       .order('sent_at', { ascending: false })
       .limit(100)
+      .abortSignal(signal)
+    if (signal.aborted) return
     if (msgData) {
       setMessages(msgData.map((m: any) => ({
         id: m.id,
@@ -719,10 +790,14 @@ function LiveAppProvider({ children }: { children: ReactNode }) {
     fetch(`/api/passes/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cancelled: true }) })
   }
   const reloadPasses = async () => {
+    const signal = loadController.current?.signal
+    if (!signal || signal.aborted) return
     const { data: passData } = await supabase
       .from('passes')
       .select('*, pass_groups(group_id), pass_responsible(profile_id), bookings(id, name, ini, av_color, ac_color, mail, tel, source, no_account, profile_id), pass_history(entry), waitlist(id)')
       .order('created_at', { ascending: false })
+      .abortSignal(signal)
+    if (signal.aborted) return
     if (passData) {
       setPasses(passData.map((p: any) => ({
         id: p.id, church: p.church_id, title: p.title,

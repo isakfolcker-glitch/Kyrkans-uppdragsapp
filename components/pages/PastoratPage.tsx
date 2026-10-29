@@ -6,18 +6,18 @@ import { PastoratData } from '@/lib/appData'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 
 function AddPastoratModal() {
-  const { people, churches, closeModal, addPastorat, updatePerson, nextPastoratId, showModal } = useApp()
+  const { people, churches, closeModal, addPastorat, updatePerson, nextPastoratId, showModal, isDemo } = useApp()
   const [name, setName] = useState('')
   const [adminId, setAdminId] = useState('')
   const [selChurches, setSelChurches] = useState<number[]>([])
-  const employees = people.filter(p => p.isEmployee)
+  const employees = people.filter(p => p.isEmployee).filter((person, index, all) => all.findIndex(candidate => candidate.id === person.id) === index)
   const toggleChurch = (id: number) => setSelChurches(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   const save = async () => {
     if (!name.trim()) { alert('Namn krävs'); return }
     const adminPers = people.find(p => p.id === parseInt(adminId))
     const newP: PastoratData = { id: nextPastoratId(), name: name.trim(), admin: adminPers?.name || 'Ej tilldelad', adminEmail: adminPers?.mail || '', churches: selChurches }
     await addPastorat(newP)
-    if (adminPers) updatePerson({ ...adminPers, adminLevel: 'pastorat', role: 'padmin', isEmployee: true })
+    if (adminPers && !isDemo) updatePerson({ ...adminPers, adminLevel: 'pastorat', role: 'padmin', isEmployee: true })
     closeModal()
   }
   return (

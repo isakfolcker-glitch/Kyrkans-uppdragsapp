@@ -370,7 +370,7 @@ function ImportPass({ churchId, groups }: { churchId: number; groups: { id: stri
 }
 
 export default function ExporteraPage() {
-  const { passes, people, churches, groups, currentChurchId, isPAdmin, isSuperAdmin, activeChurch, setChurch } = useApp()
+  const { passes, people, churches, availableChurches, groups, currentChurchId, isPAdmin, isSuperAdmin, activeChurch, setChurch } = useApp()
   const cid = currentChurchId()
   const allBkgs = passes.filter(p => p.church === cid).flatMap(p =>
     p.bookings.map(b => ({ ...b, passTitle: p.title, passDate: p.date, passTime: p.time, plats: p.plats }))
@@ -402,8 +402,8 @@ export default function ExporteraPage() {
 
       {(isPAdmin() || isSuperAdmin()) && (
         <div className="church-bar" style={{ marginBottom: 16 }}>
-          {churches.map((c, i) => (
-            <button key={i} className={`church-btn${activeChurch === i ? ' on' : ''}`} onClick={() => setChurch(i)}>{c.name}</button>
+          {churches.map((church, index) => ({ church, index })).filter(({ church }) => availableChurches.some(available => available.id === church.id)).map(({ church, index }) => (
+            <button key={church.id} className={`church-btn${activeChurch === index ? ' on' : ''}`} onClick={() => setChurch(index)}>{church.name}</button>
           ))}
         </div>
       )}

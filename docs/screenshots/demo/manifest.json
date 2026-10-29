@@ -1,0 +1,794 @@
+[
+  {
+    "role": "ideell",
+    "roleLabel": "Ideell",
+    "page": "oversikt",
+    "label": "Start",
+    "path": "docs/screenshots/demo/ideell-oversikt-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "ideell",
+    "roleLabel": "Ideell",
+    "page": "pass",
+    "label": "Pass",
+    "path": "docs/screenshots/demo/ideell-pass-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "ideell",
+    "roleLabel": "Ideell",
+    "page": "mina-bokningar",
+    "label": "Mina bokningar",
+    "path": "docs/screenshots/demo/ideell-mina-bokningar-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "ideell",
+    "roleLabel": "Ideell",
+    "page": "notiser",
+    "label": "Notiser",
+    "path": "docs/screenshots/demo/ideell-notiser-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "ideell",
+    "roleLabel": "Ideell",
+    "page": "profil",
+    "label": "Min profil",
+    "path": "docs/screenshots/demo/ideell-profil-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "anstalld",
+    "roleLabel": "Anställd",
+    "page": "oversikt",
+    "label": "Start",
+    "path": "docs/screenshots/demo/anstalld-oversikt-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "anstalld",
+    "roleLabel": "Anställd",
+    "page": "pass",
+    "label": "Pass",
+    "path": "docs/screenshots/demo/anstalld-pass-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "anstalld",
+    "roleLabel": "Anställd",
+    "page": "personal",
+    "label": "Personal",
+    "path": "docs/screenshots/demo/anstalld-personal-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "anstalld",
+    "roleLabel": "Anställd",
+    "page": "mina-ansvar",
+    "label": "Mina ansvar",
+    "path": "docs/screenshots/demo/anstalld-mina-ansvar-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "anstalld",
+    "roleLabel": "Anställd",
+    "page": "mina-bokningar",
+    "label": "Mina bokningar",
+    "path": "docs/screenshots/demo/anstalld-mina-bokningar-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "anstalld",
+    "roleLabel": "Anställd",
+    "page": "notiser",
+    "label": "Notiser",
+    "path": "docs/screenshots/demo/anstalld-notiser-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "anstalld",
+    "roleLabel": "Anställd",
+    "page": "profil",
+    "label": "Min profil",
+    "path": "docs/screenshots/demo/anstalld-profil-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "fadmin",
+    "roleLabel": "Församlingsadmin",
+    "page": "oversikt",
+    "label": "Start",
+    "path": "docs/screenshots/demo/fadmin-oversikt-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "fadmin",
+    "roleLabel": "Församlingsadmin",
+    "page": "pass",
+    "label": "Pass",
+    "path": "docs/screenshots/demo/fadmin-pass-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "fadmin",
+    "roleLabel": "Församlingsadmin",
+    "page": "personal",
+    "label": "Personal",
+    "path": "docs/screenshots/demo/fadmin-personal-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "fadmin",
+    "roleLabel": "Församlingsadmin",
+    "page": "grupper",
+    "label": "Grupper",
+    "path": "docs/screenshots/demo/fadmin-grupper-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "fadmin",
+    "roleLabel": "Församlingsadmin",
+    "page": "utskick",
+    "label": "Utskick",
+    "path": "docs/screenshots/demo/fadmin-utskick-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "fadmin",
+    "roleLabel": "Församlingsadmin",
+    "page": "behorigheter",
+    "label": "Behörigheter",
+    "path": "docs/screenshots/demo/fadmin-behorigheter-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "fadmin",
+    "roleLabel": "Församlingsadmin",
+    "page": "exportera",
+    "label": "Exportera",
+    "path": "docs/screenshots/demo/fadmin-exportera-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "fadmin",
+    "roleLabel": "Församlingsadmin",
+    "page": "mina-bokningar",
+    "label": "Mina bokningar",
+    "path": "docs/screenshots/demo/fadmin-mina-bokningar-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "fadmin",
+    "roleLabel": "Församlingsadmin",
+    "page": "notiser",
+    "label": "Notiser",
+    "path": "docs/screenshots/demo/fadmin-notiser-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "fadmin",
+    "roleLabel": "Församlingsadmin",
+    "page": "profil",
+    "label": "Min profil",
+    "path": "docs/screenshots/demo/fadmin-profil-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "oversikt",
+    "label": "Start",
+    "path": "docs/screenshots/demo/padmin-oversikt-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "pass",
+    "label": "Pass",
+    "path": "docs/screenshots/demo/padmin-pass-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "personal",
+    "label": "Personal",
+    "path": "docs/screenshots/demo/padmin-personal-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "grupper",
+    "label": "Grupper",
+    "path": "docs/screenshots/demo/padmin-grupper-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "utskick",
+    "label": "Utskick",
+    "path": "docs/screenshots/demo/padmin-utskick-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "behorigheter",
+    "label": "Behörigheter",
+    "path": "docs/screenshots/demo/padmin-behorigheter-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "forsamlingar",
+    "label": "Församlingar",
+    "path": "docs/screenshots/demo/padmin-forsamlingar-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "exportera",
+    "label": "Exportera",
+    "path": "docs/screenshots/demo/padmin-exportera-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "mina-bokningar",
+    "label": "Mina bokningar",
+    "path": "docs/screenshots/demo/padmin-mina-bokningar-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "notiser",
+    "label": "Notiser",
+    "path": "docs/screenshots/demo/padmin-notiser-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "profil",
+    "label": "Min profil",
+    "path": "docs/screenshots/demo/padmin-profil-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "superadmin",
+    "roleLabel": "Superadmin",
+    "page": "oversikt",
+    "label": "Start",
+    "path": "docs/screenshots/demo/superadmin-oversikt-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "superadmin",
+    "roleLabel": "Superadmin",
+    "page": "pastorat",
+    "label": "Pastorat",
+    "path": "docs/screenshots/demo/superadmin-pastorat-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "superadmin",
+    "roleLabel": "Superadmin",
+    "page": "pass",
+    "label": "Pass",
+    "path": "docs/screenshots/demo/superadmin-pass-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "superadmin",
+    "roleLabel": "Superadmin",
+    "page": "personal",
+    "label": "Personal",
+    "path": "docs/screenshots/demo/superadmin-personal-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "superadmin",
+    "roleLabel": "Superadmin",
+    "page": "grupper",
+    "label": "Grupper",
+    "path": "docs/screenshots/demo/superadmin-grupper-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "superadmin",
+    "roleLabel": "Superadmin",
+    "page": "utskick",
+    "label": "Utskick",
+    "path": "docs/screenshots/demo/superadmin-utskick-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "superadmin",
+    "roleLabel": "Superadmin",
+    "page": "behorigheter",
+    "label": "Behörigheter",
+    "path": "docs/screenshots/demo/superadmin-behorigheter-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "superadmin",
+    "roleLabel": "Superadmin",
+    "page": "forsamlingar",
+    "label": "Församlingar",
+    "path": "docs/screenshots/demo/superadmin-forsamlingar-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "superadmin",
+    "roleLabel": "Superadmin",
+    "page": "exportera",
+    "label": "Exportera",
+    "path": "docs/screenshots/demo/superadmin-exportera-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "superadmin",
+    "roleLabel": "Superadmin",
+    "page": "profil",
+    "label": "Min profil",
+    "path": "docs/screenshots/demo/superadmin-profil-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "kiosk",
+    "roleLabel": "Kiosk",
+    "page": "kiosk",
+    "label": "Kiosk",
+    "path": "docs/screenshots/demo/kiosk-kiosk-1280.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "role": "ideell",
+    "roleLabel": "Ideell",
+    "page": "oversikt",
+    "label": "Start",
+    "path": "docs/screenshots/demo/ideell-oversikt-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "ideell",
+    "roleLabel": "Ideell",
+    "page": "pass",
+    "label": "Pass",
+    "path": "docs/screenshots/demo/ideell-pass-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "ideell",
+    "roleLabel": "Ideell",
+    "page": "mina-bokningar",
+    "label": "Mina bokningar",
+    "path": "docs/screenshots/demo/ideell-mina-bokningar-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "ideell",
+    "roleLabel": "Ideell",
+    "page": "notiser",
+    "label": "Notiser",
+    "path": "docs/screenshots/demo/ideell-notiser-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "ideell",
+    "roleLabel": "Ideell",
+    "page": "profil",
+    "label": "Min profil",
+    "path": "docs/screenshots/demo/ideell-profil-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "anstalld",
+    "roleLabel": "Anställd",
+    "page": "oversikt",
+    "label": "Start",
+    "path": "docs/screenshots/demo/anstalld-oversikt-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "anstalld",
+    "roleLabel": "Anställd",
+    "page": "pass",
+    "label": "Pass",
+    "path": "docs/screenshots/demo/anstalld-pass-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "anstalld",
+    "roleLabel": "Anställd",
+    "page": "personal",
+    "label": "Personal",
+    "path": "docs/screenshots/demo/anstalld-personal-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "anstalld",
+    "roleLabel": "Anställd",
+    "page": "mina-ansvar",
+    "label": "Mina ansvar",
+    "path": "docs/screenshots/demo/anstalld-mina-ansvar-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "anstalld",
+    "roleLabel": "Anställd",
+    "page": "mina-bokningar",
+    "label": "Mina bokningar",
+    "path": "docs/screenshots/demo/anstalld-mina-bokningar-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "anstalld",
+    "roleLabel": "Anställd",
+    "page": "notiser",
+    "label": "Notiser",
+    "path": "docs/screenshots/demo/anstalld-notiser-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "anstalld",
+    "roleLabel": "Anställd",
+    "page": "profil",
+    "label": "Min profil",
+    "path": "docs/screenshots/demo/anstalld-profil-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "fadmin",
+    "roleLabel": "Församlingsadmin",
+    "page": "oversikt",
+    "label": "Start",
+    "path": "docs/screenshots/demo/fadmin-oversikt-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "fadmin",
+    "roleLabel": "Församlingsadmin",
+    "page": "pass",
+    "label": "Pass",
+    "path": "docs/screenshots/demo/fadmin-pass-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "fadmin",
+    "roleLabel": "Församlingsadmin",
+    "page": "personal",
+    "label": "Personal",
+    "path": "docs/screenshots/demo/fadmin-personal-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "fadmin",
+    "roleLabel": "Församlingsadmin",
+    "page": "grupper",
+    "label": "Grupper",
+    "path": "docs/screenshots/demo/fadmin-grupper-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "fadmin",
+    "roleLabel": "Församlingsadmin",
+    "page": "utskick",
+    "label": "Utskick",
+    "path": "docs/screenshots/demo/fadmin-utskick-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "fadmin",
+    "roleLabel": "Församlingsadmin",
+    "page": "behorigheter",
+    "label": "Behörigheter",
+    "path": "docs/screenshots/demo/fadmin-behorigheter-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "fadmin",
+    "roleLabel": "Församlingsadmin",
+    "page": "exportera",
+    "label": "Exportera",
+    "path": "docs/screenshots/demo/fadmin-exportera-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "fadmin",
+    "roleLabel": "Församlingsadmin",
+    "page": "mina-bokningar",
+    "label": "Mina bokningar",
+    "path": "docs/screenshots/demo/fadmin-mina-bokningar-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "fadmin",
+    "roleLabel": "Församlingsadmin",
+    "page": "notiser",
+    "label": "Notiser",
+    "path": "docs/screenshots/demo/fadmin-notiser-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "fadmin",
+    "roleLabel": "Församlingsadmin",
+    "page": "profil",
+    "label": "Min profil",
+    "path": "docs/screenshots/demo/fadmin-profil-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "oversikt",
+    "label": "Start",
+    "path": "docs/screenshots/demo/padmin-oversikt-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "pass",
+    "label": "Pass",
+    "path": "docs/screenshots/demo/padmin-pass-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "personal",
+    "label": "Personal",
+    "path": "docs/screenshots/demo/padmin-personal-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "grupper",
+    "label": "Grupper",
+    "path": "docs/screenshots/demo/padmin-grupper-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "utskick",
+    "label": "Utskick",
+    "path": "docs/screenshots/demo/padmin-utskick-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "behorigheter",
+    "label": "Behörigheter",
+    "path": "docs/screenshots/demo/padmin-behorigheter-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "forsamlingar",
+    "label": "Församlingar",
+    "path": "docs/screenshots/demo/padmin-forsamlingar-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "exportera",
+    "label": "Exportera",
+    "path": "docs/screenshots/demo/padmin-exportera-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "mina-bokningar",
+    "label": "Mina bokningar",
+    "path": "docs/screenshots/demo/padmin-mina-bokningar-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "notiser",
+    "label": "Notiser",
+    "path": "docs/screenshots/demo/padmin-notiser-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "padmin",
+    "roleLabel": "Pastoratsadmin",
+    "page": "profil",
+    "label": "Min profil",
+    "path": "docs/screenshots/demo/padmin-profil-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "superadmin",
+    "roleLabel": "Superadmin",
+    "page": "oversikt",
+    "label": "Start",
+    "path": "docs/screenshots/demo/superadmin-oversikt-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "superadmin",
+    "roleLabel": "Superadmin",
+    "page": "pastorat",
+    "label": "Pastorat",
+    "path": "docs/screenshots/demo/superadmin-pastorat-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "superadmin",
+    "roleLabel": "Superadmin",
+    "page": "pass",
+    "label": "Pass",
+    "path": "docs/screenshots/demo/superadmin-pass-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "superadmin",
+    "roleLabel": "Superadmin",
+    "page": "personal",
+    "label": "Personal",
+    "path": "docs/screenshots/demo/superadmin-personal-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "superadmin",
+    "roleLabel": "Superadmin",
+    "page": "grupper",
+    "label": "Grupper",
+    "path": "docs/screenshots/demo/superadmin-grupper-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "superadmin",
+    "roleLabel": "Superadmin",
+    "page": "utskick",
+    "label": "Utskick",
+    "path": "docs/screenshots/demo/superadmin-utskick-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "superadmin",
+    "roleLabel": "Superadmin",
+    "page": "behorigheter",
+    "label": "Behörigheter",
+    "path": "docs/screenshots/demo/superadmin-behorigheter-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "superadmin",
+    "roleLabel": "Superadmin",
+    "page": "forsamlingar",
+    "label": "Församlingar",
+    "path": "docs/screenshots/demo/superadmin-forsamlingar-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "superadmin",
+    "roleLabel": "Superadmin",
+    "page": "exportera",
+    "label": "Exportera",
+    "path": "docs/screenshots/demo/superadmin-exportera-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "superadmin",
+    "roleLabel": "Superadmin",
+    "page": "profil",
+    "label": "Min profil",
+    "path": "docs/screenshots/demo/superadmin-profil-390.png",
+    "width": 390,
+    "height": 844
+  },
+  {
+    "role": "kiosk",
+    "roleLabel": "Kiosk",
+    "page": "kiosk",
+    "label": "Kiosk",
+    "path": "docs/screenshots/demo/kiosk-kiosk-390.png",
+    "width": 390,
+    "height": 844
+  }
+]
