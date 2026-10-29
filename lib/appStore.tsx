@@ -1,6 +1,7 @@
 'use client'
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { usePathname } from 'next/navigation'
 import {
   GROUPS, CHURCHES, NAV_ITEMS, INITIAL_PEOPLE, INITIAL_PASSES, INITIAL_MESSAGES, INITIAL_NOTIFICATIONS,
   Group, Church, PersonData, PassData, MessageData, NotifData, PastoratData, UserDef, ChurchMembershipData, USERS,
@@ -34,6 +35,7 @@ export const NO_PERMS: StaffPerms = {
 }
 
 interface AppCtx {
+  isDemo: boolean
   userIndex: number; page: string; passes: PassData[]; people: PersonData[]
   messages: MessageData[]; notifications: NotifData[]; selfBookings: Record<number, boolean>; selfWaitlist: Record<number, number>
   activeChurch: number; groupFilter: string; modal: ReactNode | null
@@ -84,6 +86,13 @@ export const Ctx = createContext<AppCtx>(null!)
 export const useApp = () => useContext(Ctx)
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname()
+  // Montera aldrig den skarpa storen bakom demot, även vid en riktig inloggning.
+  if (pathname === '/demo' || pathname.startsWith('/demo/') || pathname === '/demo-login') return <>{children}</>
+  return <LiveAppProvider>{children}</LiveAppProvider>
+}
+
+function LiveAppProvider({ children }: { children: ReactNode }) {
   const supabase = createClient()
 
   // Auth state
@@ -839,6 +848,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider value={{
+      isDemo: false,
       userIndex, page, passes, people, messages, notifications, selfBookings, selfWaitlist,
       activeChurch, groupFilter, modal, groups, churches, pastorat, users,
       memberships, availableChurches,

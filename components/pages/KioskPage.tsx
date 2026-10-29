@@ -5,7 +5,7 @@ import type { PassData } from '@/lib/appData'
 import Icon, { PassMeta } from '@/components/ui/Icon'
 
 function KioskBookModal({ passId, onSuccess }: { passId: number; onSuccess: () => void }) {
-  const { passes, closeModal } = useApp()
+  const { passes, closeModal, addBooking, isDemo } = useApp()
   const [name, setName]   = useState('')
   const [mail, setMail]   = useState('')
   const [tel, setTel]     = useState('')
@@ -17,6 +17,11 @@ function KioskBookModal({ passId, onSuccess }: { passId: number; onSuccess: () =
 
   const submit = async () => {
     if (!name.trim()) { setError('Ange ditt namn.'); return }
+    if (isDemo) {
+      addBooking(passId, { personId: null, name: name.trim(), ini: name.trim().split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(), av: '#FFEBE1', ac: '#7D0037', source: 'kiosk', noAccount: true, mail, tel })
+      onSuccess()
+      return
+    }
     setLoading(true)
     setError('')
     const res = await fetch('/api/bookings', {

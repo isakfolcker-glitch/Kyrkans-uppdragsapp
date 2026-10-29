@@ -18,7 +18,7 @@ const notifDefs = [
 ]
 
 export default function ProfilPage() {
-  const { u, updateUserNotif, toggleAvail, profile, currentUser, logout, groups } = useApp()
+  const { u, updateUserNotif, toggleAvail, profile, currentUser, logout, groups, isDemo } = useApp()
   const router = useRouter()
   const usr = u()
 
@@ -38,6 +38,7 @@ export default function ProfilPage() {
   const [saveMsg, setSaveMsg] = useState('')
 
   const saveProfile = async () => {
+    if (isDemo) { setSaveMsg('Fungerar inte i demot'); return }
     const supabase = createClient()
     const { error } = await supabase.from('profiles').update({
       name: editName,
@@ -58,6 +59,7 @@ export default function ProfilPage() {
   const [pwBusy, setPwBusy] = useState(false)
 
   const changePassword = async () => {
+    if (isDemo) { setPwMsg('Fungerar inte i demot'); return }
     if (!currentPw) { setPwMsg('Ange ditt nuvarande lösenord.'); return }
     const unmet = checkPassword(pw)
     if (unmet.length) { setPwMsg(`Lösenordet uppfyller inte alla krav: ${unmet.map(r => r.label.toLowerCase()).join(', ')}.`); return }
@@ -76,6 +78,7 @@ export default function ProfilPage() {
   const [resetBusy, setResetBusy] = useState(false)
 
   const sendResetLink = async () => {
+    if (isDemo) { setPwMsg('Fungerar inte i demot'); return }
     // Bara currentUser (den riktigt inloggade), aldrig demots påhittade e-post.
     if (!currentUser?.email) return
     setResetBusy(true)
@@ -250,12 +253,14 @@ export default function ProfilPage() {
 }
 
 function GdprSection({ currentUserId, onDeleted }: { currentUserId?: string; onDeleted: () => void }) {
+  const { isDemo } = useApp()
   const [delConfirm, setDelConfirm] = useState(false)
   const [delLoading, setDelLoading] = useState(false)
   const [delErr, setDelErr]         = useState('')
   const [exportLoading, setExportLoading] = useState(false)
 
   const exportData = async () => {
+    if (isDemo) { alert('Fungerar inte i demot'); return }
     setExportLoading(true)
     const res = await fetch('/api/account/export')
     if (res.ok) {
@@ -271,6 +276,7 @@ function GdprSection({ currentUserId, onDeleted }: { currentUserId?: string; onD
   }
 
   const deleteAccount = async () => {
+    if (isDemo) { setDelErr('Fungerar inte i demot'); return }
     setDelLoading(true)
     setDelErr('')
     const res = await fetch('/api/account/delete', { method: 'DELETE' })
@@ -308,9 +314,15 @@ function GdprSection({ currentUserId, onDeleted }: { currentUserId?: string; onD
             <div style={{ fontSize: 15, fontWeight: 500, color: '#000' }}>Integritetspolicy</div>
             <div style={{ fontSize: 14, color: 'rgba(0,0,0,0.72)', marginTop: 2 }}>Läs om hur vi hanterar dina personuppgifter</div>
           </div>
-          <a href="/integritetspolicy" target="_blank" rel="noopener" className="btn btn-secondary">
-            Läs<span className="sr-only"> integritetspolicyn (öppnas i ny flik)</span><Icon name="ExternalLink" size={18} />
-          </a>
+          {isDemo ? (
+            <button type="button" className="link-btn" onClick={() => alert('Fungerar inte i demot')}>
+              Läs<span className="sr-only"> integritetspolicyn</span>
+            </button>
+          ) : (
+            <a href="/integritetspolicy" target="_blank" rel="noopener" className="btn btn-secondary">
+              Läs<span className="sr-only"> integritetspolicyn (öppnas i ny flik)</span><Icon name="ExternalLink" size={18} />
+            </a>
+          )}
         </div>
 
         {/* Radera konto */}

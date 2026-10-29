@@ -4,7 +4,7 @@ import { useApp } from '@/lib/appStore'
 import Icon from '@/components/ui/Icon'
 
 function SendMessageModal() {
-  const { groups, people, closeModal, addMessage, profile, currentChurchId } = useApp()
+  const { groups, people, closeModal, addMessage, profile, currentChurchId, isDemo, u } = useApp()
   const [allChecked, setAllChecked]   = useState(false)
   const [selGroups, setSelGroups]     = useState<string[]>([])
   const [subject, setSubject]         = useState('')
@@ -36,6 +36,12 @@ function SendMessageModal() {
     if (!recipients.length)  { setError('Välj minst en mottagare.'); return }
     if (!subject.trim())     { setError('Ange ett ämne.'); return }
     if (!body.trim())        { setError('Skriv ett meddelande.'); return }
+    if (isDemo) {
+      addMessage({ id: Date.now(), from: u().name, to: toLabel, toCount: recipients.length, subject, body, sentAt: new Date().toISOString(), church: cid })
+      alert('Sparat lokalt i demot. Inga mejl skickas.')
+      closeModal()
+      return
+    }
     setLoading(true)
     setError('')
 

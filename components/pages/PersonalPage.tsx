@@ -7,7 +7,7 @@ import Icon from '@/components/ui/Icon'
 import { avBg, avFg } from '@/lib/avatarColors'
 
 function SetPasswordModal({ personId, personName, churchId }: { personId: any; personName: string; churchId: number }) {
-  const { closeModal } = useApp()
+  const { closeModal, isDemo } = useApp()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [loading, setLoading] = useState(false)
@@ -15,6 +15,7 @@ function SetPasswordModal({ personId, personName, churchId }: { personId: any; p
   const [err, setErr] = useState('')
 
   const save = async () => {
+    if (isDemo) { setErr('Fungerar inte i demot'); return }
     if (password.length < 8) { setErr('Lösenordet måste vara minst 8 tecken.'); return }
     if (password !== confirm) { setErr('Lösenorden matchar inte.'); return }
     setLoading(true); setErr('')
@@ -57,7 +58,7 @@ function SetPasswordModal({ personId, personName, churchId }: { personId: any; p
 }
 
 function InvitePersonModal({ defaultRole = 'ideell' }: { defaultRole?: string }) {
-  const { availableChurches, isAdmin, perm, inviteUser, closeModal, currentChurchId } = useApp()
+  const { availableChurches, isAdmin, perm, inviteUser, closeModal, currentChurchId, isDemo } = useApp()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState(defaultRole)
@@ -87,7 +88,7 @@ function InvitePersonModal({ defaultRole = 'ideell' }: { defaultRole?: string })
   if (done) return (
     <>
       <div role="status" className="alert alert-green">
-        <Icon name="Check" size={18} />Inbjudan skickad till {email}. Om personen redan har ett konto används samma konto och den nya församlingen läggs till.
+        <Icon name="Check" size={18} />{isDemo ? `Personen har lagts till lokalt i demot. Inget mejl skickades till ${email}.` : `Inbjudan skickad till ${email}. Om personen redan har ett konto används samma konto och den nya församlingen läggs till.`}
       </div>
       <div className="modal-footer"><button className="btn btn-primary" onClick={closeModal}>Stäng</button></div>
     </>
@@ -128,7 +129,7 @@ function InvitePersonModal({ defaultRole = 'ideell' }: { defaultRole?: string })
 }
 
 function EditPersonModal({ personId, churchId }: { personId: any; churchId: number }) {
-  const { people, groups, closeModal, updatePerson, showModal, deletePerson } = useApp()
+  const { people, groups, closeModal, updatePerson, showModal, deletePerson, isDemo } = useApp()
   const person = people.find(item => item.id === personId && item.church === churchId)
   if (!person) return null
 
@@ -140,6 +141,7 @@ function EditPersonModal({ personId, churchId }: { personId: any; churchId: numb
   const toggleGroup = (id: string) => setSelGroups(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
 
   const save = async () => {
+    if (isDemo) { updatePerson({ ...person, groups: selGroups }); closeModal(); return }
     setSaving(true); setError('')
     const res = await fetch(`/api/people/${person.id}`, {
       method: 'PATCH',
@@ -201,7 +203,7 @@ function EditPersonModal({ personId, churchId }: { personId: any; churchId: numb
 export default function PersonalPage() {
   const {
     people, groups, isAdmin, perm, showModal, deletePerson,
-    currentChurchId, churches,
+    currentChurchId, churches, isDemo,
   } = useApp()
   const [search, setSearch] = useState('')
   const cid = currentChurchId()
@@ -266,6 +268,7 @@ export default function PersonalPage() {
                 <div className="person-actions">
                   {person.mail && canInvite && (
                     <button className="btn btn-secondary btn-sm btn-icon" title="Skicka ny inbjudan" aria-label={`Skicka ny inbjudan till ${person.name}`} onClick={async () => {
+                      if (isDemo) { alert('Fungerar inte i demot'); return }
                       const res = await fetch('/api/invite/resend', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },

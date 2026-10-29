@@ -3,12 +3,11 @@ import { useApp } from '@/lib/appStore'
 import PassCard from '@/components/ui/PassCard'
 
 export default function MinaAnsvarPage() {
-  const { passes, currentUser, currentChurchId } = useApp()
+  const { passes, isResponsible, currentChurchId } = useApp()
   const churchId = currentChurchId()
   const myPasses = passes.filter(pass =>
     pass.church === churchId
-    && currentUser?.id
-    && pass.responsibleUserIds?.includes(currentUser.id)
+    && isResponsible(pass)
   )
 
   return (

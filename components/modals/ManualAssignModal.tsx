@@ -6,7 +6,7 @@ import { avBg, avFg, DEFAULT_AV, DEFAULT_AC } from '@/lib/avatarColors'
 import { ini2 } from '@/lib/appData'
 
 export default function ManualAssignModal({ passId }: { passId: number }) {
-  const { passes, people, closeModal, addBooking } = useApp()
+  const { passes, people, closeModal, addBooking, isDemo } = useApp()
   const [tab, setTab] = useState(0)
   const [search, setSearch] = useState('')
   const [name, setName] = useState('')
@@ -25,6 +25,11 @@ export default function ManualAssignModal({ passId }: { passId: number }) {
   const assignPerson = async (personId: any) => {
     const person = people.find(x => x.id === personId)
     if (!person) return
+    if (isDemo) {
+      addBooking(passId, { personId, name: person.name, ini: person.ini, av: person.av, ac: person.ac, source: 'manual', noAccount: false, mail: person.mail, tel: person.phone })
+      closeModal()
+      return
+    }
     setLoading(true)
     const res = await fetch('/api/bookings', {
       method: 'POST',
@@ -45,6 +50,11 @@ export default function ManualAssignModal({ passId }: { passId: number }) {
 
   const saveGuest = async () => {
     if (!name.trim()) { alert('Namn krävs'); return }
+    if (isDemo) {
+      addBooking(passId, { personId: null, name: name.trim(), ini: ini2(name), av: DEFAULT_AV, ac: DEFAULT_AC, source: 'manual', noAccount: true, mail, tel })
+      closeModal()
+      return
+    }
     setLoading(true)
     const ini = ini2(name)
     const res = await fetch('/api/bookings', {
@@ -76,6 +86,11 @@ export default function ManualAssignModal({ passId }: { passId: number }) {
 
   const saveAllGuests = async () => {
     if (!pasteRows.length) return
+    if (isDemo) {
+      pasteRows.forEach(row => addBooking(passId, { personId: null, name: row.name, ini: ini2(row.name), av: DEFAULT_AV, ac: DEFAULT_AC, source: 'manual', noAccount: true, mail: row.mail, tel: row.tel }))
+      closeModal()
+      return
+    }
     setLoading(true)
     setProgress(0)
     let ok = 0
@@ -149,7 +164,7 @@ export default function ManualAssignModal({ passId }: { passId: number }) {
                 <textarea
                   aria-labelledby="manual-paste-rubrik"
                   style={{ width: '100%', height: 72, fontSize: 13, fontFamily: 'monospace', padding: 8, border: '1.5px solid rgba(125,0,55,0.35)', borderRadius: 8, resize: 'none', boxSizing: 'border-box' }}
-                  placeholder={'Anna Svensson\t073-123456\tanna@mail.se\nErik Johansson\t070-654321'}
+                  placeholder={'Anna Svensson\t073-123456\tanna@example.com\nErik Johansson\t070-654321'}
                   value={pasteText}
                   onChange={e => setPasteText(e.target.value)}
                 />

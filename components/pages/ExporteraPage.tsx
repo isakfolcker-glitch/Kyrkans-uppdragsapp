@@ -47,6 +47,7 @@ function parsePaste(text: string, type: 'person' | 'pass') {
 }
 
 function ImportPersoner({ churchId, groups }: { churchId: number; groups: { id: string; label: string }[] }) {
+  const { isDemo } = useApp()
   const fileRef = useRef<HTMLInputElement>(null)
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -57,8 +58,8 @@ function ImportPersoner({ churchId, groups }: { churchId: number; groups: { id: 
 
   const mall = () => downloadCSV('mall-personer.csv', [
     ['namn', 'epost', 'roll', 'grupp'],
-    ['Anna Svensson', 'anna@kyrka.se', 'ideell', groups[0]?.label || ''],
-    ['Erik Johansson', 'erik@kyrka.se', 'anstalld', ''],
+    ['Anna Svensson', 'anna@example.com', 'ideell', groups[0]?.label || ''],
+    ['Erik Johansson', 'erik@example.com', 'anstalld', ''],
   ])
 
   const onPaste = () => {
@@ -102,6 +103,7 @@ function ImportPersoner({ churchId, groups }: { churchId: number; groups: { id: 
   }
 
   const importAll = async () => {
+    if (isDemo) { alert('Fungerar inte i demot'); return }
     const validRows = rows.filter(r => r.name && r.email && r.email.includes('@'))
     if (!validRows.length) { alert('Inga giltiga rader med namn och e-post hittades.'); return }
     setLoading(true)
@@ -146,7 +148,7 @@ function ImportPersoner({ churchId, groups }: { churchId: number; groups: { id: 
           <textarea
             aria-label="Rader att importera"
             style={{ width: '100%', height: 100, fontSize: 13, fontFamily: 'monospace', padding: 8, border: '1.5px solid rgba(125,0,55,0.35)', borderRadius: 8, resize: 'vertical', boxSizing: 'border-box' }}
-            placeholder={'Anna Svensson\tanna@kyrka.se\tideell\tDomkyrkans vänner\nErik Johansson\terik@kyrka.se\tanstalld'}
+            placeholder={'Anna Svensson\tanna@example.com\tideell\tDomkyrkans vänner\nErik Johansson\terik@example.com\tanstalld'}
             value={pasteText}
             onChange={e => setPasteText(e.target.value)}
           />
@@ -200,7 +202,7 @@ function ImportPersoner({ churchId, groups }: { churchId: number; groups: { id: 
 }
 
 function ImportPass({ churchId, groups }: { churchId: number; groups: { id: string; label: string }[] }) {
-  const { reloadPasses } = useApp()
+  const { reloadPasses, isDemo } = useApp()
   const fileRef = useRef<HTMLInputElement>(null)
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -252,6 +254,7 @@ function ImportPass({ churchId, groups }: { churchId: number; groups: { id: stri
   const [progress, setProgress] = useState(0)
 
   const importAll = async () => {
+    if (isDemo) { alert('Fungerar inte i demot'); return }
     setLoading(true)
     setErrors([])
     setProgress(0)

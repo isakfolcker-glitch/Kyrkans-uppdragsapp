@@ -4,6 +4,7 @@ import { useApp } from '@/lib/appStore'
 import { roleLabel } from '@/lib/appData'
 import { createClient } from '@/lib/supabase/client'
 import type { StaffPerms } from '@/lib/appStore'
+import { useDemoAccess } from '@/lib/demoStore'
 import Icon from '@/components/ui/Icon'
 
 const PERM_DEFS: { key: keyof StaffPerms; lbl: string; sub: string; icon: string }[] = [
@@ -29,12 +30,13 @@ const EMPTY_PERMS: StaffPerms = {
 }
 
 function PermModal({ personId, churchId }: { personId: any; churchId: number }) {
-  const { people, passes, closeModal, isPAdmin, isSuperAdmin, isFAdmin } = useApp()
+  const { people, passes, closeModal, isPAdmin, isSuperAdmin, isFAdmin, isDemo } = useApp()
+  const demoAccess = useDemoAccess()
   const person = people.find(item => item.id === personId && item.church === churchId)
   if (!person) return null
 
   const [role, setRole] = useState(person.role)
-  const [perms, setPerms] = useState<StaffPerms>(EMPTY_PERMS)
+  const [perms, setPerms] = useState<StaffPerms>(() => demoAccess?.permissionsFor(personId, churchId) ?? EMPTY_PERMS)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -44,6 +46,7 @@ function PermModal({ personId, churchId }: { personId: any; churchId: number }) 
   )
 
   useEffect(() => {
+    if (isDemo) return
     createClient()
       .from('profile_church_permissions')
       .select('*')
@@ -63,7 +66,7 @@ function PermModal({ personId, churchId }: { personId: any; churchId: number }) 
           kan_skicka_utskick: data.kan_skicka_utskick,
         })
       })
-  }, [personId, churchId])
+  }, [personId, churchId, isDemo])
 
   const togglePass = (id: any) =>
     setResponsiblePasses(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id])
@@ -72,6 +75,11 @@ function PermModal({ personId, churchId }: { personId: any; churchId: number }) 
   const isAdminRole = ['fadmin', 'padmin', 'superadmin'].includes(role)
 
   const save = async () => {
+    if (isDemo) {
+      demoAccess?.saveAccess(person, role, perms, responsiblePasses)
+      closeModal()
+      return
+    }
     setLoading(true)
     setError('')
 

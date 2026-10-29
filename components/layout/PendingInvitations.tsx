@@ -14,22 +14,23 @@ export default function PendingInvitations() {
   const [busy, setBusy] = useState<number | null>(null)
   const [error, setError] = useState('')
 
-  const { loadingAuth, currentUser } = useApp()
+  const { loadingAuth, currentUser, isDemo } = useApp()
   const userId = currentUser?.id as string | undefined
 
   useEffect(() => {
     // Demoläget har ingen inloggad användare (currentUser är null), och
     // då finns inga inbjudningar att hämta. Samma kontroll som OpenPassFromUrl.
-    if (loadingAuth || !userId) return
+    if (isDemo || loadingAuth || !userId) return
     let cancelled = false
     fetch('/api/memberships/pending')
       .then(res => (res.ok ? res.json() : []))
       .then((data: Invitation[]) => { if (!cancelled && Array.isArray(data)) setInvites(data) })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [loadingAuth, userId])
+  }, [loadingAuth, userId, isDemo])
 
   const respond = async (churchId: number, action: 'accept' | 'decline') => {
+    if (isDemo) return
     setBusy(churchId); setError('')
     const res = await fetch(`/api/memberships/${action}`, {
       method: 'POST',

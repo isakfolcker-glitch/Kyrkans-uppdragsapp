@@ -8,7 +8,7 @@ interface Kyrka { id: number; name: string; address?: string; forsamling_id: num
 
 // ── Modal: Lägg till/redigera församling ──────────────
 function ForsamlingModal({ idx, forsamlingId }: { idx?: number; forsamlingId?: number }) {
-  const { churches, closeModal, addChurch, updateChurch } = useApp()
+  const { churches, closeModal, addChurch, updateChurch, isDemo, currentChurchId } = useApp()
   const existing = idx !== undefined ? churches[idx] : null
   const [name, setName] = useState(existing?.name || '')
   const [admin, setAdmin] = useState(existing?.admin || '')
@@ -17,6 +17,12 @@ function ForsamlingModal({ idx, forsamlingId }: { idx?: number; forsamlingId?: n
 
   const save = async () => {
     if (!name.trim()) { alert('Namn krävs'); return }
+    if (isDemo) {
+      if (existing) updateChurch(idx!, { ...existing, name, admin, tel })
+      else addChurch({ id: Date.now(), name, admin, tel, pastoratId: churches.find(c => c.id === currentChurchId())?.pastoratId })
+      closeModal()
+      return
+    }
     setLoading(true)
     if (existing && forsamlingId !== undefined) {
       await fetch(`/api/churches/${forsamlingId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, admin, tel }) })
@@ -48,13 +54,14 @@ function ForsamlingModal({ idx, forsamlingId }: { idx?: number; forsamlingId?: n
 
 // ── Modal: Lägg till kyrka (byggnad) ─────────────────
 function KyrkaModal({ forsamlingId, onSaved }: { forsamlingId: number; onSaved: (k: Kyrka) => void }) {
-  const { closeModal } = useApp()
+  const { closeModal, isDemo } = useApp()
   const [name, setName] = useState('')
   const [address, setAddress] = useState('')
   const [loading, setLoading] = useState(false)
 
   const save = async () => {
     if (!name.trim()) { alert('Namn krävs'); return }
+    if (isDemo) { onSaved({ id: Date.now(), name: name.trim(), address, forsamling_id: forsamlingId }); closeModal(); return }
     setLoading(true)
     const res = await fetch('/api/kyrkor', {
       method: 'POST',
@@ -83,11 +90,12 @@ function KyrkaModal({ forsamlingId, onSaved }: { forsamlingId: number; onSaved: 
 
 // ── Huvudsida ─────────────────────────────────────────
 export default function ForsamlingarPage() {
-  const { churches, passes, people, showModal, deleteChurch } = useApp()
-  const [kyrkorMap, setKyrkorMap] = useState<Record<number, Kyrka[]>>({})
+  const { churches, passes, people, showModal, deleteChurch, isDemo, availableChurches } = useApp()
+  const [kyrkorMap, setKyrkorMap] = useState<Record<number, Kyrka[]>>(() => isDemo ? Object.fromEntries(churches.map(c => [c.id, [{ id: c.id!, name: c.name, address: c.address, forsamling_id: c.id! }]])) : {})
 
   // Hämta kyrkor (byggnader) från Supabase
   useEffect(() => {
+    if (isDemo) return
     fetch('/api/kyrkor')
       .then(r => r.json())
       .then((data: Kyrka[]) => {
@@ -99,7 +107,7 @@ export default function ForsamlingarPage() {
         setKyrkorMap(map)
       })
       .catch(() => {})
-  }, [])
+  }, [isDemo])
 
   const addKyrka = (k: Kyrka) => {
     setKyrkorMap(prev => ({
@@ -109,7 +117,7 @@ export default function ForsamlingarPage() {
   }
 
   const removeKyrka = async (kyrkaId: number, forsamlingId: number) => {
-    await fetch(`/api/kyrkor/${kyrkaId}`, { method: 'DELETE' })
+    if (!isDemo) await fetch(`/api/kyrkor/${kyrkaId}`, { method: 'DELETE' })
     setKyrkorMap(prev => ({
       ...prev,
       [forsamlingId]: prev[forsamlingId]?.filter(k => k.id !== kyrkaId) || [],
@@ -130,6 +138,7 @@ export default function ForsamlingarPage() {
       )}
 
       {churches.map((c, i) => {
+        if (!availableChurches.some(church => church.id === c.id)) return null
         const forsamlingId = c.id!
         const passCount = passes.filter(p => p.church === forsamlingId && !p.cancelled && p.pubStatus === 'live').length
         const peopleCount = people.filter(p => p.church === forsamlingId && p.role === 'ideell').length
@@ -154,7 +163,7 @@ export default function ForsamlingarPage() {
                     sub={`${passCount} pass och ${peopleCount} ideella är kopplade. Det går inte att ångra.`}
                     confirmLabel="Ta bort"
                     onConfirm={async () => {
-                      await fetch(`/api/churches/${forsamlingId}`, { method: 'DELETE' })
+                      if (!isDemo) await fetch(`/api/churches/${forsamlingId}`, { method: 'DELETE' })
                       deleteChurch(i)
                     }}
                   />

@@ -4,6 +4,18 @@ import { demoToken } from '@/lib/demoToken'
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
+  const { pathname } = request.nextUrl
+
+  // Demot använder bara sin egen cookie och får aldrig läsa eller uppdatera
+  // en riktig Supabase-session i samma webbläsare.
+  if (pathname === '/demo' || pathname.startsWith('/demo/')) {
+    const demoPassword = process.env.DEMO_PASSWORD
+    if (demoPassword && request.cookies.get('demo_auth')?.value !== await demoToken(demoPassword)) {
+      return NextResponse.redirect(new URL('/demo-login', request.url))
+    }
+    return response
+  }
+  if (pathname === '/demo-login' || pathname.startsWith('/api/demo/')) return response
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,21 +35,7 @@ export async function proxy(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-  const { pathname } = request.nextUrl
 
-  // Demo-lösenordsskydd
-  if (pathname.startsWith('/demo') && !pathname.startsWith('/demo-login') && !pathname.startsWith('/api/demo')) {
-    const demoPassword = process.env.DEMO_PASSWORD
-    const demoCookie = request.cookies.get('demo_auth')?.value
-    if (demoPassword && demoCookie !== await demoToken(demoPassword)) {
-      return NextResponse.redirect(new URL('/demo-login', request.url))
-    }
-    return response
-  }
-
-  if (pathname.startsWith('/demo-login') || pathname.startsWith('/api/demo')) {
-    return response
-  }
 
   // Integritetspolicyn ska alltid gå att läsa, även utloggad och utan församling.
   if (pathname === '/integritetspolicy' || pathname.startsWith('/integritetspolicy/')) {

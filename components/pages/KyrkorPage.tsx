@@ -5,7 +5,7 @@ import Icon from '@/components/ui/Icon'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 
 function AddChurchModal() {
-  const { closeModal, addChurch } = useApp()
+  const { closeModal, addChurch, isDemo } = useApp()
   const [name, setName] = useState('')
   const [admin, setAdmin] = useState('')
   const [tel, setTel] = useState('')
@@ -14,6 +14,7 @@ function AddChurchModal() {
 
   const save = async () => {
     if (!name.trim()) { alert('Namn krävs'); return }
+    if (isDemo) { addChurch({ id: Date.now(), name, admin, tel, address }); closeModal(); return }
     setLoading(true)
     const res = await fetch('/api/churches', {
       method: 'POST',
@@ -46,7 +47,7 @@ function AddChurchModal() {
 }
 
 function EditChurchModal({ idx, churchId }: { idx: number; churchId: number }) {
-  const { churches, closeModal, updateChurch } = useApp()
+  const { churches, closeModal, updateChurch, isDemo } = useApp()
   const c = churches[idx]
   const [name, setName] = useState(c.name)
   const [admin, setAdmin] = useState(c.admin)
@@ -55,6 +56,7 @@ function EditChurchModal({ idx, churchId }: { idx: number; churchId: number }) {
   const [loading, setLoading] = useState(false)
 
   const save = async () => {
+    if (isDemo) { updateChurch(idx, { ...c, name, admin, tel, address }); closeModal(); return }
     setLoading(true)
     await fetch(`/api/churches/${churchId}`, {
       method: 'PATCH',
@@ -84,7 +86,7 @@ function EditChurchModal({ idx, churchId }: { idx: number; churchId: number }) {
 }
 
 export default function KyrkorPage() {
-  const { churches, passes, people, showModal, deleteChurch } = useApp()
+  const { churches, passes, people, showModal, deleteChurch, isDemo } = useApp()
   // Spara Supabase-ID:n för varje kyrka (index → id)
   // Vi hämtar ID från appStore via fetchAppData som sätter dem i ordning från Supabase
 
@@ -123,7 +125,7 @@ export default function KyrkorPage() {
                     sub={`${passes.filter(p => p.church === cid).length} pass och ${people.filter(p => p.church === cid).length} personer är kopplade. Det går inte att ångra.`}
                     confirmLabel="Ta bort"
                     onConfirm={async () => {
-                      await fetch(`/api/churches/${cid}`, { method: 'DELETE' })
+                      if (!isDemo) await fetch(`/api/churches/${cid}`, { method: 'DELETE' })
                       deleteChurch(i)
                     }}
                   />

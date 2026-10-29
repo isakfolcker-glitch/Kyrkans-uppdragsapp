@@ -80,10 +80,11 @@ function BookBtn({ pass }: { pass: PassData }) {
 }
 
 export default function PassCard({ pass, adminMode }: { pass: PassData; adminMode: boolean }) {
-  const { showModal, canViewBkgs, canEditPass, canCancelPass, canDeletePass, publishNow, cancelPass, deletePass, getResponsibleNames, groups } = useApp()
+  const { showModal, canViewBkgs, canEditPass, canCancelPass, canDeletePass, publishNow, cancelPass, deletePass, getResponsibleNames, groups, isDemo } = useApp()
   const [reminding, setReminding] = useState(false)
 
   const sendReminder = async () => {
+    if (isDemo) { alert('Fungerar inte i demot'); return }
     setReminding(true)
     const res = await fetch(`/api/passes/${pass.id}/remind`, { method: 'POST' })
     const data = await res.json()

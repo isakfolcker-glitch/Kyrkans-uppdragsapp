@@ -112,10 +112,10 @@ function ChurchSelect({ id }: { id: string }) {
 }
 
 function ChurchSwitcher() {
-  const { currentUser, isKiosk, availableChurches } = useApp()
+  const { isKiosk, availableChurches } = useApp()
   const roleLabel = useRoleLabel()
   const selectId = useId()
-  if (!currentUser || isKiosk() || availableChurches.length <= 1) return null
+  if (isKiosk() || availableChurches.length <= 1) return null
 
   return (
     <div className="church-switcher row-line">
@@ -223,7 +223,7 @@ function MorePanel({ id, onClose }: { id: string; onClose: () => void }) {
           ))}
         </nav>
 
-        {currentUser && !isKiosk() && availableChurches.length > 1 && (
+        {!isKiosk() && availableChurches.length > 1 && (
           <div className="mer-church">
             <label htmlFor={selectId} className="church-switcher-label">Byt församling</label>
             <div className="church-switcher-sub">Du är {roleLabel.toLowerCase()} i vald församling</div>
@@ -247,15 +247,16 @@ function MorePanel({ id, onClose }: { id: string; onClose: () => void }) {
   )
 }
 
-/** Nedre menyn på mobil: exakt fyra flikar. */
+/** Nedre menyn på mobil visar bara flikar som ingår i rollens meny. */
 function BottomNav() {
+  const items = useNavItems()
   const { page, goTo, isKiosk } = useApp()
   const unread = useUnreadCount()
   if (isKiosk()) return null
 
   return (
     <nav className="bottom-nav" aria-label="Huvudmeny">
-      {TABS.map(tab => {
+      {TABS.filter(tab => items.some(item => item.id === tab.id)).map(tab => {
         const active = page === tab.id
         const label = tab.id === 'notiser' && unread > 0 ? `${tab.lbl} (${unread})` : tab.lbl
         return (

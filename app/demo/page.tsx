@@ -15,18 +15,21 @@ const ROLES = [
   },
   {
     index: 1,
-    label: 'Ansvarig',
+    label: 'Anställd',
     name: 'Johan Eriksson',
     desc: 'Anställd som är ansvarig för gudstjänster',
     ini: 'JE', av: '#F3E3CC', ac: '#7D0037',
   },
   {
     index: 2,
-    label: 'Admin',
+    label: 'Pastoratsadmin',
     name: 'Sarah Björk',
     desc: 'Pastoratsadministratör med full behörighet',
     ini: 'SB', av: '#FFEBE1', ac: '#7D0037',
   },
+  { index: 3, label: 'Församlingsadmin', name: 'Anna Ström', desc: 'Administrerar Hovförsamlingen', ini: 'AS', av: '#FFDCCB', ac: '#7D0037' },
+  { index: 4, label: 'Superadmin', name: 'Alex Lind', desc: 'Visar alla pastorat och församlingar', ini: 'AL', av: '#FFEBE1', ac: '#7D0037' },
+  { index: 5, label: 'Kiosk', name: 'Demokiosk', desc: 'Anmälningsstation för besökare utan konto', ini: 'DK', av: '#F3E3CC', ac: '#7D0037' },
 ]
 
 export default function DemoPage() {
@@ -74,7 +77,7 @@ export default function DemoPage() {
           <span className="demo-short">, inget sparas</span>
         </span>
         <button type="button" className="btn btn-secondary btn-sm" onClick={() => setActiveRole(null)}>
-          <Icon name="X" size={18} /><span>Avsluta<span className="demo-long"> demo</span></span>
+          <Icon name="X" size={18} /><span>{activeRole === 5 ? 'Lämna kioskläget' : 'Avsluta demo'}</span>
         </button>
       </div>
 

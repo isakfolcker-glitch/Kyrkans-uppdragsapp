@@ -79,9 +79,8 @@ function demoParticipants(pass: PassData | undefined, people: PersonData[]): Com
 }
 
 export function usePassComments(passId: number): PassComments {
-  const { currentUser, profile, isAdmin, u, passes, people } = useApp()
+  const { currentUser, profile, isAdmin, u, passes, people, isDemo } = useApp()
   const demo = useDemoComments()
-  const isDemo = !currentUser
   const pass = passes.find(p => p.id === passId)
   const meId: string = currentUser ? String(currentUser.id) : String(u()?.id ?? '')
   const myName: string = currentUser ? (profile?.name ?? '') : (u()?.name ?? '')

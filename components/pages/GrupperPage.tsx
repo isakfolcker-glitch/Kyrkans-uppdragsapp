@@ -17,7 +17,7 @@ const colorOptions = [
 ]
 
 function NewGroupModal({ churchId }: { churchId: number }) {
-  const { closeModal, addGroup, churches } = useApp()
+  const { closeModal, addGroup, churches, isDemo } = useApp()
   const [label, setLabel] = useState('')
   const [color, setColor] = useState('tag-extra')
   const [loading, setLoading] = useState(false)
@@ -25,6 +25,11 @@ function NewGroupModal({ churchId }: { churchId: number }) {
 
   const save = async () => {
     if (!label.trim()) return
+    if (isDemo) {
+      addGroup({ id: `demo-${Date.now()}`, label: label.trim(), cls: color, churchId })
+      closeModal()
+      return
+    }
     setLoading(true)
     const res = await fetch('/api/groups', {
       method: 'POST',
@@ -68,12 +73,13 @@ function NewGroupModal({ churchId }: { churchId: number }) {
 }
 
 export default function GrupperPage() {
-  const { groups, people, passes, churches, showModal, closeModal, currentChurchId, deleteGroup } = useApp()
+  const { groups, people, passes, churches, showModal, closeModal, currentChurchId, deleteGroup, isDemo } = useApp()
   const churchId = currentChurchId()
   const visibleGroups = groups.filter(group => group.churchId === churchId || group.churchId === null)
   const churchName = churches.find(church => church.id === churchId)?.name ?? 'denna församling'
 
   const handleDelete = async (groupId: string) => {
+    if (isDemo) { deleteGroup(groupId); closeModal(); return }
     const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}`, { method: 'DELETE' })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
