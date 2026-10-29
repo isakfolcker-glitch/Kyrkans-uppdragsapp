@@ -14,6 +14,7 @@ export async function deletePersonData(admin: SupabaseClient, profileId: string)
   await admin.from('waitlist').delete().eq('profile_id', profileId)
   await admin.from('bookings').delete().eq('profile_id', profileId)
   await deletePersonComments(admin, profileId)
+  await deletePersonChat(admin, profileId)
   await admin.from('message_logs').update({ from_name: 'Borttagen användare' }).eq('from_user_id', profileId)
   await admin.from('passes').update({ vk_profile_id: null }).eq('vk_profile_id', profileId)
   if (profile?.email) {
@@ -59,9 +60,30 @@ async function deletePersonComments(admin: SupabaseClient, profileId: string): P
   if (remove.length) await admin.from('pass_messages').delete().in('id', remove)
 }
 
-/** Samlar allt som finns lagrat om en person. Anropas med personens egen klient. */
-export async function collectPersonData(supabase: SupabaseClient, profileId: string) {
-  const [profile, bookings, waitlist, groups, notifications, notifSettings, messages, staffPerms, mentions, memberships, churchPerms] = await Promise.all([
+/**
+ * Personens gruppchatt. Texten raderas: alla personens meddelanden töms och
+ * märks som borttagna (samma tillstånd som när man tar bort sitt eget
+ * meddelande) och kopplingen till personen släpps. Raderna finns kvar så att
+ * andras svar och tidsordningen hänger ihop, men det som personen skrev är borta.
+ * Läsmarkeringarna raderas (de försvinner också med profilen via ON DELETE CASCADE).
+ */
+async function deletePersonChat(admin: SupabaseClient, profileId: string): Promise<void> {
+  await admin.from('chat_messages')
+    .update({ body: '', deleted_at: new Date().toISOString(), deleted_by: null, author_id: null })
+    .eq('author_id', profileId).is('deleted_at', null)
+  // Redan borttagna meddelanden har tom text; bara kopplingen släpps
+  await admin.from('chat_messages').update({ author_id: null }).eq('author_id', profileId)
+  await admin.from('chat_reads').delete().eq('profile_id', profileId)
+}
+
+/**
+ * Samlar allt som finns lagrat om en person. Anropas med personens egen klient.
+ * admin (service role) behövs för personens chattmeddelanden i grupper hen inte längre
+ * är med i, eftersom RLS bara släpper igenom medlemmar. Bara personens egna rader hämtas.
+ */
+export async function collectPersonData(supabase: SupabaseClient, profileId: string, admin?: SupabaseClient) {
+  const chat = admin ?? supabase
+  const [profile, bookings, waitlist, groups, notifications, notifSettings, messages, staffPerms, mentions, memberships, churchPerms, chatMessages, chatReads] = await Promise.all([
     supabase.from('profiles').select('name, email, phone, birth_year, emergency_contact_name, emergency_contact_phone, role, admin_level, church_id, is_employee, available, created_at, updated_at').eq('id', profileId).single(),
     supabase.from('bookings').select('pass_id, name, mail, tel, source, created_at').eq('profile_id', profileId),
     supabase.from('waitlist').select('pass_id, name, mail, created_at').eq('profile_id', profileId),
@@ -73,6 +95,8 @@ export async function collectPersonData(supabase: SupabaseClient, profileId: str
     supabase.from('pass_message_mentions').select('message_id, pass_messages(pass_id)').eq('profile_id', profileId),
     supabase.from('profile_churches').select('church_id, role, admin_level, is_employee, active, invited_at, accepted_at').eq('profile_id', profileId),
     supabase.from('profile_church_permissions').select('*').eq('profile_id', profileId),
+    chat.from('chat_messages').select('id, group_id, body, reply_to_id, created_at, edited_at, deleted_at').eq('author_id', profileId),
+    chat.from('chat_reads').select('group_id, last_read_message_id, updated_at').eq('profile_id', profileId),
   ])
 
   // Kommentarer där personen är @nämnd: bara id och pass, inte andras text
@@ -88,6 +112,8 @@ export async function collectPersonData(supabase: SupabaseClient, profileId: str
     bokningar: bookings.data ?? [],
     vantelistor: waitlist.data ?? [],
     uppdragsgrupper: groups.data?.map(g => g.group_id) ?? [],
+    gruppchatt: chatMessages.data ?? [],
+    gruppchattLasmarkeringar: chatReads.data ?? [],
     notiser: notifications.data ?? [],
     notisinstallningar: notifSettings.data ?? null,
     fragorOchMeddelanden: messages.data ?? [],

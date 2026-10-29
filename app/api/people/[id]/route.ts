@@ -6,6 +6,7 @@ import {
   levelAllows, levelRank, STAFF_PERMISSIONS, unauthorized, forbidden, type AdminLevel,
 } from '@/lib/authz'
 import { deletePersonData } from '@/lib/gdpr'
+import { syncProfileGroups } from '@/lib/groupMembers'
 import { promoteFromWaitlist } from '@/app/api/waitlist/route'
 
 // Profilfält som får ändras via denna route. Allt annat i profiles (roll,
@@ -53,7 +54,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .maybeSingle()
   if (!targetMembership) return NextResponse.json({ error: 'Medlemskapet finns inte' }, { status: 404 })
 
-  const { groups, role, staff_permissions, responsible_pass_ids } = body
+  const { groups, leader_groups, role, staff_permissions, responsible_pass_ids } = body
   const isSelf = targetId === caller.id
 
   // Ingen får ändra sin egen roll, nivå eller personalbehörighet.
@@ -140,31 +141,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   // Grupper: bara församlingens egna grupper påverkas. Grupper i andra
-  // församlingar (och gemensamma grupper) lämnas orörda.
-  if (Array.isArray(groups)) {
+  // församlingar (och gemensamma grupper) lämnas orörda. Medlemskap som består
+  // rörs inte (joined_at och gruppansvar bevaras). leader_groups sätter vilka
+  // grupper personen är gruppansvarig i; behörigheten är samma som för grupperna (admin).
+  if (groups !== undefined && !Array.isArray(groups)) {
+    return NextResponse.json({ error: 'Grupper måste vara en lista' }, { status: 400 })
+  }
+  if (leader_groups !== undefined && !Array.isArray(leader_groups)) {
+    return NextResponse.json({ error: 'leader_groups måste vara en lista' }, { status: 400 })
+  }
+  if (groups !== undefined || leader_groups !== undefined) {
     const { data: churchGroups, error: groupsErr } = await admin.from('groups').select('id').eq('church_id', churchId)
     if (groupsErr) return NextResponse.json({ error: `Kunde inte läsa grupper: ${groupsErr.message}` }, { status: 500 })
     const churchGroupIds = (churchGroups ?? []).map(group => group.id as string)
-
-    if (churchGroupIds.length) {
-      const { error: delErr } = await admin.from('profile_groups')
-        .delete()
-        .eq('profile_id', targetId)
-        .in('group_id', churchGroupIds)
-      if (delErr) return NextResponse.json({ error: `Kunde inte spara grupper: ${delErr.message}` }, { status: 500 })
-    }
-
-    const safeGroups = Array.from(new Set(
-      groups.filter((groupId: unknown): groupId is string => typeof groupId === 'string' && churchGroupIds.includes(groupId))
-    ))
-    if (safeGroups.length) {
-      const { error } = await admin.from('profile_groups').insert(
-        safeGroups.map(groupId => ({ profile_id: targetId, group_id: groupId }))
-      )
-      if (error) return NextResponse.json({ error: `Kunde inte spara grupper: ${error.message}` }, { status: 500 })
-    }
-  } else if (groups !== undefined) {
-    return NextResponse.json({ error: 'Grupper måste vara en lista' }, { status: 400 })
+    const groupsErrMsg = await syncProfileGroups(admin, targetId, churchGroupIds, { groups, leaderGroups: leader_groups })
+    if (groupsErrMsg) return NextResponse.json({ error: `Kunde inte spara grupper: ${groupsErrMsg}` }, { status: 500 })
   }
 
   if (Array.isArray(responsible_pass_ids)) {

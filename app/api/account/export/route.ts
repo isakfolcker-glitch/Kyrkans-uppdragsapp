@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { collectPersonData } from '@/lib/gdpr'
 
 export async function GET() {
@@ -7,7 +8,7 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
 
-  const exportData = await collectPersonData(supabase, user.id)
+  const exportData = await collectPersonData(supabase, user.id, createAdminClient())
 
   return new NextResponse(JSON.stringify({ ...exportData, inloggning: { email: user.email, skapad: user.created_at } }, null, 2), {
     headers: {

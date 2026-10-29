@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { canAssignRole, roleIsEmployee, roleToAdminLevel } from '@/lib/membershipAuth'
+import { syncProfileGroups } from '@/lib/groupMembers'
 import { savePendingMembership, sendMembershipInvitation } from '@/lib/membershipInvite'
 import {
   getCaller, canAdminChurch, canAssignLevel, churchLevel, hasStaffPermission, isValidRole, levelRank, profileMaxLevel,
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
   const { caller, supabase } = await getCaller()
   if (!caller) return unauthorized()
 
-  const { name, email, phone, role = 'ideell', church_id, groups = [] } = await req.json()
+  const { name, email, phone, role = 'ideell', church_id, groups = [], leader_groups } = await req.json()
   const churchId = Number(church_id)
 
   if (typeof name !== 'string' || !name.trim()) return NextResponse.json({ error: 'Namn krävs' }, { status: 400 })
@@ -175,29 +176,19 @@ export async function POST(req: NextRequest) {
   }
 
   // Grupper: bara församlingens egna grupper, andra församlingars grupper lämnas orörda.
+  // leader_groups: grupper där personen är gruppansvarig (måste också finnas i groups).
   const { data: churchGroups } = await admin
     .from('groups')
     .select('id')
     .eq('church_id', churchId)
   const churchGroupIds = (churchGroups ?? []).map(group => group.id as string)
 
-  if (churchGroupIds.length) {
-    await admin.from('profile_groups')
-      .delete()
-      .eq('profile_id', uid)
-      .in('group_id', churchGroupIds)
-  }
-
-  const safeGroups = Array.isArray(groups)
-    ? Array.from(new Set(groups.filter((groupId: unknown): groupId is string =>
-        typeof groupId === 'string' && churchGroupIds.includes(groupId))))
-    : []
-  if (safeGroups.length) {
-    const { error } = await admin.from('profile_groups').insert(
-      safeGroups.map(groupId => ({ profile_id: uid, group_id: groupId }))
-    )
-    if (error) return NextResponse.json({ error: `Kunde inte spara grupper: ${error.message}` }, { status: 500 })
-  }
+  const groupsErr = await syncProfileGroups(admin, uid, churchGroupIds, {
+    groups: Array.isArray(groups) ? groups : [],
+    // Gruppansvar sätts bara av admin, inte av anställd med rätt att lägga till personal
+    leaderGroups: isChurchAdmin && Array.isArray(leader_groups) ? leader_groups : undefined,
+  })
+  if (groupsErr) return NextResponse.json({ error: `Kunde inte spara grupper: ${groupsErr}` }, { status: 500 })
 
   return NextResponse.json({
     id: uid,
